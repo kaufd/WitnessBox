@@ -3,12 +3,12 @@
 Команда установленной поставки создаёт каталог проверки EBT из шаблонов:
 
 ```bash
-ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
+ebt-gate --scaffold <dart|ts|jvm|generic> [<каталог>]
 ```
 
 `<каталог>` по умолчанию — `ebt` в текущем каталоге. Команда отказывается писать в
 существующий непустой каталог: утверждённую `spec.toml` она не перезапишет. Стеков
-три, они различаются `test.sh` и строкой `pinned.txt`; `spec.toml`, `checks.py` и
+четыре, они различаются `test.sh` и строкой `pinned.txt`; `spec.toml`, `checks.py` и
 `test_checks.py` у всех одинаковые.
 
 | Стек | Проект | `test.sh` по умолчанию | SDK |
@@ -16,6 +16,7 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 | `dart` | Dart/Flutter | `flutter test --no-pub test/ebt` | `lib/ebt/ebt.dart` |
 | `ts` | TypeScript/Vite/Vitest | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
+| `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
 
 ## Что создаётся
 
@@ -79,8 +80,9 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
   проверить чекером.
 
 Шаблоны рассчитаны на macOS `/bin/bash` 3.2: без `${var,,}`, пустых массивов под
-`set -u` и Bash 4. Для другого стека (Maven, pnpm, чистый `dart test`) замените
-команду и способ сбора свидетельств, сохранив договор.
+`set -u` и Bash 4. Для другого инструмента берите стек `generic`: он запускает
+`EBT_TEST_CMD`, собирает свидетельства из `EBT_EVIDENCE_DIR` и различает коды
+`EBT_TEST_FAIL_CODES`, сохраняя договор гейта.
 
 ## `pinned.txt`
 
