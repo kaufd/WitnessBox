@@ -1,0 +1,65 @@
+# Публикация выпуска в TestPyPI или PyPI через Trusted Publishing (OIDC, без API-токена).
+# Workflow ничего не собирает: он берёт файлы, приложенные к GitHub Release тега после
+# `make release-check`, поэтому в индекс попадают те же байты, чьи SHA-256 записаны в журнале решений.
+name: publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Тег выпуска, например v0.5.1"
+        required: true
+      index:
+        description: "Индекс пакетов"
+        type: choice
+        options: [testpypi, pypi]
+        default: testpypi
+
+permissions: {}
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.index }}
+      url: ${{ inputs.index == 'pypi' && 'https://pypi.org/p/witnessbox' || 'https://test.pypi.org/p/witnessbox' }}
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Скачать артефакты выпуска и сверить с release.json
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ inputs.tag }}
+        run: |
+          set -euo pipefail
+          version="${TAG#v}"
+          gh release download "$TAG" --repo "$GITHUB_REPOSITORY" --dir dist \
+            --pattern "witnessbox-$version-py3-none-any.whl" \
+            --pattern "witnessbox-$version.tar.gz" \
+            --pattern release.json
+          python3 - "$version" <<'EOF'
+          import hashlib, json, sys
+          from pathlib import Path
+
+          version = sys.argv[1]
+          release = json.loads(Path("dist/release.json").read_text())
+          assert release["result"] == "PASS", release["result"]
+          assert release["version"] == version, (release["version"], version)
+          for kind in ("wheel", "sdist"):
+              path = Path("dist") / release[kind]["file"]
+              digest = hashlib.sha256(path.read_bytes()).hexdigest()
+              assert digest == release[kind]["sha256"], (path.name, digest)
+              print(path.name, digest)
+          EOF
+          rm dist/release.json
+
+      - name: Опубликовать в TestPyPI
+        if: inputs.index == 'testpypi'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
+        with:
+          repository-url: https://test.pypi.org/legacy/
+
+      - name: Опубликовать в PyPI
+        if: inputs.index == 'pypi'
+        uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

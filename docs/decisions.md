@@ -183,3 +183,11 @@ D36 переименовал дистрибутив, но Python-модуль о
 
 Установка — `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.0`; в PyPI поставка не публиковалась. CI в репозитории пока нет.
 (2026-11-01, статус: принято.)
+
+### D40. Публикация в PyPI через Trusted Publishing
+Поставка ставилась только из клона или тега git (D39): для публичного продукта это лишний шаг, и `uv tool install witnessbox` должен работать без клона. Имя `witnessbox` и похожие (`witness-box`, `witness_box`) в PyPI и TestPyPI свободны на 2026-11-01. Публикация идёт из GitHub Actions через Trusted Publishing: PyPI проверяет OIDC-токен workflow `publish.yml` в окружении `testpypi` или `pypi`, постоянного API-токена нет. Первый выпуск создаёт проект через pending publisher.
+
+Сборка wheel не воспроизводима побайтно (`make release-check` сравнивает содержимое, а не файл), а вызывающий сверяет выпускные SHA-256 (D33). Поэтому workflow ничего не собирает: он скачивает wheel, sdist и `release.json`, приложенные к GitHub Release тега после локального `make release-check`, сверяет SHA-256 с `release.json` и загружает эти файлы. В PyPI, в GitHub Release и в журнале решений — одни и те же байты. Порядок — сначала TestPyPI с проверкой установки и `--scaffold`, затем PyPI; запуск только вручную (`workflow_dispatch`). Отклонено: сборка в CI — отпечатки артефактов разошлись бы с проверенными локально, а перенос `release-check` с `test-sdk` (JDK, Bun, Dart) в CI — отдельная работа без нового потребителя.
+
+Для страницы PyPI `readme` — `README.md` с быстрым стартом и абсолютными ссылками на документацию, добавлены `project.urls`, `keywords` и `classifiers`. Код runtime не меняется; поставка — `0.5.1`, потому что метаданные меняют выпускные файлы `0.5.0`.
+(2026-11-01, статус: принято.)
