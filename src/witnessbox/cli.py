@@ -5,6 +5,7 @@ import json
 import os
 from importlib.metadata import distribution
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import sys
@@ -480,6 +481,30 @@ def check_only(argv):
     return 1 if problems else 0
 
 
+def test_checks(argv):
+    """Запустить test_*.py каталога проверки интерпретатором этой поставки."""
+    usage = "usage: ebt-gate --test-checks [<ebt-dir>]"
+    if len(argv) > 1:
+        print(usage, file=sys.stderr)
+        return 2
+    ebt = Path(argv[0] if argv else "ebt").expanduser().resolve()
+    if not ebt.is_dir():
+        print(f"ebt-gate --test-checks: нет каталога {ebt}", file=sys.stderr)
+        return 2
+    command = [sys.executable, "-I", "-m", "unittest", "discover",
+               "-s", str(ebt), "-t", str(ebt), "-p", "test_*.py", "-v"]
+    p = subprocess.run(command, capture_output=True, text=True)
+    sys.stdout.write(p.stdout)
+    sys.stderr.write(p.stderr)
+    output = p.stdout + p.stderr
+    match = re.search(r"^Ran (\d+) tests?\b", output, re.MULTILINE)
+    if match is None or int(match.group(1)) == 0:
+        print("ebt-gate --test-checks: тестов чекера не найдено — нулевой прогон не считается успехом",
+              file=sys.stderr)
+        return 1
+    return p.returncode
+
+
 def main():
     if sys.argv[1:2] == ["--scaffold"]:
         return scaffold(sys.argv[2:])
@@ -487,6 +512,8 @@ def main():
         return sync_pinned(sys.argv[2:])
     if sys.argv[1:2] == ["--check-only"]:
         return check_only(sys.argv[2:])
+    if sys.argv[1:2] == ["--test-checks"]:
+        return test_checks(sys.argv[2:])
     try:
         info = installation()
     except RuntimeError as error:

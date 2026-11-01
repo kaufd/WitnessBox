@@ -102,6 +102,12 @@ class Gate(unittest.TestCase):
         base = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": ""}
         return subprocess.run(argv, capture_output=True, text=True, env={**base, **(env or {})})
 
+    def run_test_checks(self, *paths, cwd: Path | None = None,
+                    env: dict | None = None) -> subprocess.CompletedProcess:
+        argv = [str(self.bin / "ebt-gate"), "--test-checks", *map(str, paths)]
+        base = {**os.environ, "PYTHONPATH": "", "PATH": os.environ["PATH"]}
+        return subprocess.run(argv, cwd=cwd, capture_output=True, text=True, env={**base, **(env or {})})
+
     def commit_clone(self, message: str) -> str:
         subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
         subprocess.run(["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
@@ -581,15 +587,12 @@ class Gate(unittest.TestCase):
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
                 # Пример чекера и его тесты — рабочие, а не комментарии. Инструкция
-                # должна запускать интерпретатор поставки: системный python3 пакет
-                # witnessbox не видит.
+                # должна запускать тесты интерпретатором поставки: системный python3
+                # пакет witnessbox не видит.
                 for name in ("test_checks.py", "README.md"):
-                    self.assertIn("ebt-gate --installation", (target / name).read_text(encoding="utf-8"))
-                shell = """
-python=$(ebt-gate --installation | python3 -c 'import json, sys; print(json.load(sys.stdin)["python"])')
-"$python" -m unittest discover -s . -p 'test_checks.py'
-"""
-                p = subprocess.run(["/bin/bash", "-c", shell], cwd=target, capture_output=True, text=True,
+                    self.assertIn("ebt-gate --test-checks", (target / name).read_text(encoding="utf-8"))
+                p = subprocess.run([str(self.bin / "ebt-gate"), "--test-checks", target.name],
+                                   cwd=target.parent, capture_output=True, text=True,
                                    env={**env, "PATH": f"{self.bin}:{os.environ['PATH']}"})
                 self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
@@ -979,6 +982,48 @@ exit 0
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 self.assertIn("usage:", p.stderr)
         p = self.check_only({}, str(self.ebt / "missing"), str(self.clone))
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("нет каталога", p.stderr)
+
+    def test_test_checks_runs_scaffold_tests(self):
+        target = self.clone.parent / "test-checks-ts"
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", "ts", str(target)],
+                           capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        p = self.run_test_checks(target, cwd=self.clone.parent)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("OK", p.stdout + p.stderr)
+
+    def test_test_checks_fails_on_broken_checker(self):
+        target = self.clone.parent / "test-checks-broken"
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", "ts", str(target)],
+                           capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        checks = target / "checks.py"
+        text = checks.read_text(encoding="utf-8")
+        self.assertIn("expected = value * 2", text)
+        checks.write_text(text.replace("expected = value * 2", "expected = value * 3"), encoding="utf-8")
+        p = self.run_test_checks(target, cwd=self.clone.parent)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+
+    def test_test_checks_without_tests_is_not_green(self):
+        target = self.clone.parent / "test-checks-none"
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", "ts", str(target)],
+                           capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        (target / "test_checks.py").unlink()
+        p = self.run_test_checks(target, cwd=self.clone.parent)
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertIn("тестов чекера не найдено", p.stderr)
+
+    def test_test_checks_usage_errors(self):
+        env = {**os.environ, "PYTHONPATH": ""}
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--test-checks", "a", "b"],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("usage:", p.stderr)
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--test-checks", str(self.ebt / "missing")],
+                           capture_output=True, text=True, env=env)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("нет каталога", p.stderr)
 
