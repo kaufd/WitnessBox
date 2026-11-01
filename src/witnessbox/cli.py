@@ -189,6 +189,63 @@ def scaffold(argv):
     return 0
 
 
+PinnedCopy = tuple[int, Path, str, Path]
+
+
+def read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | None]:
+    """Разобрать pinned.txt: (копии, первая ошибка). Ошибка — текст без префикса команды.
+
+    Первый проход ничего не пишет: отказ до первой записи не оставит половину копий.
+    Формат тот же, что у гейта: пустые строки и строки с `#` пропускаются, первый токен —
+    оригинал (`kit:` — ресурсы этой поставки, абсолютный — как есть, иначе рядом с ebt/),
+    второй — путь в проекте. Возвращает (номер строки, оригинал, dest, разрешённый путь).
+    """
+    pinned = ebt / "pinned.txt"
+    if not pinned.is_file():
+        return [], f"нет pinned.txt: {pinned}"
+    # Читаем байты, а не текст с универсальными переводами строк: CRLF иначе исчезнет,
+    # и команда молча запишет копию не туда, куда её ищет гейт (`sdk/Ebt.java\r`).
+    try:
+        text = pinned.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return [], f"не удалось прочитать {pinned}: {error}"
+
+    resources = Path(__file__).resolve().parent / "resources"
+    copies: list[PinnedCopy] = []
+    seen: dict[Path, int] = {}
+    for number, line in enumerate(text.split("\n"), start=1):
+        if "\r" in line:
+            return [], f"pinned.txt:{number}: символ \\r в строке; сохраните файл с переводами строк LF"
+        tokens = line.split()
+        if not tokens or tokens[0].startswith("#"):
+            continue
+        if len(tokens) < 2:
+            return [], f"pinned.txt:{number}: нет пути назначения"
+        source, dest = tokens[0], tokens[1]
+        if source.startswith("kit:"):
+            # Как в gate.sh: строка kit: склеивается с каталогом ресурсов, а не с файловой системой.
+            src = resources / source[len("kit:"):].lstrip("/")
+        elif Path(source).is_absolute():
+            src = Path(source)
+        else:
+            src = ebt / source
+        if not src.is_file():
+            return [], f"pinned.txt:{number}: нет оригинала {src}"
+        if Path(dest).is_absolute():
+            return [], f"pinned.txt:{number}: абсолютный путь назначения не разрешён: {dest}"
+        destination = (root / dest).resolve()
+        if not destination.is_relative_to(root):
+            return [], f"pinned.txt:{number}: путь назначения вне проекта: {dest}"
+        if destination.is_dir():
+            return [], f"pinned.txt:{number}: путь назначения — каталог: {dest}"
+        if destination in seen:
+            return [], (f"pinned.txt:{number}: путь назначения уже занят строкой "
+                        f"{seen[destination]}: {dest}")
+        seen[destination] = number
+        copies.append((number, src, dest, destination))
+    return copies, None
+
+
 def sync_pinned(argv):
     """Скопировать в проект оригиналы из pinned.txt; kit: — ресурсы этой поставки."""
     usage = "usage: ebt-gate --sync-pinned <ebt-dir> [<project-root>]"
@@ -202,49 +259,9 @@ def sync_pinned(argv):
 
     ebt = Path(argv[0]).expanduser().resolve()
     root = Path(argv[1] if len(argv) == 2 else ".").expanduser().resolve()
-    pinned = ebt / "pinned.txt"
-    if not pinned.is_file():
-        return fail(f"нет pinned.txt: {pinned}")
-    # Читаем байты, а не текст с универсальными переводами строк: CRLF иначе исчезнет,
-    # и команда молча запишет копию не туда, куда её ищет гейт (`sdk/Ebt.java\r`).
-    try:
-        text = pinned.read_bytes().decode("utf-8")
-    except (OSError, UnicodeDecodeError) as error:
-        return fail(f"не удалось прочитать {pinned}: {error}")
-
-    resources = Path(__file__).resolve().parent / "resources"
-    copies = []
-    seen: dict[Path, int] = {}
-    for number, line in enumerate(text.split("\n"), start=1):
-        if "\r" in line:
-            return fail(f"pinned.txt:{number}: символ \\r в строке; сохраните файл с переводами строк LF")
-        tokens = line.split()
-        if not tokens or tokens[0].startswith("#"):
-            continue
-        if len(tokens) < 2:
-            return fail(f"pinned.txt:{number}: нет пути назначения")
-        source, dest = tokens[0], tokens[1]
-        if source.startswith("kit:"):
-            # Как в gate.sh: строка kit: склеивается с каталогом ресурсов, а не с файловой системой.
-            src = resources / source[len("kit:"):].lstrip("/")
-        elif Path(source).is_absolute():
-            src = Path(source)
-        else:
-            src = ebt / source
-        if not src.is_file():
-            return fail(f"pinned.txt:{number}: нет оригинала {src}")
-        if Path(dest).is_absolute():
-            return fail(f"pinned.txt:{number}: абсолютный путь назначения не разрешён: {dest}")
-        destination = (root / dest).resolve()
-        if not destination.is_relative_to(root):
-            return fail(f"pinned.txt:{number}: путь назначения вне проекта: {dest}")
-        if destination.is_dir():
-            return fail(f"pinned.txt:{number}: путь назначения — каталог: {dest}")
-        if destination in seen:
-            return fail(f"pinned.txt:{number}: путь назначения уже занят строкой "
-                        f"{seen[destination]}: {dest}")
-        seen[destination] = number
-        copies.append((number, src, dest, destination))
+    copies, error = read_pinned(ebt, root)
+    if error:
+        return fail(error)
 
     # Первый проход проверил все строки: отказ до первой записи не оставит половину копий.
     for number, src, dest, destination in copies:
