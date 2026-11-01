@@ -929,6 +929,12 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines()[0], "0")
 
+        # 10. Ссылка внутри более длинной строки в двойных кавычках — тоже ссылка.
+        p, _ = run("out-files-at", EBT_TEST_CMD='fake-tests "--files=$@"')
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "--files=a b"])
+
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
         self.record = self.record.replace('"result":55870', '"result":1')  # нарушение правила
