@@ -11,19 +11,19 @@ uv tool install witnessbox
 uv tool update-shell
 ```
 
-Без uv — `pipx install witnessbox` или `pip install witnessbox` в venv. Конкретную версию задают как `witnessbox==0.5.1`. Те же файлы приложены к GitHub Release тега; SHA-256 файлов и выпускные `gate_sha256`/`checker_sha256` записаны в [журнале решений](decisions.md).
+Без uv — `pipx install witnessbox` или `pip install witnessbox` в venv. Конкретную версию задают как `witnessbox==0.5.2`. Те же файлы приложены к GitHub Release тега; SHA-256 файлов и выпускные `gate_sha256`/`checker_sha256` записаны в [журнале решений](decisions.md).
 
 Из клона репозитория соберите sdist и wheel из него и установите wheel:
 
 ```bash
 uv build
-uv tool install dist/witnessbox-0.5.1-py3-none-any.whl
+uv tool install dist/witnessbox-0.5.2-py3-none-any.whl
 uv tool update-shell
 ```
 
-`uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить. Из тега без клона: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.1`.
+`uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить. Из тега без клона: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.2`.
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.5.1-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.5.2-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Переход со старого дистрибутива
 
