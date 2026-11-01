@@ -85,9 +85,12 @@ def verify_installation(release_path: Path, installation_path: Path) -> int:
     expected = release["installation"]
     differences = []
     for field in ("distribution", "version", "gate_sha256", "checker_sha256"):
-        if expected.get(field) != installation.get(field):
-            differences.append(
-                f"{field}: ожидалось {expected.get(field)!r}, получено {installation.get(field)!r}")
+        expected_value = expected.get(field)
+        actual_value = installation.get(field)
+        if not isinstance(expected_value, str) or not expected_value:
+            differences.append(f"{field}: нет в release.json")
+        elif expected_value != actual_value:
+            differences.append(f"{field}: ожидалось {expected_value!r}, получено {actual_value!r}")
     if differences:
         print("installation: расхождения с release.json:", file=sys.stderr)
         for difference in differences:
