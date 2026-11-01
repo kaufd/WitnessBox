@@ -44,8 +44,8 @@ def installation():
         modules.append(public_api)
     gate_files = _runtime_files(package, ".sh") + [Path(__file__).resolve()]
     return {
-        "distribution": "ebt-verification",
-        "version": version("ebt-verification"),
+        "distribution": "witnessbox",
+        "version": version("witnessbox"),
         "package": str(package),
         "resources": str(package / "resources"),
         "python": sys.executable,
@@ -173,7 +173,7 @@ def main():
         return scaffold(sys.argv[2:])
     info = installation()
     if sys.argv[1:] == ["--version"]:
-        print(f"ebt-verification {info['version']}")
+        print(f"witnessbox {info['version']}")
         return 0
     if sys.argv[1:] == ["--installation"]:
         print(json.dumps(info, ensure_ascii=False, indent=2))

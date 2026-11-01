@@ -1,24 +1,24 @@
 # Установка и использование
 
-EBT Verification — самостоятельная поставка гейта, чекера и Java, Dart и TypeScript SDK. Runtime требует Python 3.11+ и использует только стандартную библиотеку. Для установки и сборки нужен [uv](https://docs.astral.sh/uv/).
+WitnessBox — самостоятельная поставка гейта, чекера и Java, Dart и TypeScript SDK. Runtime требует Python 3.11+ и использует только стандартную библиотеку. Для установки и сборки нужен [uv](https://docs.astral.sh/uv/).
 
 ## Установка
 
-Из корня репозитория:
+Выпуск из репозитория по тегу:
 
 ```bash
-uv tool install .
+uv tool install git+https://github.com/kaufd/WitnessBox@v0.4.0
 uv tool update-shell
 ```
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; исходники репозитория после установки не нужны. Другой вариант — собрать wheel и передать его на целевую машину:
+Поставка добавляет команды `ebt-gate` и `ebt-check`; исходники репозитория после установки не нужны. Другие варианты — `uv tool install .` из корня клона или собранный wheel, переданный на целевую машину:
 
 ```bash
 uv build --wheel
-uv tool install dist/ebt_verification-0.3.1-py3-none-any.whl
+uv tool install dist/witnessbox-0.4.0-py3-none-any.whl
 ```
 
-Для обновления установите новую поставку с `uv tool install --force /path/to/wheel.whl`. `ebt-gate --installation` показывает версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Для обновления установите новую поставку с `uv tool install --force <источник>`. До `0.4.0` дистрибутив назывался `ebt-verification` и давал те же команды: перед установкой WitnessBox удалите его (`uv tool uninstall ebt-verification`), иначе команды `ebt-gate` и `ebt-check` конфликтуют. `ebt-gate --installation` показывает версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Заготовка для нового проекта
 

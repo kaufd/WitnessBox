@@ -1,3 +1,4 @@
+// SPDX-License-Identifier: MIT
 package ebt;
 
 import java.io.IOException;

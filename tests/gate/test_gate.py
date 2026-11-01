@@ -211,7 +211,7 @@ class Gate(unittest.TestCase):
         self.assertEqual((s["tests_exit_code"], s["checker_exit_code"], s["message"]), (0, 0, None))
         head = subprocess.check_output(["git", "-C", str(self.clone), "rev-parse", "HEAD"], text=True).strip()
         self.assertEqual(s["commit"], head)
-        self.assertEqual(s["verifier"]["version"], "0.3.1")
+        self.assertEqual((s["verifier"]["distribution"], s["verifier"]["version"]), ("witnessbox", "0.4.0"))
         self.assertRegex(s["verifier"]["gate_sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(s["checker"]["sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(s["spec_sha256"], "^[0-9a-f]{64}$")
@@ -509,7 +509,7 @@ exit 0
         env = {"PATH": f"{fake.parent}:{os.environ['PATH']}"}
         p = self.gate(self.write_to('"$OUT_DIR"'), env)
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("ebt-verification 0.3.1", self.gate_md())
+        self.assertIn("witnessbox 0.4.0", self.gate_md())
         self.assertIn(str(self.bin.parent), self.gate_md())
 
     def test_project_cannot_shadow_bundled_checker_package(self):
@@ -710,7 +710,7 @@ exit 0
                                      str(self.run_dir)], capture_output=True, text=True,
                            cwd=self.clone.parent, env=env)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("ebt-verification 0.3.1", self.gate_md())
+        self.assertIn("witnessbox 0.4.0", self.gate_md())
 
 
 if __name__ == "__main__":

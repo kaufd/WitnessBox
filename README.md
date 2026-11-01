@@ -1,9 +1,9 @@
-# EBT Verification
+# WitnessBox
 
-Самостоятельный комплект для проверки поведения приложения по свидетельствам: независимый чекер, гейт запуска, SDK для Java, Dart и TypeScript. Runtime требует Python 3.11+ и не имеет сторонних зависимостей.
+Проверка поведения приложения по свидетельствам (метод EBT, evidence-based testing): код во время тестов записывает, какое решение принял и на каких данных, а независимый чекер перепроверяет каждое решение по спецификации, утверждённой человеком. Комплект — гейт запуска, чекер и SDK для Java, Dart и TypeScript. Runtime требует Python 3.11+ и не имеет сторонних зависимостей.
 
 ```bash
-uv tool install .
+uv tool install git+https://github.com/kaufd/WitnessBox@v0.4.0
 ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 ```
 
@@ -29,3 +29,7 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 - [Расширения](docs/extensions.md) — публичные типы и контракт проектных чекеров.
 - [Разработка](docs/development.md) — команды тестов, SDK и standalone-сборка.
 - [Решения](docs/decisions.md) — текущий статус и append-only журнал решений.
+
+## Лицензия
+
+[MIT](LICENSE). SDK-файлы (`Ebt.java`, `ebt.ts`, `ebt.dart`) копируются в код приложения без изменений и несут строку `SPDX-License-Identifier: MIT`.
