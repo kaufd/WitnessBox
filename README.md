@@ -6,7 +6,7 @@ Evidence-based testing (EBT) of application behaviour: during tests the code rec
 
 ```bash
 uv tool install witnessbox          # or: pipx install witnessbox
-ebt-gate --scaffold ts ebt          # ebt/ scaffold for the dart, ts or jvm stack
+ebt-gate --scaffold ts ebt          # ebt/ scaffold for the dart, ts, jvm or generic stack
 ebt-gate ebt /path/to/clean-checkout /path/to/results
 ```
 
