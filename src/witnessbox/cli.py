@@ -303,6 +303,9 @@ def check_only(argv):
             print(f"ebt-gate --check-only: нет каталога {label} {path}", file=sys.stderr)
             return 2
 
+    # Импорт проектного checks.py не должен оставлять __pycache__ в каталоге проверки:
+    # команда обещает не менять файлы проекта.
+    sys.dont_write_bytecode = True
     from .checker.checkers import CHECKERS
     from .checker.input import load_checkers, load_jsonl, load_known, load_spec, validate_known
 
@@ -493,7 +496,7 @@ def test_checks(argv):
     if not ebt.is_dir():
         print(f"ebt-gate --test-checks: нет каталога {ebt}", file=sys.stderr)
         return 2
-    command = [sys.executable, "-I", "-m", "unittest", "discover",
+    command = [sys.executable, "-I", "-B", "-m", "unittest", "discover",
                "-s", str(ebt), "-t", str(ebt), "-p", "test_*.py", "-v"]
     p = subprocess.run(command, capture_output=True, text=True)
     sys.stdout.write(p.stdout)

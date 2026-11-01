@@ -1030,6 +1030,8 @@ exit "${FAKE_RC:-0}"
             self.assertTrue(any(line.startswith(f"ок {name}") for line in lines), name)
 
     def test_check_only_does_not_execute_project_scripts(self):
+        # checks.py импортируется, но __pycache__ в каталоге проверки остаться не должен.
+        (self.ebt / "checks.py").write_text("CHECKERS = {}\n", encoding="utf-8")
         markers = []
         for name in ("prepare.sh", "test.sh"):
             marker = self.clone.parent / f"ran-{name}"
@@ -1040,6 +1042,7 @@ exit "${FAKE_RC:-0}"
         p = self.check_only()
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual([marker.name for marker in markers if marker.exists()], [])
+        self.assertFalse((self.ebt / "__pycache__").exists(), "check-only оставил __pycache__")
 
     def test_check_only_reports_each_problem(self):
         for name, (prepare, check) in self.problem_cases().items():
@@ -1082,6 +1085,7 @@ exit "${FAKE_RC:-0}"
         p = self.run_test_checks(target, cwd=self.clone.parent)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertIn("OK", p.stdout + p.stderr)
+        self.assertFalse((target / "__pycache__").exists(), "--test-checks оставил __pycache__")
 
     def test_test_checks_fails_on_broken_checker(self):
         target = self.clone.parent / "test-checks-broken"
