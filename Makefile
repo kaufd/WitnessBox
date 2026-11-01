@@ -4,8 +4,10 @@ SPEC    ?= examples/basic/spec.toml
 EVIDENCE ?= build/ebt/evidence.jsonl
 BASELINE ?= examples/basic/baseline.jsonl
 LINUX_IMAGE ?= ghcr.io/astral-sh/uv:python3.12-bookworm
+STACK ?= ts
+E2E_EXAMPLE = $(if $(filter generic,$(STACK)),examples/e2e/ts,examples/e2e/$(STACK))
 
-.PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart test-sdk example check baseline clean
+.PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart test-sdk example e2e check baseline clean
 
 help:
 	@echo "make test         — тесты исходного чекера, установленного гейта и actions"
@@ -19,6 +21,7 @@ help:
 	@echo "make test-dart    — тесты канонического Dart SDK с assert и без (нужен dart)"
 	@echo "make test-sdk     — все SDK тесты"
 	@echo "make example      — пересобрать examples/basic/ и отчёт (ожидаемо находит ошибки)"
+	@echo "make e2e STACK=ts|jvm|generic — сквозной пример: заготовка → PASS → дефект → FAIL (нужны bun/gradle)"
 	@echo "make check        — проверить $(EVIDENCE) по $(SPEC) с baseline $(BASELINE)"
 	@echo "make baseline     — принять текущий $(EVIDENCE) как новый baseline"
 
@@ -62,6 +65,11 @@ example:
 	  --md examples/basic/report.md --json examples/basic/report.json --self-test; rc=$$?; \
 	  test $$rc -eq 1
 	@echo "→ examples/basic/report.md"
+
+# Сквозной путь: заготовка → --sync-pinned → PASS → дефект → FAIL checker_failed.
+# Нужны установленный ebt-gate, bun (ts/generic) и gradle с JDK 17 (jvm); сеть.
+e2e:
+	examples/e2e/run.sh $(STACK) $(E2E_EXAMPLE)
 
 check:
 	$(CHECK) --spec $(SPEC) --evidence $(EVIDENCE) --baseline $(BASELINE) \
