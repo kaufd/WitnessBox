@@ -149,31 +149,36 @@
           "tried": 23,
           "killed": 23,
           "errors": 0,
-          "rejected": 6
+          "rejected": 6,
+          "substituted": 2
         },
         "discount": {
           "tried": 8,
           "killed": 8,
           "errors": 0,
-          "rejected": 2
+          "rejected": 2,
+          "substituted": 2
         },
         "subtotal": {
           "tried": 6,
           "killed": 6,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 2
         },
         "off": {
           "tried": 6,
           "killed": 6,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 2
         },
         "result": {
           "tried": 6,
           "killed": 6,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 2
         }
       },
       "weak_fields": [],
@@ -190,19 +195,22 @@
           "tried": 42,
           "killed": 34,
           "errors": 0,
-          "rejected": 15
+          "rejected": 15,
+          "substituted": 2
         },
         "remote": {
           "tried": 50,
           "killed": 42,
           "errors": 0,
-          "rejected": 18
+          "rejected": 18,
+          "substituted": 2
         },
         "out": {
           "tried": 32,
           "killed": 32,
           "errors": 0,
-          "rejected": 10
+          "rejected": 10,
+          "substituted": 2
         }
       },
       "weak_fields": [],
@@ -217,19 +225,22 @@
           "tried": 10,
           "killed": 10,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 5
         },
         "event": {
           "tried": 10,
           "killed": 10,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 5
         },
         "to": {
           "tried": 10,
           "killed": 10,
           "errors": 0,
-          "rejected": 0
+          "rejected": 0,
+          "substituted": 5
         }
       },
       "weak_fields": [],

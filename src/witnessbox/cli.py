@@ -214,6 +214,7 @@ def sync_pinned(argv):
 
     resources = Path(__file__).resolve().parent / "resources"
     copies = []
+    seen: dict[Path, int] = {}
     for number, line in enumerate(text.split("\n"), start=1):
         if "\r" in line:
             return fail(f"pinned.txt:{number}: символ \\r в строке; сохраните файл с переводами строк LF")
@@ -239,6 +240,10 @@ def sync_pinned(argv):
             return fail(f"pinned.txt:{number}: путь назначения вне проекта: {dest}")
         if destination.is_dir():
             return fail(f"pinned.txt:{number}: путь назначения — каталог: {dest}")
+        if destination in seen:
+            return fail(f"pinned.txt:{number}: путь назначения уже занят строкой "
+                        f"{seen[destination]}: {dest}")
+        seen[destination] = number
         copies.append((number, src, dest, destination))
 
     # Первый проход проверил все строки: отказ до первой записи не оставит половину копий.

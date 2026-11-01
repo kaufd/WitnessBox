@@ -253,6 +253,19 @@ class Classification(unittest.TestCase):
         self.assertGreater(s["fields"]["to"]["killed"], s["fields"]["to"]["rejected"])
         self.assertNotIn("to", s["shape_only_paths"])
 
+    def test_substitution_only_path_is_not_weak(self):
+        # fixed:0 и none:0 оба корректны; подстановка одного вместо другого не меняет
+        # вердикт. У пути discount есть только подстановки, поэтому слабым он не считается.
+        fixed = cart([(100, 1)], "fixed", 0)
+        none = cart([(100, 1)], "none", 0)
+        r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, fixed),
+                         rec(2, "INV-CART-3", "REQ-CART-1", True, none)], self_test=True)
+        s = r.self_test["INV-CART-3"]
+        self.assertEqual(s["weak_paths"], [])
+        self.assertEqual(r.weak_required, {})
+        self.assertEqual(s["fields"]["discount"]["substituted"], 2)
+        self.assertGreater(s["fields"]["discount"]["tried"], s["fields"]["discount"]["substituted"])
+
     def test_self_test_replaces_strings(self):
         # Чекер законно читает только начало строки (как amount_unit — число и единицу
         # в «1 day available»): порча суффиксом его не ловила, заменой — ловит (D16).

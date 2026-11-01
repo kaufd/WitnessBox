@@ -830,6 +830,7 @@ exit 0
             "no destination": valid + "kit:lib/ebt/Ebt.java\n",
             "crlf": valid + "kit:lib/ebt/Ebt.java  sdk/Ebt.java\r\n",
             "symlink outside": valid + "kit:lib/ebt/Ebt.java  link/Ebt.java\n",
+            "duplicate destination": valid + "kit:lib/ebt/Ebt.java  sdk/Ebt.java\n",
         }
         for name, pinned in cases.items():
             with self.subTest(name=name):

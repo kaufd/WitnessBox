@@ -299,8 +299,10 @@ def _mutate(v: Any) -> tuple[bool, Any]:
 
 
 MAX_INDEX = 8
-# simplicity: портятся первые 8 элементов; чекер, читающий только первые 8, не пойман —
-# поднять предел или выбирать индексы по образцам.
+# simplicity: портятся первые 8 элементов на каждом уровне вложенности; чекер, читающий
+# только первые 8, не пойман — поднять предел или выбирать индексы по образцам.
+# Мутанты растут примерно как 8^глубина на поле (глубина 4 — около 100 тысяч прогонов
+# чекера), поэтому глубоко вложенные свидетельства самопроверка замедляет.
 
 
 def _mutants(v: Any) -> list[tuple[str, Any]]:
@@ -359,18 +361,22 @@ def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict
         weak_paths: list[str] = []
         shape_only_paths: list[str] = []
         for k in inv["witness"]:
-            attempts: list[tuple[str, dict, Any]] = []
+            attempts: list[tuple[str, dict, Any, bool]] = []
             for w in ws:
-                attempts.extend((f"{k}{suffix}", w, mutated) for suffix, mutated in _mutants(w[k]))
+                attempts.extend((f"{k}{suffix}", w, mutated, False)
+                                for suffix, mutated in _mutants(w[k]))
                 # Подстановка значения из соседнего образца: форма та же, но другое
                 # допустимое значение — так проверяется, сверяет ли чекер его с правилом (D43).
                 other = next((o for o in ws if o[k] != w[k]), None)
                 if other is not None:
-                    attempts.append((k, w, other[k]))
+                    attempts.append((k, w, other[k], True))
             counts: dict[str, dict[str, int]] = {}
-            for path, w, mutated in attempts:
-                s = counts.setdefault(path, {"tried": 0, "killed": 0, "errors": 0, "rejected": 0})
+            for path, w, mutated, substituted in attempts:
+                s = counts.setdefault(path, {"tried": 0, "substituted": 0, "killed": 0,
+                                             "errors": 0, "rejected": 0})
                 s["tried"] += 1
+                if substituted:
+                    s["substituted"] += 1
                 m = copy.deepcopy(w)
                 m[k] = mutated
                 try:
@@ -384,9 +390,14 @@ def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict
                 except Exception:  # noqa: BLE001
                     s["errors"] += 1    # чекер упал на испорченных данных — тоже его дефект
             fields[k] = {key: sum(s[key] for s in counts.values())
-                         for key in ("tried", "killed", "errors", "rejected")}
+                         for key in ("tried", "killed", "errors", "rejected", "substituted")}
+            # Подстановка сама слабости не создаёт: у поля-контейнера на пути верхнего
+            # уровня других мутантов нет, и два корректных образца с не влияющим на вердикт
+            # различием дали бы ложный FAIL. Слабым путь считается, только если на нём были
+            # обычные мутанты (tried > substituted); подстановка влияет на killed и shape_only.
             weak_paths.extend(p for p, s in counts.items()
-                              if s["tried"] and s["killed"] == 0 and not s["errors"])
+                              if (s["tried"] > s["substituted"] and s["killed"] == 0
+                                  and not s["errors"]))
             shape_only_paths.extend(p for p, s in counts.items()
                                     if s["killed"] and s["killed"] == s["rejected"])
         weak_paths.sort()
