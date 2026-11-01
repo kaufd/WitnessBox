@@ -12,6 +12,8 @@ make test-linux  # make test и make example для закоммиченного
 make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
 ```
 
+Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13) и `make test-sdk` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+
 Standalone artifacts собираются и проверяются отдельно:
 
 ```bash
