@@ -146,80 +146,96 @@
       "samples": 2,
       "fields": {
         "lines": {
-          "tried": 21,
-          "killed": 21,
-          "errors": 0
+          "tried": 23,
+          "killed": 23,
+          "errors": 0,
+          "rejected": 6
         },
         "discount": {
-          "tried": 6,
-          "killed": 6,
-          "errors": 0
+          "tried": 8,
+          "killed": 8,
+          "errors": 0,
+          "rejected": 2
         },
         "subtotal": {
-          "tried": 4,
-          "killed": 4,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0
         },
         "off": {
-          "tried": 4,
-          "killed": 4,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0
         },
         "result": {
-          "tried": 4,
-          "killed": 4,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0
         }
       },
       "weak_fields": [],
       "weak_paths": [],
-      "crashing_fields": []
+      "crashing_fields": [],
+      "shape_only_paths": [
+        "discount.type"
+      ]
     },
     "INV-SYNC-1": {
       "samples": 2,
       "fields": {
         "local": {
-          "tried": 40,
-          "killed": 32,
-          "errors": 0
+          "tried": 42,
+          "killed": 34,
+          "errors": 0,
+          "rejected": 15
         },
         "remote": {
-          "tried": 48,
-          "killed": 40,
-          "errors": 0
+          "tried": 50,
+          "killed": 42,
+          "errors": 0,
+          "rejected": 18
         },
         "out": {
-          "tried": 30,
-          "killed": 30,
-          "errors": 0
+          "tried": 32,
+          "killed": 32,
+          "errors": 0,
+          "rejected": 10
         }
       },
       "weak_fields": [],
       "weak_paths": [],
-      "crashing_fields": []
+      "crashing_fields": [],
+      "shape_only_paths": []
     },
     "SM-CHECKOUT": {
       "samples": 5,
       "fields": {
         "from": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0
         },
         "event": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0
         },
         "to": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0
         }
       },
       "weak_fields": [],
       "weak_paths": [],
-      "crashing_fields": []
+      "crashing_fields": [],
+      "shape_only_paths": []
     }
   },
   "known_findings": [],

@@ -222,6 +222,37 @@ class Classification(unittest.TestCase):
         finally:
             ec.CHECKERS["cart_total"] = original
 
+    def test_self_test_reports_shape_only_rejection_without_failing(self):
+        original = checkers.CHECKERS["transition"]
+        states = {"cart", "confirmed"}
+
+        def shape_only(w, inv):  # проверяет, что to — известное состояние, но не сверяет переход
+            if w["to"] not in states:
+                raise checkers.WitnessError("to: неизвестное состояние")
+            match = [t[2] for t in inv["transitions"] if t[0] == w["from"] and t[1] == w["event"]]
+            return original({**w, "to": match[0] if match else w["to"]}, inv)
+
+        ec.CHECKERS["transition"] = shape_only
+        try:
+            w = {"from": "cart", "event": "confirm", "to": "confirmed"}
+            r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, w)], self_test=True)
+            s = r.self_test["SM-CHECKOUT"]
+            self.assertEqual(s["shape_only_paths"], ["to"])
+            self.assertEqual(s["fields"]["to"]["rejected"], s["fields"]["to"]["killed"])
+            self.assertEqual(r.weak_required, {})
+        finally:
+            ec.CHECKERS["transition"] = original
+
+    def test_cross_sample_substitution_kills_by_logic(self):
+        transitions = self.spec["inv"]["SM-CHECKOUT"]["transitions"]
+        first = {"from": transitions[0][0], "event": transitions[0][1], "to": transitions[0][2]}
+        second = {"from": transitions[1][0], "event": transitions[1][1], "to": transitions[1][2]}
+        r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, first),
+                         rec(2, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, second)], self_test=True)
+        s = r.self_test["SM-CHECKOUT"]
+        self.assertGreater(s["fields"]["to"]["killed"], s["fields"]["to"]["rejected"])
+        self.assertNotIn("to", s["shape_only_paths"])
+
     def test_self_test_replaces_strings(self):
         # Чекер законно читает только начало строки (как amount_unit — число и единицу
         # в «1 day available»): порча суффиксом его не ловила, заменой — ловит (D16).

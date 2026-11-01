@@ -110,7 +110,11 @@ def render_md(r: Report, spec: dict, limit: int, allow_uncovered: bool) -> str:
             if s["weak_paths"]:
                 L.append(f"- ⚠️ **{inv}**: порча путей {', '.join(f'`{w}`' for w in s['weak_paths'])} "
                          f"ни разу не поймана — чекер их не проверяет или они лишние в witness")
-            if not (s["weak_paths"] or s["crashing_fields"]):
+            if s["shape_only_paths"]:
+                L.append(f"- ℹ️ **{inv}**: порча пути {', '.join(f'`{w}`' for w in s['shape_only_paths'])} "
+                         "ловится только проверкой формы: подставьте в тест другое допустимое значение "
+                         "или проверьте, что чекер сверяет его с правилом")
+            if not (s["weak_paths"] or s["crashing_fields"] or s["shape_only_paths"]):
                 L.append(f"- **{inv}**: порча любого поля ловится (образцов: {s['samples']})")
     return "\n".join(L) + "\n"
 

@@ -357,12 +357,19 @@ def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict
         inv = spec["inv"][inv_id]
         fields = {}
         weak_paths: list[str] = []
+        shape_only_paths: list[str] = []
         for k in inv["witness"]:
-            attempts = [(f"{k}{suffix}", w, mutated)
-                        for w in ws for suffix, mutated in _mutants(w[k])]
+            attempts: list[tuple[str, dict, Any]] = []
+            for w in ws:
+                attempts.extend((f"{k}{suffix}", w, mutated) for suffix, mutated in _mutants(w[k]))
+                # Подстановка значения из соседнего образца: форма та же, но другое
+                # допустимое значение — так проверяется, сверяет ли чекер его с правилом (D43).
+                other = next((o for o in ws if o[k] != w[k]), None)
+                if other is not None:
+                    attempts.append((k, w, other[k]))
             counts: dict[str, dict[str, int]] = {}
             for path, w, mutated in attempts:
-                s = counts.setdefault(path, {"tried": 0, "killed": 0, "errors": 0})
+                s = counts.setdefault(path, {"tried": 0, "killed": 0, "errors": 0, "rejected": 0})
                 s["tried"] += 1
                 m = copy.deepcopy(w)
                 m[k] = mutated
@@ -370,20 +377,25 @@ def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict
                     if not run_checker(inv, m).ok:
                         s["killed"] += 1
                 except WitnessError:
-                    s["killed"] += 1  # форма сломалась — чекер это заметил
+                    s["killed"] += 1
+                    s["rejected"] += 1  # сломалась форма, а не логика правила
                 except SystemExit:
                     s["errors"] += 1
                 except Exception:  # noqa: BLE001
                     s["errors"] += 1    # чекер упал на испорченных данных — тоже его дефект
             fields[k] = {key: sum(s[key] for s in counts.values())
-                         for key in ("tried", "killed", "errors")}
+                         for key in ("tried", "killed", "errors", "rejected")}
             weak_paths.extend(p for p, s in counts.items()
                               if s["tried"] and s["killed"] == 0 and not s["errors"])
+            shape_only_paths.extend(p for p, s in counts.items()
+                                    if s["killed"] and s["killed"] == s["rejected"])
         weak_paths.sort()
+        shape_only_paths.sort()
         weak_fields = sorted({_top_field(p) for p in weak_paths})
         crashing = [k for k, s in fields.items() if s["errors"]]
         result[inv_id] = {"samples": len(ws), "fields": fields, "weak_fields": weak_fields,
-                          "weak_paths": weak_paths, "crashing_fields": crashing}
+                          "weak_paths": weak_paths, "crashing_fields": crashing,
+                          "shape_only_paths": shape_only_paths}
     return result
 
 
