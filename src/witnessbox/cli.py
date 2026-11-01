@@ -6,6 +6,7 @@ import os
 from importlib.metadata import distribution
 from pathlib import Path
 import shutil
+import subprocess
 import sys
 import tempfile
 
@@ -281,11 +282,211 @@ def sync_pinned(argv):
     return 0
 
 
+def check_only(argv):
+    """Проверить подключение до прогона тестов; вердикт всё равно выносит гейт.
+
+    Ничего не исполняет и не меняет: prepare.sh и test.sh не запускаются. checks.py
+    импортируется так же, как в чекере (это доверенный проектный код, docs/extensions.md).
+    Коды: 0 — проблем нет, 1 — проблемы (гейт на этом входе не даст PASS), 2 — ошибка вызова.
+    """
+    usage = "usage: ebt-gate --check-only <ebt-dir> <clone>"
+    if len(argv) != 2:
+        print(usage, file=sys.stderr)
+        return 2
+    ebt = Path(argv[0]).expanduser().resolve()
+    clone = Path(argv[1]).expanduser().resolve()
+    for path, label in ((ebt, "проверки"), (clone, "клона")):
+        if not path.is_dir():
+            print(f"ebt-gate --check-only: нет каталога {label} {path}", file=sys.stderr)
+            return 2
+
+    from .checker.checkers import CHECKERS
+    from .checker.input import load_checkers, load_jsonl, load_known, load_spec, validate_known
+
+    problems = 0
+
+    def ok(name, note=""):
+        print(f"ок {name}" + (f": {note}" if note else ""))
+
+    def skip(name, reason):
+        print(f"пропущено {name}: {reason}")
+
+    def problem(name, text):
+        nonlocal problems
+        problems += 1
+        print(f"проблема {name}: {' '.join(str(text).split())}")
+
+    def git(*args):
+        return subprocess.run(["git", "-C", str(clone), *args], capture_output=True, text=True)
+
+    # 1. spec: файл есть и разбирается теми же load_spec, что у чекера.
+    spec = None
+    spec_path = ebt / "spec.toml"
+    if not spec_path.is_file():
+        problem("spec", f"нет {spec_path}")
+    else:
+        try:
+            spec, _ = load_spec(spec_path)
+        except (OSError, ValueError) as error:
+            problem("spec", error)
+        else:
+            ok("spec")
+
+    # 2. checks: расширение загружается, каждый checker из spec зарегистрирован.
+    if spec is None:
+        skip("checks", "нет загруженной спецификации")
+    else:
+        checks_loaded = True
+        checks_path = ebt / "checks.py"
+        if checks_path.is_file():
+            try:
+                load_checkers(checks_path)
+            except (OSError, ValueError) as error:
+                problem("checks", error)
+                checks_loaded = False
+        if checks_loaded:
+            missing = sorted({inv["checker"] for inv in spec["inv"].values()} - set(CHECKERS))
+            if missing:
+                problem("checks", "чекер не зарегистрирован ни в ядре, ни в checks.py: "
+                        + ", ".join(missing))
+            else:
+                ok("checks")
+
+    # 3. known: тот же разбор и та же сверка с witness, что при запуске чекера.
+    known_path = ebt / "known.toml"
+    if not known_path.is_file():
+        ok("known", "нет known.toml")
+    elif spec is None:
+        skip("known", "нет загруженной спецификации")
+    else:
+        try:
+            known = load_known(known_path)
+            validate_known(known, spec)
+        except (OSError, ValueError) as error:
+            problem("known", error)
+        else:
+            ok("known")
+
+    # 4. baseline: битая строка в baseline — ошибка и у чекера, а не тихий пропуск.
+    baseline_path = ebt / "baseline.jsonl"
+    if not baseline_path.is_file():
+        ok("baseline", "нет baseline.jsonl")
+    else:
+        try:
+            _, bad = load_jsonl(baseline_path)
+        except (OSError, ValueError) as error:
+            problem("baseline", error)
+        else:
+            if bad:
+                problem("baseline", f"битых строк: {len(bad)}, первая — {bad[0].line}")
+            else:
+                ok("baseline")
+
+    # 5. runner: правила выбора из gate.sh, без запуска самого runner.
+    runner = os.environ.get("EBT_RUNNER", "")
+    test_sh = ebt / "test.sh"
+    if runner not in ("", "test.sh", "flutter"):
+        problem("runner", f"EBT_RUNNER={runner}: неизвестный runner (test.sh или flutter)")
+    elif test_sh.exists() or test_sh.is_symlink():
+        if not test_sh.is_file() or not os.access(test_sh, os.X_OK):
+            problem("runner", f"test.sh существует, но не является исполняемым файлом: {test_sh}")
+        elif runner == "flutter":
+            problem("runner", "EBT_RUNNER=flutter: пакет содержит test.sh; используйте EBT_RUNNER=test.sh")
+        else:
+            ok("runner")
+    elif runner == "test.sh":
+        problem("runner", f"нет {test_sh}: добавьте исполняемый test.sh или выберите EBT_RUNNER=flutter")
+    elif runner == "flutter":
+        ok("runner")
+    else:
+        ok("runner", "legacy Flutter adapter")
+
+    # 6. pinned: разбор общий с --sync-pinned, сравнение — как в preflight гейта.
+    pinned_path = ebt / "pinned.txt"
+    if not pinned_path.is_file():
+        ok("pinned", "нет pinned.txt")
+    else:
+        copies, error = read_pinned(ebt, clone)
+        if error:
+            problem("pinned", error)
+        else:
+            drifted = []
+            try:
+                for _, src, dest, destination in copies:
+                    if not destination.is_file() or destination.read_bytes() != src.read_bytes():
+                        drifted.append(dest)
+            except OSError as error:
+                problem("pinned", error)
+            else:
+                if drifted:
+                    problem("pinned", "закреплённые копии отличаются от оригинала: " + ", ".join(drifted))
+                else:
+                    ok("pinned")
+
+    # 7. clone: чистое дерево и отсутствие скрытых правок — как в preflight_git.
+    try:
+        status = git("status", "--porcelain")
+    except OSError as error:
+        problem("clone", f"git status упал: {error}")
+    else:
+        if status.returncode:
+            problem("clone", f"git status упал: {status.stderr.strip() or status.stdout.strip()}")
+        elif status.stdout.strip():
+            problem("clone", "дерево клона не чистое: " + status.stdout.splitlines()[0])
+        else:
+            try:
+                tracked = git("ls-files", "-v")
+            except OSError as error:
+                problem("clone", f"git ls-files упал: {error}")
+            else:
+                hidden = [line for line in tracked.stdout.splitlines()
+                          if len(line) > 1 and line[1] == " " and (line[0] in "S" or line[0].islower())]
+                if tracked.returncode:
+                    problem("clone", f"git ls-files упал: {tracked.stderr.strip() or tracked.stdout.strip()}")
+                elif hidden:
+                    problem("clone", "в клоне есть skip-worktree/assume-unchanged: " + hidden[0])
+                else:
+                    ok("clone")
+
+    # 8. base: без BASE защищённые пути не проверяются, и вывод говорит об этом явно.
+    base = os.environ.get("BASE", "")
+    if not base:
+        skip("base", "BASE не задан — защищённые пути не проверяются")
+    else:
+        try:
+            commit = git("rev-parse", "-q", "--verify", f"{base}^{{commit}}")
+            head = git("rev-parse", "-q", "--verify", "HEAD")
+        except OSError as error:
+            problem("base", f"git rev-parse упал: {error}")
+        else:
+            if commit.returncode:
+                problem("base", f"BASE={base}: такого коммита нет")
+            elif head.returncode:
+                problem("base", f"git rev-parse HEAD упал: {head.stderr.strip()}")
+            else:
+                try:
+                    diff = git("diff", "--name-only", base, "HEAD", "--", "ebt", "tool/ebt_check")
+                except OSError as error:
+                    problem("base", f"git diff упал: {error}")
+                else:
+                    changed = [line for line in diff.stdout.splitlines() if line]
+                    if diff.returncode:
+                        problem("base", f"git diff от BASE упал: {diff.stderr.strip()}")
+                    elif changed:
+                        problem("base", "в ветке изменены защищённые пути: " + ", ".join(changed))
+                    else:
+                        ok("base")
+
+    return 1 if problems else 0
+
+
 def main():
     if sys.argv[1:2] == ["--scaffold"]:
         return scaffold(sys.argv[2:])
     if sys.argv[1:2] == ["--sync-pinned"]:
         return sync_pinned(sys.argv[2:])
+    if sys.argv[1:2] == ["--check-only"]:
+        return check_only(sys.argv[2:])
     try:
         info = installation()
     except RuntimeError as error:

@@ -35,6 +35,10 @@ class Gate(unittest.TestCase):
         cls.addClassCleanup(cls.install_tmp.cleanup)
 
     def setUp(self):
+        self.new_project()
+
+    def new_project(self):
+        """Свежий проект: отдельные клон и каталог проверки для независимого случая."""
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
@@ -92,6 +96,73 @@ class Gate(unittest.TestCase):
 
     def command_env(self, command: Path, **env) -> dict:
         return {"PATH": f"{command.parent}:{os.environ['PATH']}", **env}
+
+    def check_only(self, env: dict | None = None, *paths: str) -> subprocess.CompletedProcess:
+        argv = [str(self.bin / "ebt-gate"), "--check-only", *(paths or (str(self.ebt), str(self.clone)))]
+        base = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": ""}
+        return subprocess.run(argv, capture_output=True, text=True, env={**base, **(env or {})})
+
+    def commit_clone(self, message: str) -> str:
+        subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit", "-qm", message], check=True)
+        return subprocess.check_output(["git", "-C", str(self.clone), "rev-parse", "HEAD"], text=True).strip()
+
+    def case_unknown_checker(self) -> dict:
+        (self.ebt / "spec.toml").write_text(SPEC.replace('"cart_total"', '"missing_rule"'), encoding="utf-8")
+        return {}
+
+    def case_broken_checks(self) -> dict:
+        (self.ebt / "checks.py").write_text('raise RuntimeError("boom")\n', encoding="utf-8")
+        return {}
+
+    def case_core_checker(self) -> dict:
+        (self.ebt / "checks.py").write_text(
+            "from witnessbox.checker.checkers import cart_total\nCHECKERS = {'cart_total': cart_total}\n",
+            encoding="utf-8")
+        return {}
+
+    def case_non_executable_test_sh(self) -> dict:
+        script = self.ebt / "test.sh"
+        script.write_text("#!/bin/bash\nexit 0\n", encoding="utf-8")
+        script.chmod(0o644)
+        return {}
+
+    def case_pinned_drift(self) -> dict:
+        (self.clone / "Ebt.java").write_text("drift", encoding="utf-8")
+        (self.ebt / "pinned.txt").write_text("kit:lib/ebt/Ebt.java  Ebt.java\n", encoding="utf-8")
+        self.commit_clone("pinned copy")
+        return {}
+
+    def case_dirty_clone(self) -> dict:
+        (self.clone / "untracked").write_text("dirty", encoding="utf-8")
+        return {}
+
+    def case_hidden_edit(self) -> dict:
+        subprocess.run(["git", "-C", str(self.clone), "update-index", "--skip-worktree", ".gitignore"],
+                       check=True)
+        return {}
+
+    def case_base_changed(self) -> dict:
+        (self.clone / "ebt").mkdir()
+        marker = self.clone / "ebt/marker"
+        marker.write_text("до BASE", encoding="utf-8")
+        base = self.commit_clone("ebt/marker в BASE")
+        marker.write_text("после BASE", encoding="utf-8")
+        self.commit_clone("изменение защищённого ebt/")
+        return {"BASE": base}
+
+    def problem_cases(self):
+        return {
+            "checks: неизвестный checker": (self.case_unknown_checker, "checks"),
+            "checks: checks.py падает": (self.case_broken_checks, "checks"),
+            "checks: имя чекера ядра": (self.case_core_checker, "checks"),
+            "runner: test.sh не исполняем": (self.case_non_executable_test_sh, "runner"),
+            "pinned: расхождение": (self.case_pinned_drift, "pinned"),
+            "clone: грязное дерево": (self.case_dirty_clone, "clone"),
+            "clone: skip-worktree": (self.case_hidden_edit, "clone"),
+            "base: изменён ebt/": (self.case_base_changed, "base"),
+        }
 
     def test_strict_runner_requires_test_script(self):
         p = self.gate(None, {"EBT_RUNNER": "test.sh"})
@@ -852,6 +923,64 @@ exit 0
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("ebt-gate --sync-pinned:", p.stderr)
         self.assertIn("нет pinned.txt", p.stderr)
+
+    def test_check_only_clean_project_is_ok(self):
+        p = self.check_only()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        lines = p.stdout.splitlines()
+        self.assertTrue(lines, "нет вывода по проверкам")
+        self.assertEqual([line for line in lines if line.startswith("пропущено")],
+                         ["пропущено base: BASE не задан — защищённые пути не проверяются"])
+        for line in lines:
+            if not line.startswith("пропущено"):
+                self.assertTrue(line.startswith("ок "), line)
+        for name in ("spec", "checks", "known", "baseline", "runner", "pinned", "clone"):
+            self.assertTrue(any(line.startswith(f"ок {name}") for line in lines), name)
+
+    def test_check_only_does_not_execute_project_scripts(self):
+        markers = []
+        for name in ("prepare.sh", "test.sh"):
+            marker = self.clone.parent / f"ran-{name}"
+            markers.append(marker)
+            script = self.ebt / name
+            script.write_text(f"#!/bin/bash\ntouch {marker}\n", encoding="utf-8")
+            script.chmod(0o755)
+        p = self.check_only()
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual([marker.name for marker in markers if marker.exists()], [])
+
+    def test_check_only_reports_each_problem(self):
+        for name, (prepare, check) in self.problem_cases().items():
+            with self.subTest(name=name):
+                self.new_project()
+                env = prepare()
+                p = self.check_only(env)
+                self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+                self.assertIn(f"проблема {check}:", p.stdout)
+                self.assertNotIn("Traceback", p.stderr)
+
+    def test_check_only_problems_are_not_gate_pass(self):
+        """Каждая проблема --check-only на том же входе даёт гейту не-PASS (граница D47)."""
+        for name, (prepare, _) in self.problem_cases().items():
+            with self.subTest(name=name):
+                self.new_project()
+                env = prepare()
+                # Неисполняемый test.sh проверяется гейтом как есть, без подмены скрипта.
+                test_sh = None if name.startswith("runner") else self.write_to('"$OUT_DIR"')
+                p = self.gate(test_sh, env)
+                self.assertIn(p.returncode, (1, 2), p.stdout + p.stderr)
+
+    def test_check_only_usage_errors(self):
+        env = {**os.environ, "PYTHONPATH": ""}
+        for args in ([], [str(self.ebt)], [str(self.ebt), str(self.clone), "лишний"]):
+            with self.subTest(args=args):
+                p = subprocess.run([str(self.bin / "ebt-gate"), "--check-only", *args],
+                                   capture_output=True, text=True, env=env)
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                self.assertIn("usage:", p.stderr)
+        p = self.check_only({}, str(self.ebt / "missing"), str(self.clone))
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("нет каталога", p.stderr)
 
     def test_wheel_from_sdist_ships_sdk_templates_and_compat_module(self):
         """Wheel собран из sdist: SDK и все шаблоны едут в поставке, совместимость — без второй копии."""
