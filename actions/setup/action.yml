@@ -1,0 +1,94 @@
+name: Witnessbox setup
+description: Устанавливает witnessbox и сверяет wheel и --installation с release.json
+
+inputs:
+  version:
+    description: Версия witnessbox в формате X.Y.Z
+    required: true
+
+outputs:
+  installation:
+    description: Путь к JSON, который вывела команда ebt-gate --installation
+    value: ${{ steps.install.outputs.installation }}
+
+runs:
+  using: composite
+  steps:
+    - name: Проверить формат версии
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+          echo "version: ожидалось X.Y.Z, получено '$VERSION'" >&2
+          exit 2
+        fi
+
+    - name: Настроить Python
+      uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
+      with:
+        python-version: "3.12"
+
+    - name: Настроить uv
+      uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
+
+    - name: Скачать release.json
+      shell: bash
+      env:
+        GH_TOKEN: ${{ github.token }}
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        mkdir -p "$RUNNER_TEMP/witnessbox"
+        gh release download "v$VERSION" --repo kaufd/WitnessBox \
+          --pattern release.json --dir "$RUNNER_TEMP/witnessbox" --clobber
+
+    - name: Скачать wheel из PyPI
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        python -I -m pip download --disable-pip-version-check \
+          --no-deps --only-binary=:all: \
+          --dest "$RUNNER_TEMP/witnessbox" "witnessbox==$VERSION"
+
+    - name: Сверить wheel с release.json
+      shell: bash
+      env:
+        VERSION: ${{ inputs.version }}
+      run: |
+        set -euo pipefail
+        wheel=""
+        for candidate in "$RUNNER_TEMP/witnessbox"/witnessbox-"$VERSION"-*.whl; do
+          [ -e "$candidate" ] || continue
+          if [ -n "$wheel" ]; then
+            echo "wheel: ожидался один файл witnessbox-$VERSION-*.whl, найдено несколько: $wheel, $candidate" >&2
+            exit 2
+          fi
+          wheel=$candidate
+        done
+        [ -n "$wheel" ] || {
+          echo "wheel: не найден witnessbox-$VERSION-*.whl" >&2
+          exit 2
+        }
+        python -I "$GITHUB_ACTION_PATH/verify_release.py" wheel \
+          "$RUNNER_TEMP/witnessbox/release.json" "$wheel"
+        echo "WHEEL=$wheel" >> "$GITHUB_ENV"
+
+    - name: Установить проверенный wheel и сверить --installation
+      id: install
+      shell: bash
+      run: |
+        set -euo pipefail
+        uv tool install --force "$WHEEL"
+        tool_bin="$(uv tool dir --bin)"
+        echo "$tool_bin" >> "$GITHUB_PATH"
+        export PATH="$tool_bin:$PATH"
+        ebt-gate --version >/dev/null
+        ebt-check --version >/dev/null
+        ebt-gate --installation > "$RUNNER_TEMP/witnessbox/installation.json"
+        python -I "$GITHUB_ACTION_PATH/verify_release.py" installation \
+          "$RUNNER_TEMP/witnessbox/release.json" "$RUNNER_TEMP/witnessbox/installation.json"
+        echo "installation=$RUNNER_TEMP/witnessbox/installation.json" >> "$GITHUB_OUTPUT"

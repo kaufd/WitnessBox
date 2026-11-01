@@ -5,14 +5,15 @@ EVIDENCE ?= build/ebt/evidence.jsonl
 BASELINE ?= examples/basic/baseline.jsonl
 LINUX_IMAGE ?= ghcr.io/astral-sh/uv:python3.12-bookworm
 
-.PHONY: help test test-linux release-check test-checker test-gate test-ts test-java test-dart test-sdk example check baseline clean
+.PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart test-sdk example check baseline clean
 
 help:
-	@echo "make test         — тесты исходного чекера и установленного гейта"
+	@echo "make test         — тесты исходного чекера, установленного гейта и actions"
 	@echo "make test-linux   — make test и make example для закоммиченного HEAD в Linux-контейнере (нужен docker)"
 	@echo "make release-check — wheel+sdist, тесты из sdist, build/release/<версия>/release.json"
 	@echo "make test-checker — тесты исходного чекера"
 	@echo "make test-gate    — тесты установленного wheel-гейта"
+	@echo "make test-actions — тесты скриптов composite actions для CI"
 	@echo "make test-ts      — тесты канонического TypeScript SDK (нужен bun)"
 	@echo "make test-java    — тесты канонического Java SDK (нужен JDK 17+)"
 	@echo "make test-dart    — тесты канонического Dart SDK с assert и без (нужен dart)"
@@ -21,7 +22,7 @@ help:
 	@echo "make check        — проверить $(EVIDENCE) по $(SPEC) с baseline $(BASELINE)"
 	@echo "make baseline     — принять текущий $(EVIDENCE) как новый baseline"
 
-test: test-checker test-gate
+test: test-checker test-gate test-actions
 
 # Чистый клон HEAD, обычный пользователь: незакоммиченные правки сюда не попадают.
 test-linux:
@@ -37,6 +38,9 @@ test-checker:
 
 test-gate:
 	PYTHONPATH=src $(PY) -m unittest discover -s tests/gate -p 'test_gate.py'
+
+test-actions:
+	PYTHONPATH= $(PY) -m unittest discover -s tests/actions -p 'test_*.py'
 
 test-ts:
 	MODE=test bun test tests/sdk/ts

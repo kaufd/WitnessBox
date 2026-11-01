@@ -17,13 +17,13 @@ uv tool update-shell
 
 ```bash
 uv build
-uv tool install dist/witnessbox-0.5.2-py3-none-any.whl
+uv tool install dist/witnessbox-0.6.0-py3-none-any.whl
 uv tool update-shell
 ```
 
 `uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить. Из тега без клона: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.2`.
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.5.2-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.6.0-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Переход со старого дистрибутива
 
@@ -49,6 +49,8 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 
 `<каталог>` по умолчанию — `ebt` в текущем каталоге; `.` заполняет текущий пустой каталог. Существующий непустой каталог команда не перезаписывает. Стек выбирает `test.sh` и `pinned.txt`, спецификация и пример чекера общие. Файлы, договор `test.sh`, `pinned.txt` и порядок действий — в [заготовке](scaffold.md). Шаблонная `spec.toml` — пример, а не утверждённая спецификация: требование утверждает человек (D4).
 
+Файлы, закреплённые в `pinned.txt`, копирует в проект команда `ebt-gate --sync-pinned <каталог ebt>`, запущенная из корня проекта; она разбирает `pinned.txt` так же, как гейт, и не пишет за пределы проекта (D44).
+
 ## Запуск гейта и чекера
 
 В каталоге проверки обязателен утверждённый человеком `spec.toml`; `checks.py` нужен только для проектных правил. Дополнительно используются `known.toml`, `baseline.jsonl`, `prepare.sh`, `test.sh` и `pinned.txt`. В `pinned.txt` можно закрепить копию SDK, например `kit:lib/ebt/Ebt.java  app/src/test/java/ebt/Ebt.java`; исходник `kit:lib/ebt/` берётся из ресурсов установленного пакета.
@@ -60,6 +62,8 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 ```
 
 Опциональные переменные `BASE`, `EBT_INV` и `EBT_TESTS` задают базовый commit, выбранные инварианты и фильтр тестов. Для перепроверки готовых свидетельств используйте `ebt-check --spec ... --checkers ... --evidence ...`; полная форма приведена в `--help`.
+
+В GitHub Actions гейт можно запускать двухстадийно: недоверенные тесты на `pull_request` и доверенная перепроверка на `workflow_run` с подписанным `gate.json` и статусом `witnessbox/gate` — [CI-режим](ci.md) (D45).
 
 Коды завершения гейта: `0` — PASS, `1` — FAIL, `2` — ERROR. Ошибки исполнения имеют приоритет над результатом проверок; отсутствие свидетельств считается ERROR. Тот же итог гейт записывает в `gate.json` каталога результатов, в том числе при ранних отказах, если каталог доступен. Поля формата `1`:
 
@@ -89,7 +93,7 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 | Поддерживаемый интерфейс | Внутренняя реализация |
 |---|---|
-| команды `ebt-gate`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
+| команды `ebt-gate`, `ebt-gate --sync-pinned`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
 | `witnessbox.api`, совместимый `ebt_verification.api` и `from checkers import ...` | функции `checker/engine.py` и `checker/input.py` |
 | формат свидетельств JSONL, `report.json` и `gate.json` | устройство реестра чекеров |
 | договор `test.sh`/`prepare.sh`, `OUT_DIR`, переменные `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | bash-функции гейта |

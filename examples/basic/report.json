@@ -1,7 +1,7 @@
 {
   "spec_version": "2026-10-28",
   "spec_sha": "4b64bde93d21",
-  "records": 12,
+  "records": 13,
   "scopes": 2,
   "findings": [
     {
@@ -60,9 +60,9 @@
     },
     {
       "kind": "FALSE_PROOF",
-      "line": 12,
+      "line": 13,
       "scope": "sync_offline",
-      "seq": 2,
+      "seq": 3,
       "inv": "INV-SYNC-1",
       "req": "REQ-SYNC-1",
       "claim": true,
@@ -104,8 +104,7 @@
       "fixed_exceeds_subtotal"
     ],
     "INV-SYNC-1": [
-      "conflict_remote_wins",
-      "conflict_tie"
+      "conflict_remote_wins"
     ],
     "SM-CHECKOUT": [
       "confirmed --edit--> cart"
@@ -135,7 +134,7 @@
       },
       {
         "key": "sync_offline / INV-SYNC-1",
-        "index": 1,
+        "index": 2,
         "diff": [
           "out: [] → [[\"e\", 5]]"
         ]
@@ -147,77 +146,107 @@
       "samples": 2,
       "fields": {
         "lines": {
-          "tried": 2,
-          "killed": 2,
-          "errors": 0
+          "tried": 23,
+          "killed": 23,
+          "errors": 0,
+          "rejected": 6,
+          "substituted": 2
         },
         "discount": {
-          "tried": 2,
-          "killed": 2,
-          "errors": 0
+          "tried": 8,
+          "killed": 8,
+          "errors": 0,
+          "rejected": 2,
+          "substituted": 2
         },
         "subtotal": {
-          "tried": 2,
-          "killed": 2,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 2
         },
         "off": {
-          "tried": 2,
-          "killed": 2,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 2
         },
         "result": {
-          "tried": 2,
-          "killed": 2,
-          "errors": 0
+          "tried": 6,
+          "killed": 6,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 2
         }
       },
       "weak_fields": [],
-      "crashing_fields": []
+      "weak_paths": [],
+      "crashing_fields": [],
+      "shape_only_paths": [
+        "discount.type"
+      ]
     },
     "INV-SYNC-1": {
-      "samples": 1,
+      "samples": 2,
       "fields": {
         "local": {
-          "tried": 1,
-          "killed": 1,
-          "errors": 0
+          "tried": 42,
+          "killed": 34,
+          "errors": 0,
+          "rejected": 15,
+          "substituted": 2
         },
         "remote": {
-          "tried": 1,
-          "killed": 1,
-          "errors": 0
+          "tried": 50,
+          "killed": 42,
+          "errors": 0,
+          "rejected": 18,
+          "substituted": 2
         },
         "out": {
-          "tried": 1,
-          "killed": 1,
-          "errors": 0
+          "tried": 32,
+          "killed": 32,
+          "errors": 0,
+          "rejected": 10,
+          "substituted": 2
         }
       },
       "weak_fields": [],
-      "crashing_fields": []
+      "weak_paths": [],
+      "crashing_fields": [],
+      "shape_only_paths": []
     },
     "SM-CHECKOUT": {
       "samples": 5,
       "fields": {
         "from": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 5
         },
         "event": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 5
         },
         "to": {
-          "tried": 5,
-          "killed": 5,
-          "errors": 0
+          "tried": 10,
+          "killed": 10,
+          "errors": 0,
+          "rejected": 0,
+          "substituted": 5
         }
       },
       "weak_fields": [],
-      "crashing_fields": []
+      "weak_paths": [],
+      "crashing_fields": [],
+      "shape_only_paths": []
     }
   },
   "known_findings": [],

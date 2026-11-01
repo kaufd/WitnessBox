@@ -202,6 +202,70 @@ class Classification(unittest.TestCase):
         finally:
             ec.CHECKERS["transition"] = original
 
+    def test_self_test_finds_checker_reading_only_first_list_element(self):
+        original = checkers.CHECKERS["cart_total"]
+        w = cart([(333, 3), (100, 2)], "percent", 15)  # помощник cart() из того же файла
+
+        def first_only(m, inv):  # хвост списка всегда берётся из неиспорченного образца
+            return original({**m, "lines": m["lines"][:1] + w["lines"][1:]}, inv)
+
+        ec.CHECKERS["cart_total"] = first_only
+        try:
+            r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, w)], self_test=True)
+            weak = r.self_test["INV-CART-3"]["weak_paths"]
+            self.assertTrue(weak and all(p.startswith("lines[1]") for p in weak), weak)
+            self.assertEqual(r.self_test["INV-CART-3"]["weak_fields"], ["lines"])
+            self.assertEqual(r.weak_required["INV-CART-3"], weak)
+            self.spec["inv"]["INV-CART-3"]["not_in_verdict"] = ["lines[*]"]
+            r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, w)], self_test=True)
+            self.assertEqual(r.weak_required, {})
+        finally:
+            ec.CHECKERS["cart_total"] = original
+
+    def test_self_test_reports_shape_only_rejection_without_failing(self):
+        original = checkers.CHECKERS["transition"]
+        states = {"cart", "confirmed"}
+
+        def shape_only(w, inv):  # проверяет, что to — известное состояние, но не сверяет переход
+            if w["to"] not in states:
+                raise checkers.WitnessError("to: неизвестное состояние")
+            match = [t[2] for t in inv["transitions"] if t[0] == w["from"] and t[1] == w["event"]]
+            return original({**w, "to": match[0] if match else w["to"]}, inv)
+
+        ec.CHECKERS["transition"] = shape_only
+        try:
+            w = {"from": "cart", "event": "confirm", "to": "confirmed"}
+            r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, w)], self_test=True)
+            s = r.self_test["SM-CHECKOUT"]
+            self.assertEqual(s["shape_only_paths"], ["to"])
+            self.assertEqual(s["fields"]["to"]["rejected"], s["fields"]["to"]["killed"])
+            self.assertEqual(r.weak_required, {})
+        finally:
+            ec.CHECKERS["transition"] = original
+
+    def test_cross_sample_substitution_kills_by_logic(self):
+        transitions = self.spec["inv"]["SM-CHECKOUT"]["transitions"]
+        first = {"from": transitions[0][0], "event": transitions[0][1], "to": transitions[0][2]}
+        second = {"from": transitions[1][0], "event": transitions[1][1], "to": transitions[1][2]}
+        r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, first),
+                         rec(2, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, second)], self_test=True)
+        s = r.self_test["SM-CHECKOUT"]
+        self.assertGreater(s["fields"]["to"]["killed"], s["fields"]["to"]["rejected"])
+        self.assertNotIn("to", s["shape_only_paths"])
+
+    def test_substitution_only_path_is_not_weak(self):
+        # fixed:0 и none:0 оба корректны; подстановка одного вместо другого не меняет
+        # вердикт. У пути discount есть только подстановки, поэтому слабым он не считается.
+        fixed = cart([(100, 1)], "fixed", 0)
+        none = cart([(100, 1)], "none", 0)
+        r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, fixed),
+                         rec(2, "INV-CART-3", "REQ-CART-1", True, none)], self_test=True)
+        s = r.self_test["INV-CART-3"]
+        self.assertEqual(s["weak_paths"], [])
+        self.assertEqual(r.weak_required, {})
+        self.assertEqual(s["fields"]["discount"]["substituted"], 2)
+        self.assertGreater(s["fields"]["discount"]["tried"], s["fields"]["discount"]["substituted"])
+
     def test_self_test_replaces_strings(self):
         # Чекер законно читает только начало строки (как amount_unit — число и единицу
         # в «1 day available»): порча суффиксом его не ловила, заменой — ловит (D16).
@@ -219,6 +283,17 @@ class Classification(unittest.TestCase):
             self.assertEqual(r.self_test["SM-CHECKOUT"]["weak_fields"], [])
         finally:
             ec.CHECKERS["transition"] = original
+
+    def test_mutants_cover_every_list_element_within_cap(self):
+        self.assertEqual(ec._mutants(5), [("", 6), ("", 4)])
+        self.assertEqual(ec._mutants(True), [("", False)])
+        self.assertEqual(ec._mutants("2 employees"), [("", "3 employees")])
+        self.assertEqual(ec._mutants(None), [])
+        self.assertEqual(ec._mutants({}), [])
+        self.assertEqual(ec._mutants([]), [("", [0])])
+        paths = {p for p, _ in ec._mutants([{"q": 1}, {"q": 2}])}
+        self.assertEqual(paths, {"[0]", "[0].q", "[1]", "[1].q"})
+        self.assertFalse(any(p.startswith("[8]") for p, _ in ec._mutants(list(range(20)))))
 
     def test_string_mutation_changes_a_digit_or_the_whole_value(self):
         # Текст с числом портится в числе: «2 employees» → «3 employees» ловит чекер,

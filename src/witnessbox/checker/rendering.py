@@ -25,7 +25,7 @@ def render_md(r: Report, spec: dict, limit: int, allow_uncovered: bool) -> str:
     if r.records == 0:
         L += ["**В логе нет ни одной записи — доказательства нет.**", ""]
     for inv_id, weak in r.weak_required.items():
-        L += [f"**Чекер `{inv_id}` не ловит порчу полей {', '.join(f'`{w}`' for w in weak)} — "
+        L += [f"**Чекер `{inv_id}` не ловит порчу путей {', '.join(f'`{w}`' for w in weak)} — "
               "доказательство этим чекером не принимается (см. «Самопроверка чекеров»).**", ""]
     L += [
         "| Категория | Кол-во |",
@@ -101,15 +101,20 @@ def render_md(r: Report, spec: dict, limit: int, allow_uncovered: bool) -> str:
 
     if r.self_test is not None:
         L += ["", "## Самопроверка чекеров", "",
-              "Каждое поле свидетельства портится, и проверяется, что чекер это замечает.", ""]
+              "Каждое поле свидетельства и первые элементы его списков портятся, "
+              "и проверяется, что чекер это замечает.", ""]
         for inv, s in r.self_test.items():
             if s["crashing_fields"]:
                 L.append(f"- ⚠️ **{inv}**: чекер падает на испорченных полях "
                          f"{', '.join(f'`{w}`' for w in s['crashing_fields'])} — он должен отвечать вердиктом, а не исключением")
-            if s["weak_fields"]:
-                L.append(f"- ⚠️ **{inv}**: порча полей {', '.join(f'`{w}`' for w in s['weak_fields'])} "
+            if s["weak_paths"]:
+                L.append(f"- ⚠️ **{inv}**: порча путей {', '.join(f'`{w}`' for w in s['weak_paths'])} "
                          f"ни разу не поймана — чекер их не проверяет или они лишние в witness")
-            if not (s["weak_fields"] or s["crashing_fields"]):
+            if s["shape_only_paths"]:
+                L.append(f"- ℹ️ **{inv}**: порча пути {', '.join(f'`{w}`' for w in s['shape_only_paths'])} "
+                         "ловится только проверкой формы: подставьте в тест другое допустимое значение "
+                         "или проверьте, что чекер сверяет его с правилом")
+            if not (s["weak_paths"] or s["crashing_fields"] or s["shape_only_paths"]):
                 L.append(f"- **{inv}**: порча любого поля ловится (образцов: {s['samples']})")
     return "\n".join(L) + "\n"
 

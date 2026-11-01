@@ -183,14 +183,92 @@ def scaffold(argv):
     for name in sources:
         print(f"  {name}")
     print("Дальше: замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием,")
-    print("скопируйте SDK из ebt-gate --installation (resources/lib/ebt/) по путям pinned.txt")
-    print("и напишите тесты свидетельств в build/ebt/. Подробности — в README.md каталога.")
+    print("скопируйте SDK и помощников по pinned.txt командой ebt-gate --sync-pinned ebt")
+    print("из корня проекта и напишите тесты свидетельств в build/ebt/.")
+    print("Подробности — в README.md каталога.")
+    return 0
+
+
+def sync_pinned(argv):
+    """Скопировать в проект оригиналы из pinned.txt; kit: — ресурсы этой поставки."""
+    usage = "usage: ebt-gate --sync-pinned <ebt-dir> [<project-root>]"
+    if len(argv) not in (1, 2):
+        print(usage, file=sys.stderr)
+        return 2
+
+    def fail(message):
+        print(f"ebt-gate --sync-pinned: {message}", file=sys.stderr)
+        return 2
+
+    ebt = Path(argv[0]).expanduser().resolve()
+    root = Path(argv[1] if len(argv) == 2 else ".").expanduser().resolve()
+    pinned = ebt / "pinned.txt"
+    if not pinned.is_file():
+        return fail(f"нет pinned.txt: {pinned}")
+    # Читаем байты, а не текст с универсальными переводами строк: CRLF иначе исчезнет,
+    # и команда молча запишет копию не туда, куда её ищет гейт (`sdk/Ebt.java\r`).
+    try:
+        text = pinned.read_bytes().decode("utf-8")
+    except (OSError, UnicodeDecodeError) as error:
+        return fail(f"не удалось прочитать {pinned}: {error}")
+
+    resources = Path(__file__).resolve().parent / "resources"
+    copies = []
+    seen: dict[Path, int] = {}
+    for number, line in enumerate(text.split("\n"), start=1):
+        if "\r" in line:
+            return fail(f"pinned.txt:{number}: символ \\r в строке; сохраните файл с переводами строк LF")
+        tokens = line.split()
+        if not tokens or tokens[0].startswith("#"):
+            continue
+        if len(tokens) < 2:
+            return fail(f"pinned.txt:{number}: нет пути назначения")
+        source, dest = tokens[0], tokens[1]
+        if source.startswith("kit:"):
+            # Как в gate.sh: строка kit: склеивается с каталогом ресурсов, а не с файловой системой.
+            src = resources / source[len("kit:"):].lstrip("/")
+        elif Path(source).is_absolute():
+            src = Path(source)
+        else:
+            src = ebt / source
+        if not src.is_file():
+            return fail(f"pinned.txt:{number}: нет оригинала {src}")
+        if Path(dest).is_absolute():
+            return fail(f"pinned.txt:{number}: абсолютный путь назначения не разрешён: {dest}")
+        destination = (root / dest).resolve()
+        if not destination.is_relative_to(root):
+            return fail(f"pinned.txt:{number}: путь назначения вне проекта: {dest}")
+        if destination.is_dir():
+            return fail(f"pinned.txt:{number}: путь назначения — каталог: {dest}")
+        if destination in seen:
+            return fail(f"pinned.txt:{number}: путь назначения уже занят строкой "
+                        f"{seen[destination]}: {dest}")
+        seen[destination] = number
+        copies.append((number, src, dest, destination))
+
+    # Первый проход проверил все строки: отказ до первой записи не оставит половину копий.
+    for number, src, dest, destination in copies:
+        try:
+            same = destination.is_file() and destination.read_bytes() == src.read_bytes()
+        except OSError as error:
+            return fail(f"pinned.txt:{number}: не удалось сравнить {dest}: {error}")
+        if same:
+            print(f"без изменений {dest}")
+            continue
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(src, destination)
+        except OSError as error:
+            return fail(f"pinned.txt:{number}: не удалось записать {dest}: {error}")
+        print(f"обновлён {dest}")
     return 0
 
 
 def main():
     if sys.argv[1:2] == ["--scaffold"]:
         return scaffold(sys.argv[2:])
+    if sys.argv[1:2] == ["--sync-pinned"]:
+        return sync_pinned(sys.argv[2:])
     try:
         info = installation()
     except RuntimeError as error:

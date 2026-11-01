@@ -71,6 +71,8 @@ class Report:
     known_findings: list[Finding] = field(default_factory=list)
     coverage_scope: list[str] | None = None
     known_unused: list[dict] = field(default_factory=list)
+    # Пути слабых мест чекера (`поле`, `поле[i]`, `поле.ключ`); для скалярного поля путь
+    # равен имени поля (D43).
     weak_required: dict[str, list[str]] = field(default_factory=dict)
 
     def count(self, kind: str) -> int:
@@ -296,8 +298,45 @@ def _mutate(v: Any) -> tuple[bool, Any]:
     return False, v
 
 
+MAX_INDEX = 8
+# simplicity: портятся первые 8 элементов на каждом уровне вложенности; чекер, читающий
+# только первые 8, не пойман — поднять предел или выбирать индексы по образцам.
+# Мутанты растут примерно как 8^глубина на поле (глубина 4 — около 100 тысяч прогонов
+# чекера), поэтому глубоко вложенные свидетельства самопроверка замедляет.
+
+
+def _mutants(v: Any) -> list[tuple[str, Any]]:
+    """Мутанты значения: (суффикс пути, значение с внесённой порчей).
+
+    `""` — само значение, `"[i]"` — элемент списка, `".key"` — ключ словаря,
+    с рекурсией. У непустого списка портятся удаление и содержимое первых
+    MAX_INDEX элементов; перестановки нет — чекер законно сравнивает некоторые
+    списки как множество.
+    """
+    if isinstance(v, bool):
+        return [("", not v)]
+    if isinstance(v, int):
+        return [("", v + 1), ("", v - 1)]
+    if isinstance(v, (float, str)):
+        ok, mutated = _mutate(v)
+        return [("", mutated)] if ok else []
+    if isinstance(v, list):
+        if not v:
+            return [("", [0])]  # пустой список — добавляем элемент
+        out: list[tuple[str, Any]] = []
+        for i in range(min(len(v), MAX_INDEX)):
+            out.append((f"[{i}]", v[:i] + v[i + 1:]))
+            out.extend((f"[{i}]{suffix}", v[:i] + [mutated] + v[i + 1:])
+                       for suffix, mutated in _mutants(v[i]))
+        return out
+    if isinstance(v, dict):
+        return [(f".{key}{suffix}", {**v, key: mutated})
+                for key in v for suffix, mutated in _mutants(v[key])]
+    return []
+
+
 def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict:
-    """Для каждого поля свидетельства: ловит ли чекер порчу этого поля хотя бы раз."""
+    """Для каждого поля свидетельства: ловит ли чекер порчу этого поля или его элементов."""
     samples: dict[str, list[dict]] = defaultdict(list)
     for _, rec in records:
         inv = spec["inv"].get(rec.get("inv"))
@@ -319,30 +358,68 @@ def self_test(records: list[tuple[int, dict]], spec: dict, per_inv: int) -> dict
     for inv_id, ws in sorted(samples.items()):
         inv = spec["inv"][inv_id]
         fields = {}
+        weak_paths: list[str] = []
+        shape_only_paths: list[str] = []
         for k in inv["witness"]:
-            tried = killed = errors = 0
+            attempts: list[tuple[str, dict, Any, bool]] = []
             for w in ws:
-                ok, mutated = _mutate(w[k])
-                if not ok:
-                    continue
-                tried += 1
+                attempts.extend((f"{k}{suffix}", w, mutated, False)
+                                for suffix, mutated in _mutants(w[k]))
+                # Подстановка значения из соседнего образца: форма та же, но другое
+                # допустимое значение — так проверяется, сверяет ли чекер его с правилом (D43).
+                other = next((o for o in ws if o[k] != w[k]), None)
+                if other is not None:
+                    attempts.append((k, w, other[k], True))
+            counts: dict[str, dict[str, int]] = {}
+            for path, w, mutated, substituted in attempts:
+                s = counts.setdefault(path, {"tried": 0, "substituted": 0, "killed": 0,
+                                             "errors": 0, "rejected": 0})
+                s["tried"] += 1
+                if substituted:
+                    s["substituted"] += 1
                 m = copy.deepcopy(w)
                 m[k] = mutated
                 try:
                     if not run_checker(inv, m).ok:
-                        killed += 1
+                        s["killed"] += 1
                 except WitnessError:
-                    killed += 1  # форма сломалась — чекер это заметил
+                    s["killed"] += 1
+                    s["rejected"] += 1  # сломалась форма, а не логика правила
                 except SystemExit:
-                    errors += 1
+                    s["errors"] += 1
                 except Exception:  # noqa: BLE001
-                    errors += 1    # чекер упал на испорченных данных — тоже его дефект
-            fields[k] = {"tried": tried, "killed": killed, "errors": errors}
-        weak = [k for k, s in fields.items() if s["tried"] and s["killed"] == 0 and not s["errors"]]
+                    s["errors"] += 1    # чекер упал на испорченных данных — тоже его дефект
+            fields[k] = {key: sum(s[key] for s in counts.values())
+                         for key in ("tried", "killed", "errors", "rejected", "substituted")}
+            # Подстановка сама слабости не создаёт: у поля-контейнера на пути верхнего
+            # уровня других мутантов нет, и два корректных образца с не влияющим на вердикт
+            # различием дали бы ложный FAIL. Слабым путь считается, только если на нём были
+            # обычные мутанты (tried > substituted); подстановка влияет на killed и shape_only.
+            weak_paths.extend(p for p, s in counts.items()
+                              if (s["tried"] > s["substituted"] and s["killed"] == 0
+                                  and not s["errors"]))
+            shape_only_paths.extend(p for p, s in counts.items()
+                                    if s["killed"] and s["killed"] == s["rejected"])
+        weak_paths.sort()
+        shape_only_paths.sort()
+        weak_fields = sorted({_top_field(p) for p in weak_paths})
         crashing = [k for k, s in fields.items() if s["errors"]]
-        result[inv_id] = {"samples": len(ws), "fields": fields, "weak_fields": weak,
-                          "crashing_fields": crashing}
+        result[inv_id] = {"samples": len(ws), "fields": fields, "weak_fields": weak_fields,
+                          "weak_paths": weak_paths, "crashing_fields": crashing,
+                          "shape_only_paths": shape_only_paths}
     return result
+
+
+def _top_field(path: str) -> str:
+    """Имя поля верхнего уровня из пути `поле[i]…` или `поле.ключ`."""
+    return re.split(r"[.\[]", path, maxsplit=1)[0]
+
+
+def _allowed(path: str, allowed: set[str]) -> bool:
+    """Путь покрыт not_in_verdict; имя поля верхнего уровня покрывает его подпути."""
+    normalized = re.sub(r"\[\d+\]", "[*]", path)
+    return any(normalized == entry or normalized.startswith(entry + ".")
+               or normalized.startswith(entry + "[") for entry in allowed)
 
 
 # ── Сборка отчёта ─────────────────────────────────────────────────────
@@ -380,10 +457,11 @@ def build_report(spec: dict, sha: str, records, bad_lines, baseline, limit: int,
         r.baseline = compare_baseline(records, baseline, limit)
     if do_self_test:
         r.self_test = self_test(records, spec, per_inv=25)
-        # Поле, которое законно не влияет на вердикт, владелец перечисляет в not_in_verdict (D15).
+        # Поле или путь, которые законно не влияют на вердикт, владелец перечисляет
+        # в not_in_verdict: имя поля или путь с [*], например "lines" или "lines[*].note" (D15, D43).
         for inv_id in sorted(required & r.self_test.keys()):
             allowed = set(spec["inv"][inv_id].get("not_in_verdict", []))
-            weak = [k for k in r.self_test[inv_id]["weak_fields"] if k not in allowed]
+            weak = [p for p in r.self_test[inv_id]["weak_paths"] if not _allowed(p, allowed)]
             if weak:
                 r.weak_required[inv_id] = weak
     return r

@@ -68,6 +68,11 @@ class Gate(unittest.TestCase):
         import json
         return json.loads((self.run_dir / "gate.json").read_text(encoding="utf-8"))
 
+    def sync_pinned(self, ebt: Path, root: Path | None = None, cwd: Path | None = None) -> subprocess.CompletedProcess:
+        return subprocess.run(
+            [str(self.bin / "ebt-gate"), "--sync-pinned", str(ebt), *([str(root)] if root else [])],
+            cwd=cwd, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
+
     def fake_checker(self, rc: int) -> Path:
         """Подставной ebt-check на PATH: всегда отвечает кодом rc."""
         bin_dir = self.run_dir.parent / "bin"
@@ -797,6 +802,56 @@ exit 0
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
         self.assertIn("Закреплённые копии отличаются", self.gate_md())
+
+    def test_sync_pinned_copies_originals_and_gate_sees_no_drift(self):
+        (self.ebt / "obs").mkdir()
+        (self.ebt / "obs/helper.ts").write_text("export const h = 1;\n")
+        (self.ebt / "pinned.txt").write_text(
+            "# SDK\nkit:lib/ebt/Ebt.java  sdk/Ebt.java\n\nobs/helper.ts  src/obs/helper.ts\n")
+        p = self.sync_pinned(self.ebt, cwd=self.clone)
+        self.assertEqual(p.returncode, 0, p.stderr)
+        self.assertIn("обновлён sdk/Ebt.java", p.stdout)
+        sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
+        self.assertEqual((self.clone / "sdk/Ebt.java").read_bytes(), sdk.read_bytes())
+        self.assertIn("без изменений", self.sync_pinned(self.ebt, cwd=self.clone).stdout)
+        subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
+        subprocess.run(["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
+                        "commit", "-qm", "pin"], check=True)
+        self.assertEqual(self.gate(self.write_to('"$OUT_DIR"')).returncode, 0)
+
+    def test_sync_pinned_refuses_escape_missing_original_and_crlf(self):
+        valid = "kit:lib/ebt/Ebt.java  sdk/Ebt.java\n"
+        (self.clone.parent / "outside").mkdir()
+        os.symlink(self.clone.parent / "outside", self.clone / "link")
+        cases = {
+            "escape": valid + "kit:lib/ebt/Ebt.java  ../outside.java\n",
+            "absolute": valid + "kit:lib/ebt/Ebt.java  /tmp/abs.java\n",
+            "missing original": valid + "kit:lib/ebt/Nope.java  x.java\n",
+            "no destination": valid + "kit:lib/ebt/Ebt.java\n",
+            "crlf": valid + "kit:lib/ebt/Ebt.java  sdk/Ebt.java\r\n",
+            "symlink outside": valid + "kit:lib/ebt/Ebt.java  link/Ebt.java\n",
+            "duplicate destination": valid + "kit:lib/ebt/Ebt.java  sdk/Ebt.java\n",
+        }
+        for name, pinned in cases.items():
+            with self.subTest(name=name):
+                (self.clone / "sdk/Ebt.java").unlink(missing_ok=True)
+                (self.ebt / "pinned.txt").write_text(pinned, encoding="utf-8")
+                p = self.sync_pinned(self.ebt, cwd=self.clone)
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                self.assertIn("ebt-gate --sync-pinned:", p.stderr)
+                self.assertFalse((self.clone / "sdk/Ebt.java").exists())
+
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--sync-pinned"],
+                           capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("usage:", p.stderr)
+
+        empty = self.clone.parent / "ebt-empty"
+        empty.mkdir()
+        p = self.sync_pinned(empty, cwd=self.clone)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("ebt-gate --sync-pinned:", p.stderr)
+        self.assertIn("нет pinned.txt", p.stderr)
 
     def test_wheel_from_sdist_ships_sdk_templates_and_compat_module(self):
         """Wheel собран из sdist: SDK и все шаблоны едут в поставке, совместимость — без второй копии."""

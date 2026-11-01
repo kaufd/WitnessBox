@@ -9,4 +9,5 @@
 {"seq": 9, "scope": "checkout_discount", "req": "REQ-CART-1", "inv": "INV-CART-3", "ok": true, "data": {"result": 8490}}
 {"seq": 10, "scope": "checkout_discount", "req": "REQ-CART-1", "inv": "INV-CART-9", "ok": true, "data": {"items": 2}}
 {"seq": 1, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["a", 3, false], ["b", 1, false], ["c", 2, true]], "remote": [["a", 2, false], ["d", 1, false], ["c", 1, false]], "out": [["a", 3], ["b", 1], ["d", 1]]}}
-{"seq": 2, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["e", 5, false]], "remote": [["e", 5, true]], "out": [["e", 5]]}}
+{"seq": 2, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["e", 5, false], ["f", 2, true]], "remote": [["e", 5, true], ["g", 1, false], ["h", 3, false]], "out": [["g", 1], ["h", 3]]}}
+{"seq": 3, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["e", 5, false]], "remote": [["e", 5, true]], "out": [["e", 5]]}}

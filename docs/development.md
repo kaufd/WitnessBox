@@ -5,18 +5,21 @@
 Из корня репозитория:
 
 ```bash
-make test        # source checker, установленный wheel-гейт и заготовка ebt/
+make test        # source checker, установленный wheel-гейт, заготовка ebt/ и скрипты actions
+make test-actions  # только скрипты actions/setup и actions/verify
 make test-sdk    # Java, TypeScript и Dart SDK
 make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
 make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере
 make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
 ```
 
+Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13) и `make test-sdk` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+
 Standalone artifacts собираются и проверяются отдельно:
 
 ```bash
 uv build
-uv tool install --force dist/witnessbox-0.5.2-py3-none-any.whl
+uv tool install --force dist/witnessbox-0.6.0-py3-none-any.whl
 ```
 
 Интеграционные тесты гейта устанавливают wheel во временное изолированное окружение; они проверяют поставку без editable install и без `PYTHONPATH`. Source-checker tests используют `PYTHONPATH=src` локально как тесты дерева разработки. Этот приём не нужен проектным расширениям: установленные чекеры импортируют типы через `witnessbox.api`.
