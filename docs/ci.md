@@ -52,7 +52,7 @@ jobs:
       - name: Установить witnessbox
         # SHA коммита WitnessBox с actions/setup и actions/verify (D45).
         # При выпуске замените на SHA тега; не используйте main.
-        uses: kaufd/WitnessBox/actions/setup@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
+        uses: kaufd/WitnessBox/actions/setup@b8336507e9e3f467fd01f142d9756181ed4dbb09 # коммит D45
         with:
           version: "0.5.2"
 
@@ -102,14 +102,14 @@ jobs:
       attestations: write
     steps:
       - name: Установить witnessbox
-        uses: kaufd/WitnessBox/actions/setup@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
+        uses: kaufd/WitnessBox/actions/setup@b8336507e9e3f467fd01f142d9756181ed4dbb09 # коммит D45
         with:
           version: "0.5.2"
 
       - name: Перепроверить и подписать
         # Если setup упал, verify всё равно должен поставить status error.
         if: always()
-        uses: kaufd/WitnessBox/actions/verify@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
+        uses: kaufd/WitnessBox/actions/verify@b8336507e9e3f467fd01f142d9756181ed4dbb09 # коммит D45
         with:
           github-token: ${{ github.token }}
 ```
