@@ -500,6 +500,8 @@ class Cli(unittest.TestCase):
             argv = ["--spec", str(spec), "--evidence", str(ev), "--md", str(d / "r.md"),
                     "--scope", "INV-OUT"]
             self.assertEqual(ec.main(argv), 1)
+            # --allow-uncovered скрывает дыру покрытия, но не отсутствие чекера.
+            self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 1)
 
     def test_unregistered_checker_out_of_scope_does_not_fail(self):
         """Утверждённая spec может опережать код: вне задачи чекер ещё не написан."""

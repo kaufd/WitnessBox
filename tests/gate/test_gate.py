@@ -892,6 +892,10 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
+        p, _ = run("out-braced-at", EBT_TEST_CMD='fake-tests "${@}"')
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
 
         # 8. Без "$@" shell-синтаксис и позиционные параметры — код 2, а не потеря аргументов.
         rejected = {
@@ -903,6 +907,8 @@ exit "${FAKE_RC:-0}"
             "pipe": "fake-tests |",
             "backslash": "fake-tests \\",
             "positional": "fake-tests $1",
+            "braced-positional": "fake-tests ${1}",
+            "single-quoted-at": "fake-tests '$@'",
             "quoted-comment": "fake-tests 'a b' # c",
         }
         for name, command in rejected.items():
