@@ -18,7 +18,7 @@
 Чекеры проекта (--checkers файл.py) добавляются к чекерам из checkers.py рядом
 (совпадение имени с чекером ядра — ошибка запуска, D18):
 файл задаёт CHECKERS и, по желанию, DERIVED_PARTITIONS, а Verdict и WitnessError
-берёт из ebt_verification.api (прежний импорт из checkers тоже поддерживается).
+берёт из witnessbox.api (совместимые импорты ebt_verification.api и из checkers тоже поддерживаются).
 
 Только стандартная библиотека, Python 3.11+ (на 3.10 — с пакетом tomli).
 

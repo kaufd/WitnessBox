@@ -19,7 +19,7 @@ from typing import Any
 
 
 
-from ebt_verification.api import CheckFn, PartitionsFn, Verdict, WitnessError
+from witnessbox.api import CheckFn, PartitionsFn, Verdict, WitnessError
 
 
 def _int(v: Any, name: str) -> int:
@@ -215,7 +215,7 @@ DERIVED_PARTITIONS: dict[str, PartitionsFn] = {
 }
 
 # Прежний и канонический пути импорта используют один реестр.
-_canonical = "ebt_verification.checker.checkers"
+_canonical = "witnessbox.checker.checkers"
 _current = sys.modules[__name__]
 if _canonical in sys.modules:
     sys.modules[__name__] = sys.modules[_canonical]

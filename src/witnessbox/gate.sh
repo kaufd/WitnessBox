@@ -16,7 +16,7 @@ py=${EBT_VERIFICATION_PYTHON:-}
 
 # gate.json пишется при любом итоге, как только известен каталог результатов.
 summary() {
-  "$py" -I -c 'import sys; from ebt_verification.cli import write_summary; write_summary(*sys.argv[1:])' \
+  "$py" -I -c 'import sys; from witnessbox.cli import write_summary; write_summary(*sys.argv[1:])' \
     "$run" "$1" "$2" "${3:-}" "${head:-}" "${test_rc:-}" "${check_rc:-}" \
     "${checker_command:-}" "${checker_hash:-}" "${spec_file:-}"
 }
@@ -37,9 +37,9 @@ kit="$package/resources"
 check="$package/checker/ebt_check.py"
 [ -f "$ebt/spec.toml" ] || fail "нет $ebt/spec.toml"
 
-installation=$("$py" -I -m ebt_verification.cli --installation) || fail "не удалось определить установку"
+installation=$("$py" -I -m witnessbox.cli --installation) || fail "не удалось определить установку"
 printf '%s\n' "$installation" > "$run/installation.json" || fail "не удалось записать installation.json"
-supply_name=$("$py" -I -c 'from ebt_verification.cli import installation; i=installation(); print(i["distribution"], i["version"], "в", i["package"], "; gate sha256", i["gate_sha256"])') \
+supply_name=$("$py" -I -c 'from witnessbox.cli import installation; i=installation(); print(i["distribution"], i["version"], "в", i["package"], "; gate sha256", i["gate_sha256"])') \
   || fail "не удалось определить поставку"
 if [ -n "${EBT_CHECK:-}" ]; then
   checker_path=$(command -v "$EBT_CHECK") || fail "EBT_CHECK=$EBT_CHECK: команда не найдена"
@@ -52,10 +52,10 @@ if [ -n "${EBT_CHECK:-}" ]; then
   checker_hash=${checker_hash%% *}
   checker_name="EBT_CHECK=$EBT_CHECK ($checker_path), $version; sha256 $checker_hash"
 else
-  checker=("$py" -I -m ebt_verification.checker.ebt_check)
+  checker=("$py" -I -m witnessbox.checker.ebt_check)
   checker_command=$check
   version=$("${checker[@]}" --version) || fail "ebt-check --version упал"
-  checker_hash=$("$py" -I -c 'from ebt_verification.cli import installation; print(installation()["checker_sha256"])') \
+  checker_hash=$("$py" -I -c 'from witnessbox.cli import installation; print(installation()["checker_sha256"])') \
     || fail "не удалось определить sha256 чекера"
   checker_name="$version; $check; sha256 $checker_hash"
 fi
@@ -158,7 +158,7 @@ verify_inputs() {
     fi
   done
   [ -z "$changed" ] || fail "входы проверки в $ebt изменены во время прогона:$changed"
-  now=$("$py" -I -m ebt_verification.cli --installation) || fail "не удалось повторно определить установку"
+  now=$("$py" -I -m witnessbox.cli --installation) || fail "не удалось повторно определить установку"
   [ "$now" = "$installation" ] || fail "код поставки изменён во время прогона, см. $run/installation.json"
   if [ -n "${EBT_CHECK:-}" ]; then
     now=$(shasum -a 256 "$checker_path") || fail "не удалось повторно хэшировать $checker_path"

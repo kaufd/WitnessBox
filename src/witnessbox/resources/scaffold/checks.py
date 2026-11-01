@@ -9,7 +9,7 @@
 
 Регистрация — через CHECKERS. Имена не должны совпадать с чекерами ядра
 (cart_total, transition, sync_merge). Для производных классов входов используйте
-DERIVED_PARTITIONS, как описано в документации WitnessBox (docs/extensions.md).
+DERIVED_PARTITIONS, как описано в документации Witnessbox (docs/extensions.md).
 
 Только стандартная библиотека Python. Ошибка формы свидетельства — WitnessError;
 несоблюдение требования — Verdict(ok=False, reason=..., parts=...).
@@ -17,7 +17,7 @@ DERIVED_PARTITIONS, как описано в документации WitnessBox
 
 from __future__ import annotations
 
-from ebt_verification.api import Verdict, WitnessError
+from witnessbox.api import Verdict, WitnessError
 
 
 def _int(witness: dict, name: str) -> int:

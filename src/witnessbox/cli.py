@@ -3,30 +3,41 @@
 import hashlib
 import json
 import os
-from importlib.metadata import version
+from importlib.metadata import distribution
 from pathlib import Path
 import shutil
 import sys
 import tempfile
 
 
-def _runtime_files(root: Path, suffix: str):
-    """Only shipped runtime code; paths and bytes both contribute to identity."""
-    # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
-    # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
-    excluded = {"compat", "tests", "fixtures", "cache", ".cache", "__pycache__", "scaffold"}
-    return sorted(
-        (p for p in root.rglob(f"*{suffix}")
-         if not excluded.intersection(p.relative_to(root).parts)
-         and not p.name.startswith("test_")),
-        key=lambda p: p.relative_to(root).as_posix(),
-    )
+def _installed_entries(package: Path, dist):
+    """(root, paths) поставляемого кода: RECORD, а для editable — обход дерева.
+
+    RECORD задан относительно dist.locate_file(""), а не package.parent. В editable
+    установке и при запуске из src через PYTHONPATH в RECORD лежат только .pth и
+    finder-файлы, а исходников пакета там нет: такой RECORD непригоден, и тогда
+    отпечаток строится обходом дерева.
+    """
+    files = dist.files or ()
+    root = Path(dist.locate_file("")).resolve()
+    # RECORD пригоден, только если он описывает исполняемый пакет. При PYTHONPATH=src
+    # рядом с установленным wheel метаданные есть, но package лежит вне их корня.
+    if package == root / package.name and any(
+            Path(entry).parts[:1] == (package.name,) for entry in files):
+        return root, [Path(dist.locate_file(entry)).resolve() for entry in files]
+    root = package.parent
+    paths = [root / "checkers.py", root / "ebt_check.py",
+             *package.rglob("*.py"), *package.rglob("*.sh")]
+    compat = root / "ebt_verification"
+    if compat.is_dir():
+        paths += list(compat.rglob("*.py"))
+    return root, paths
 
 
-def _code_hash(package: Path, paths):
+def _code_hash(root: Path, paths):
     digest = hashlib.sha256()
-    for path in sorted(set(paths), key=lambda p: p.relative_to(package).as_posix()):
-        name = path.relative_to(package).as_posix().encode("utf-8")
+    for path in sorted(set(paths), key=lambda p: p.relative_to(root).as_posix()):
+        name = path.relative_to(root).as_posix().encode("utf-8")
         data = path.read_bytes()
         # Lengths make file boundaries unambiguous, including rename/empty-file changes.
         for part in (name, data):
@@ -37,21 +48,30 @@ def _code_hash(package: Path, paths):
 
 def installation():
     package = Path(__file__).resolve().parent
-    checker = package / "checker" / "ebt_check.py"
-    modules = _runtime_files(package / "checker", ".py")
-    public_api = package / "api.py"
-    if public_api.is_file():
-        modules.append(public_api)
-    gate_files = _runtime_files(package, ".sh") + [Path(__file__).resolve()]
+    dist = distribution("witnessbox")
+    root, installed = _installed_entries(package, dist)
+    # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
+    # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
+    code = [path for path in installed
+            if path.suffix in (".py", ".sh") and "scaffold" not in path.parts]
+    cli = Path(__file__).resolve()
+    modules = [path for path in code if path.suffix == ".py" and path.resolve() != cli]
+    shell_files = [path for path in code if path.suffix == ".sh"]
+    if not modules or not shell_files:
+        # Пустой или неполный набор файлов дал бы постоянный SHA пустого ввода:
+        # молчаливое «удостоверение», которое ничего не удостоверяет.
+        raise RuntimeError(
+            "installation: пустой отпечаток кода witnessbox "
+            f"(python={len(modules)}, shell={len(shell_files)}); проверьте установку пакета")
     return {
-        "distribution": "witnessbox",
-        "version": version("witnessbox"),
+        "distribution": dist.metadata["Name"],
+        "version": dist.version,
         "package": str(package),
         "resources": str(package / "resources"),
         "python": sys.executable,
-        "checker": str(checker),
-        "checker_sha256": _code_hash(package, modules),
-        "gate_sha256": _code_hash(package, gate_files),
+        "checker": str(package / "checker" / "ebt_check.py"),
+        "checker_sha256": _code_hash(root, modules),
+        "gate_sha256": _code_hash(root, [*shell_files, cli]),
     }
 
 
@@ -171,7 +191,11 @@ def scaffold(argv):
 def main():
     if sys.argv[1:2] == ["--scaffold"]:
         return scaffold(sys.argv[2:])
-    info = installation()
+    try:
+        info = installation()
+    except RuntimeError as error:
+        print(f"ebt-gate: {error}", file=sys.stderr)
+        return 2
     if sys.argv[1:] == ["--version"]:
         print(f"witnessbox {info['version']}")
         return 0

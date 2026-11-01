@@ -1,7 +1,7 @@
 // Тесты канонического TypeScript SDK (make test-ts).
 import { readFileSync } from 'node:fs';
 import { beforeEach, expect, test } from 'bun:test';
-import { Ebt, ev, traced } from '../../../src/ebt_verification/resources/lib/ebt/ebt';
+import { Ebt, ev, traced } from '../../../src/witnessbox/resources/lib/ebt/ebt';
 
 beforeEach(() => Ebt.reset());
 

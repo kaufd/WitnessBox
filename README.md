@@ -1,13 +1,16 @@
-# WitnessBox
+# Witnessbox
 
 Проверка поведения приложения по свидетельствам (метод EBT, evidence-based testing): код во время тестов записывает, какое решение принял и на каких данных, а независимый чекер перепроверяет каждое решение по спецификации, утверждённой человеком. Комплект — гейт запуска, чекер и SDK для Java, Dart и TypeScript. Runtime требует Python 3.11+ и не имеет сторонних зависимостей.
 
 ```bash
-uv tool install git+https://github.com/kaufd/WitnessBox@v0.4.0
+uv build
+uv tool install dist/witnessbox-0.5.0-py3-none-any.whl
 ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 ```
 
-Установка предоставляет `ebt-gate` и `ebt-check`. Коды гейта: `0` PASS, `1` FAIL, `2` ERROR. Подробности установки, входов и результата — [использование](docs/usage.md).
+`uv build` собирает sdist, а wheel — из него; `uv build --wheel` напрямую из дерева переиспользует устаревший `build/lib`. После выпуска `0.5.0` (тег `v0.5.0`) поставку можно ставить из репозитория: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.0`.
+
+Установка предоставляет `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет. Коды гейта: `0` PASS, `1` FAIL, `2` ERROR. Подробности установки, перехода с прежнего дистрибутива и миграции — [использование](docs/usage.md).
 
 ## Границы гарантий
 

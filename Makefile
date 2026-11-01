@@ -1,5 +1,5 @@
 PY      ?= python3
-CHECK   := PYTHONPATH=src $(PY) -m ebt_verification.checker.ebt_check
+CHECK   := PYTHONPATH=src $(PY) -m witnessbox.checker.ebt_check
 SPEC    ?= examples/basic/spec.toml
 EVIDENCE ?= build/ebt/evidence.jsonl
 BASELINE ?= examples/basic/baseline.jsonl
@@ -43,7 +43,7 @@ test-ts:
 
 test-java:
 	mkdir -p build/java
-	javac -d build/java src/ebt_verification/resources/lib/ebt/Ebt.java tests/sdk/java/EbtTest.java && java -ea -cp build/java ebt.EbtTest
+	javac -d build/java src/witnessbox/resources/lib/ebt/Ebt.java tests/sdk/java/EbtTest.java && java -ea -cp build/java ebt.EbtTest
 
 test-dart:
 	dart run --enable-asserts tests/sdk/dart/ebt_test.dart && dart run tests/sdk/dart/ebt_test.dart

@@ -14,7 +14,7 @@ import java.util.Map;
  */
 public final class EbtTest {
 
-    private static final Path FIXTURE = Path.of("src/ebt_verification/checker/fixtures/record.jsonl");
+    private static final Path FIXTURE = Path.of("src/witnessbox/checker/fixtures/record.jsonl");
     private static final Path GOLDEN = Path.of("tests/sdk/golden.jsonl");
 
     public static void main(String[] args) throws Exception {

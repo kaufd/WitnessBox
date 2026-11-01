@@ -1,26 +1,10 @@
-"""Публичный контракт независимых проектных чекеров EBT.
+"""Совместимый импорт публичных типов Witnessbox.
 
-Проектные расширения импортируют типы отсюда; прежний импорт из ``checkers``
-возвращает те же объекты.
+Прежние проектные чекеры импортируют ``Verdict`` и ``WitnessError`` отсюда;
+возвращаются те же объекты, что и из :mod:`witnessbox.api`. Второй реализации нет.
 """
 from __future__ import annotations
 
-from dataclasses import dataclass, field
-from typing import Callable
+from witnessbox.api import CheckFn, PartitionsFn, Verdict, WitnessError
 
 __all__ = ["Verdict", "WitnessError", "CheckFn", "PartitionsFn"]
-
-
-@dataclass
-class Verdict:
-    ok: bool
-    reason: str = ""
-    parts: set[str] = field(default_factory=set)
-
-
-class WitnessError(Exception):
-    """Свидетельство есть, но оно некорректно по форме (типы, структура)."""
-
-
-CheckFn = Callable[[dict, dict], Verdict]
-PartitionsFn = Callable[[dict], list[str]]

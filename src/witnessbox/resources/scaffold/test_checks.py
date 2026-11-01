@@ -6,7 +6,7 @@ install`), а не в системный python3, поэтому интерпр�
     python=$(ebt-gate --installation | python3 -c 'import json, sys; print(json.load(sys.stdin)["python"])')
     "$python" -m unittest discover -s . -p 'test_checks.py'
 
-Здесь системный python3 только читает JSON; ebt_verification он не импортирует.
+Здесь системный python3 только читает JSON; witnessbox он не импортирует.
 
 Проверяются: корректное свидетельство каждого класса входов, нарушение правила и
 некорректная форма. Для каждого поля witness нужен случай, где его порча ловится
@@ -18,7 +18,7 @@ from __future__ import annotations
 import unittest
 
 import checks
-from ebt_verification.api import WitnessError
+from witnessbox.api import WitnessError
 
 
 class ExampleRule(unittest.TestCase):
