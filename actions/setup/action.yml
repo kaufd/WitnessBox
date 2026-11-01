@@ -1,5 +1,5 @@
 name: Witnessbox setup
-description: Устанавливает witnessbox из PyPI и сверяет wheel и --installation с release.json выпуска
+description: Устанавливает witnessbox и сверяет wheel и --installation с release.json
 
 inputs:
   version:
@@ -60,14 +60,19 @@ runs:
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        shopt -s nullglob
-        wheels=("$RUNNER_TEMP/witnessbox"/witnessbox-"$VERSION"-*.whl)
-        if [ ${#wheels[@]} -ne 1 ]; then
-          echo "wheel: ожидался ровно один файл witnessbox-$VERSION-*.whl, найдено ${#wheels[@]}" >&2
-          printf '  %s\n' "${wheels[@]}" >&2
+        wheel=""
+        for candidate in "$RUNNER_TEMP/witnessbox"/witnessbox-"$VERSION"-*.whl; do
+          [ -e "$candidate" ] || continue
+          if [ -n "$wheel" ]; then
+            echo "wheel: ожидался один файл witnessbox-$VERSION-*.whl, найдено несколько: $wheel, $candidate" >&2
+            exit 2
+          fi
+          wheel=$candidate
+        done
+        [ -n "$wheel" ] || {
+          echo "wheel: не найден witnessbox-$VERSION-*.whl" >&2
           exit 2
-        fi
-        wheel="${wheels[0]}"
+        }
         python -I "$GITHUB_ACTION_PATH/verify_release.py" wheel \
           "$RUNNER_TEMP/witnessbox/release.json" "$wheel"
         echo "WHEEL=$wheel" >> "$GITHUB_ENV"
