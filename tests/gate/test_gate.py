@@ -377,6 +377,29 @@ class Gate(unittest.TestCase):
                 finally:
                     gate.write_bytes(original)
 
+    def test_installation_falls_back_when_metadata_describes_another_install(self):
+        """PYTHONPATH=src без egg-info рядом с wheel: RECORD описывает другую установку."""
+        import hashlib
+        import json
+        import shutil
+        root = self.clone.parent / "shadowed-install"
+        tree = root / "src"
+        shutil.copytree(KIT / "src", tree,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info"))
+        env = {**os.environ, "PYTHONPATH": str(tree)}
+        env.pop("PYTHONHOME", None)
+        p = subprocess.run([str(self.bin / "python"), "-m", "witnessbox.cli", "--installation"],
+                           cwd=root, capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        info = json.loads(p.stdout)
+        self.assertEqual(Path(info["package"]), (tree / "witnessbox").resolve())
+        self.assertNotEqual(info["checker_sha256"], hashlib.sha256(b"").hexdigest())
+        self.assertNotEqual(info["gate_sha256"], hashlib.sha256(b"").hexdigest())
+        # Код в src тот же, что в wheel: отпечатки обязаны совпасть.
+        installed_info = self.installation()
+        self.assertEqual(info["checker_sha256"], installed_info["checker_sha256"])
+        self.assertEqual(info["gate_sha256"], installed_info["gate_sha256"])
+
     def test_installation_refuses_empty_fingerprint(self):
         """Пустой набор файлов — ошибка установки, а не постоянный SHA пустого ввода."""
         code = (

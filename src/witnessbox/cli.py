@@ -19,8 +19,11 @@ def _installed_entries(package: Path, dist):
     отпечаток строится обходом дерева.
     """
     files = dist.files or ()
-    if any(Path(entry).parts[:1] == (package.name,) for entry in files):
-        root = Path(dist.locate_file("")).resolve()
+    root = Path(dist.locate_file("")).resolve()
+    # RECORD пригоден, только если он описывает исполняемый пакет. При PYTHONPATH=src
+    # рядом с установленным wheel метаданные есть, но package лежит вне их корня.
+    if package == root / package.name and any(
+            Path(entry).parts[:1] == (package.name,) for entry in files):
         return root, [Path(dist.locate_file(entry)).resolve() for entry in files]
     root = package.parent
     paths = [root / "checkers.py", root / "ebt_check.py",
