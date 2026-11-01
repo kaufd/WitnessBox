@@ -9,11 +9,19 @@ make test        # source checker, установленный wheel-гейт, з
 make test-actions  # только скрипты actions/setup и actions/verify
 make test-sdk    # Java, TypeScript и Dart SDK
 make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
+make e2e STACK=ts|jvm|generic  # сквозной пример: заготовка → PASS → дефект → FAIL
 make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере
 make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
 ```
 
-Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13) и `make test-sdk` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+`make test` и `make example` работают без сети и без Bun/Gradle. `make e2e`
+собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
+установленный `ebt-gate` дважды и проверяет `checker_failed`; нужны `ebt-gate` из
+wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`) и сеть для
+зависимостей. Сгенерированные Gradle wrapper и `node_modules` в репозиторий не
+коммитятся.
+
+Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13), `make test-sdk` и `make e2e` для `ts`, `generic` и `jvm` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
 
 Standalone artifacts собираются и проверяются отдельно:
 
