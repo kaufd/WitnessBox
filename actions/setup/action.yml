@@ -50,7 +50,7 @@ runs:
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
-        python -m pip download --disable-pip-version-check \
+        python -I -m pip download --disable-pip-version-check \
           --no-deps --only-binary=:all: \
           --dest "$RUNNER_TEMP/witnessbox" "witnessbox==$VERSION"
 
@@ -68,7 +68,7 @@ runs:
           exit 2
         fi
         wheel="${wheels[0]}"
-        python "$GITHUB_ACTION_PATH/verify_release.py" wheel \
+        python -I "$GITHUB_ACTION_PATH/verify_release.py" wheel \
           "$RUNNER_TEMP/witnessbox/release.json" "$wheel"
         echo "WHEEL=$wheel" >> "$GITHUB_ENV"
 
@@ -84,6 +84,6 @@ runs:
         ebt-gate --version >/dev/null
         ebt-check --version >/dev/null
         ebt-gate --installation > "$RUNNER_TEMP/witnessbox/installation.json"
-        python "$GITHUB_ACTION_PATH/verify_release.py" installation \
+        python -I "$GITHUB_ACTION_PATH/verify_release.py" installation \
           "$RUNNER_TEMP/witnessbox/release.json" "$RUNNER_TEMP/witnessbox/installation.json"
         echo "installation=$RUNNER_TEMP/witnessbox/installation.json" >> "$GITHUB_OUTPUT"
