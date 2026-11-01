@@ -45,12 +45,14 @@ jobs:
       - name: Получить исходники
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Именно head PR, а не merge-коммит: вторая стадия чекаутит workflow_run.head_sha.
+          ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
       - name: Установить witnessbox
         # SHA коммита WitnessBox с actions/setup и actions/verify (D45).
         # При выпуске замените на SHA тега; не используйте main.
-        uses: kaufd/WitnessBox/actions/setup@fba00710ca41408e2068d1ecbe0e741d6e0ffee8 # коммит D45
+        uses: kaufd/WitnessBox/actions/setup@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
         with:
           version: "0.5.2"
 
@@ -100,14 +102,14 @@ jobs:
       attestations: write
     steps:
       - name: Установить witnessbox
-        uses: kaufd/WitnessBox/actions/setup@fba00710ca41408e2068d1ecbe0e741d6e0ffee8 # коммит D45
+        uses: kaufd/WitnessBox/actions/setup@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
         with:
           version: "0.5.2"
 
       - name: Перепроверить и подписать
         # Если setup упал, verify всё равно должен поставить status error.
         if: always()
-        uses: kaufd/WitnessBox/actions/verify@fba00710ca41408e2068d1ecbe0e741d6e0ffee8 # коммит D45
+        uses: kaufd/WitnessBox/actions/verify@ae496d3ea939e3c966733ddb77ece60baf70ca6b # коммит D45
         with:
           github-token: ${{ github.token }}
 ```
