@@ -49,6 +49,8 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 
 `<каталог>` по умолчанию — `ebt` в текущем каталоге; `.` заполняет текущий пустой каталог. Существующий непустой каталог команда не перезаписывает. Стек выбирает `test.sh` и `pinned.txt`, спецификация и пример чекера общие. Файлы, договор `test.sh`, `pinned.txt` и порядок действий — в [заготовке](scaffold.md). Шаблонная `spec.toml` — пример, а не утверждённая спецификация: требование утверждает человек (D4).
 
+Файлы, закреплённые в `pinned.txt`, копирует в проект команда `ebt-gate --sync-pinned <каталог ebt>`, запущенная из корня проекта; она разбирает `pinned.txt` так же, как гейт, и не пишет за пределы проекта (D44).
+
 ## Запуск гейта и чекера
 
 В каталоге проверки обязателен утверждённый человеком `spec.toml`; `checks.py` нужен только для проектных правил. Дополнительно используются `known.toml`, `baseline.jsonl`, `prepare.sh`, `test.sh` и `pinned.txt`. В `pinned.txt` можно закрепить копию SDK, например `kit:lib/ebt/Ebt.java  app/src/test/java/ebt/Ebt.java`; исходник `kit:lib/ebt/` берётся из ресурсов установленного пакета.
@@ -89,7 +91,7 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 | Поддерживаемый интерфейс | Внутренняя реализация |
 |---|---|
-| команды `ebt-gate`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
+| команды `ebt-gate`, `ebt-gate --sync-pinned`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
 | `witnessbox.api`, совместимый `ebt_verification.api` и `from checkers import ...` | функции `checker/engine.py` и `checker/input.py` |
 | формат свидетельств JSONL, `report.json` и `gate.json` | устройство реестра чекеров |
 | договор `test.sh`/`prepare.sh`, `OUT_DIR`, переменные `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | bash-функции гейта |
