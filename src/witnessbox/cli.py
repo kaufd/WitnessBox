@@ -413,12 +413,17 @@ def check_only(argv):
                 problem("checks", error)
                 checks_loaded = False
         if checks_loaded:
-            try:
-                validate_checkers(spec)
-            except ValueError as error:
-                problem("checks", error)
+            if os.environ.get("EBT_CHECK"):
+                # Внешний чекер может знать свои чекеры; сверять его реестр нечем,
+                # а ложная проблема нарушила бы гарантию «проблема → не-PASS».
+                skip("checks", f"EBT_CHECK={ebt_check}: регистрацию проверяет внешний чекер")
             else:
-                ok("checks")
+                try:
+                    validate_checkers(spec)
+                except ValueError as error:
+                    problem("checks", error)
+                else:
+                    ok("checks")
 
     # 3. known: тот же разбор и та же сверка с witness, что при запуске чекера.
     known_path = ebt / "known.toml"

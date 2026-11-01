@@ -1104,6 +1104,15 @@ exit "${FAKE_RC:-0}"
         self.assertEqual([marker.name for marker in markers if marker.exists()], [])
         self.assertFalse((self.ebt / "__pycache__").exists(), "check-only оставил __pycache__")
 
+    def test_check_only_does_not_judge_external_checker_registry(self):
+        """EBT_CHECK может знать свой чекер: локальная проверка регистрации дала бы ложную проблему."""
+        fake = self.fake_checker(0)
+        (self.ebt / "spec.toml").write_text(
+            SPEC.replace('"cart_total"', '"missing_rule"'), encoding="utf-8")
+        p = self.check_only({"EBT_CHECK": str(fake)})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("пропущено checks", p.stdout)
+
     def test_check_only_pinned_uses_gate_rules(self):
         """Строгости --sync-pinned не дают проблемы там, где гейт на том же входе PASS."""
         sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
