@@ -54,6 +54,14 @@ def build(regressed: bool):
             "remote": [["a", 2, False], ["d", 1, False], ["c", 1, False]],
             "out": [["a", 3], ["b", 1], ["d", 1]],
         }),
+        # Корректные равные версии (побеждает сервер, tombstone) и две серверные записи:
+        # удаление любой строки remote меняет результат, поэтому self-test видит, что
+        # чекер читает не только первую строку списка.
+        ("INV-SYNC-1", "REQ-SYNC-1", True, {
+            "local": [["e", 5, False], ["f", 2, True]],
+            "remote": [["e", 5, True], ["g", 1, False], ["h", 3, False]],
+            "out": [["g", 1], ["h", 3]],
+        }),
         # равные версии: побеждает сервер (deleted=True → записи в out нет)
         ("INV-SYNC-1", "REQ-SYNC-1", True, {
             "local": [["e", 5, False]],

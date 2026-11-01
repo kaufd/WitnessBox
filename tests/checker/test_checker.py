@@ -202,6 +202,26 @@ class Classification(unittest.TestCase):
         finally:
             ec.CHECKERS["transition"] = original
 
+    def test_self_test_finds_checker_reading_only_first_list_element(self):
+        original = checkers.CHECKERS["cart_total"]
+        w = cart([(333, 3), (100, 2)], "percent", 15)  # помощник cart() из того же файла
+
+        def first_only(m, inv):  # хвост списка всегда берётся из неиспорченного образца
+            return original({**m, "lines": m["lines"][:1] + w["lines"][1:]}, inv)
+
+        ec.CHECKERS["cart_total"] = first_only
+        try:
+            r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, w)], self_test=True)
+            weak = r.self_test["INV-CART-3"]["weak_paths"]
+            self.assertTrue(weak and all(p.startswith("lines[1]") for p in weak), weak)
+            self.assertEqual(r.self_test["INV-CART-3"]["weak_fields"], ["lines"])
+            self.assertEqual(r.weak_required["INV-CART-3"], weak)
+            self.spec["inv"]["INV-CART-3"]["not_in_verdict"] = ["lines[*]"]
+            r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, w)], self_test=True)
+            self.assertEqual(r.weak_required, {})
+        finally:
+            ec.CHECKERS["cart_total"] = original
+
     def test_self_test_replaces_strings(self):
         # Чекер законно читает только начало строки (как amount_unit — число и единицу
         # в «1 day available»): порча суффиксом его не ловила, заменой — ловит (D16).
@@ -219,6 +239,17 @@ class Classification(unittest.TestCase):
             self.assertEqual(r.self_test["SM-CHECKOUT"]["weak_fields"], [])
         finally:
             ec.CHECKERS["transition"] = original
+
+    def test_mutants_cover_every_list_element_within_cap(self):
+        self.assertEqual(ec._mutants(5), [("", 6), ("", 4)])
+        self.assertEqual(ec._mutants(True), [("", False)])
+        self.assertEqual(ec._mutants("2 employees"), [("", "3 employees")])
+        self.assertEqual(ec._mutants(None), [])
+        self.assertEqual(ec._mutants({}), [])
+        self.assertEqual(ec._mutants([]), [("", [0])])
+        paths = {p for p, _ in ec._mutants([{"q": 1}, {"q": 2}])}
+        self.assertEqual(paths, {"[0]", "[0].q", "[1]", "[1].q"})
+        self.assertFalse(any(p.startswith("[8]") for p, _ in ec._mutants(list(range(20)))))
 
     def test_string_mutation_changes_a_digit_or_the_whole_value(self):
         # Текст с числом портится в числе: «2 employees» → «3 employees» ловит чекер,

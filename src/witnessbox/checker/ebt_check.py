@@ -6,7 +6,7 @@ import sys
 
 from .checkers import CHECKERS, DERIVED_PARTITIONS, Verdict, WitnessError
 from .engine import *  # noqa: F403 — совместимость экспортированных функций и категорий.
-from .engine import _known_match, _mutate
+from .engine import _known_match, _mutate, _mutants
 from .input import load_checkers, load_jsonl, load_known, load_spec, validate_known
 from .rendering import _short, render_md
 from .cli import __version__, main

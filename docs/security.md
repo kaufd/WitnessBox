@@ -9,6 +9,7 @@
 | Сценарий пропал относительно baseline | дыра в покрытии | [test_vanished_scenario_is_a_gap](../tests/checker/test_checker.py) |
 | Неполное или неверного типа свидетельство | `WITNESS_INCOMPLETE`, `WITNESS_MALFORMED`, `MALFORMED_LINE` | [test_wrong_types_are_malformed](../tests/checker/test_checker.py), [test_non_string_ids_are_malformed_lines](../tests/checker/test_checker.py) |
 | Чекер не смотрит на поле | `--self-test` | [test_self_test_finds_ignored_field](../tests/checker/test_checker.py) |
+| Чекер проверяет только часть списка | `weak_paths` из self-test, путь `поле[i]…` | [test_self_test_finds_checker_reading_only_first_list_element](../tests/checker/test_checker.py) |
 | Класс входов не покрыт | `uncovered_partitions`, FAIL без `--allow-uncovered` | [test_coverage](../tests/checker/test_checker.py) |
 | Тесты упали, а чекер зелёный | `tests_failed`, FAIL | [D19](decisions.md) |
 | Ветка правит `ebt/` или `tool/ebt_check/` | `protected_paths_changed`; нужен `BASE` | [gate.sh](../src/witnessbox/gate.sh) |
