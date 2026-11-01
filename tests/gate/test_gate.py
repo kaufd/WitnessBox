@@ -556,10 +556,12 @@ class Gate(unittest.TestCase):
             "dart": ("lib/ebt/ebt.dart", "lib/ebt/ebt.dart"),
             "ts": ("lib/ebt/ebt.ts", "src/lib/ebt/ebt.ts"),
             "jvm": ("lib/ebt/Ebt.java", "src/test/java/ebt/Ebt.java"),
+            # generic не выбирает язык: строки всех трёх SDK в pinned.txt — комментарии.
+            "generic": None,
         }
         env = {**os.environ, "PYTHONPATH": ""}
         files = {"spec.toml", "checks.py", "test_checks.py", "README.md", "test.sh", "pinned.txt"}
-        for stack, (sdk, destination) in expected.items():
+        for stack, pin in expected.items():
             with self.subTest(stack=stack):
                 target = self.clone.parent / f"scaffold-{stack}"
                 p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", stack, str(target)],
@@ -574,7 +576,19 @@ class Gate(unittest.TestCase):
                 self.assertIn("REQ-EXAMPLE-1", spec["req"])
                 self.assertEqual(spec["inv"]["INV-EXAMPLE-1"]["checker"], "example_rule")
                 self.assertIn("example_rule", (target / "checks.py").read_text(encoding="utf-8"))
-                self.assertIn(f"kit:{sdk}  {destination}", (target / "pinned.txt").read_text(encoding="utf-8"))
+                pinned = (target / "pinned.txt").read_text(encoding="utf-8")
+                if pin:
+                    sdk, destination = pin
+                    self.assertIn(f"kit:{sdk}  {destination}", pinned)
+                else:
+                    # Пустой набор строк гейт принимает: все строки — комментарии.
+                    self.assertEqual([line for line in pinned.splitlines()
+                                      if line.strip() and not line.startswith("#")], [])
+                    for sdk in ("lib/ebt/Ebt.java", "lib/ebt/ebt.ts", "lib/ebt/ebt.dart"):
+                        self.assertIn(f"kit:{sdk}", pinned)
+                    p = self.sync_pinned(target, cwd=self.clone)
+                    self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+                    self.assertEqual(p.stdout.strip(), "")
                 # Новые шаблоны импортируют публичный witnessbox.api, прежний импорт — только совместимость.
                 for name in ("checks.py", "test_checks.py"):
                     template = (target / name).read_text(encoding="utf-8")
@@ -643,7 +657,7 @@ class Gate(unittest.TestCase):
     def test_scaffold_accepts_current_directory(self):
         """`.` — текущий пустой каталог для каждого стека; раньше он удалялся как временный и падал."""
         env = {**os.environ, "PYTHONPATH": ""}
-        for stack in ("dart", "ts", "jvm"):
+        for stack in ("dart", "ts", "jvm", "generic"):
             with self.subTest(stack=stack):
                 dot = self.clone.parent / f"scaffold-dot-{stack}"
                 dot.mkdir()
@@ -657,14 +671,18 @@ class Gate(unittest.TestCase):
 
     def test_scaffold_test_scripts_follow_gate_contract(self):
         """Шаблон test.sh: аргументы EBT_TESTS, OUT_DIR, коды 0/1/2 и свидетельства при любом исходе."""
-        env = {**os.environ, "PYTHONPATH": ""}
+        env = {k: v for k, v in os.environ.items()
+               if not k.startswith("EBT_") and k != "OUT_DIR"}
+        env["PYTHONPATH"] = ""
         fake_body = """#!/bin/bash
 mkdir -p build/ebt
 printf '%s\\n' "$*" > command.args
 printf '%s\\n' '{"seq":1}' > build/ebt/a.jsonl
 exit "${FAKE_RC:-0}"
 """
-        for stack, command in (("dart", "flutter"), ("ts", "bunx")):
+        cases = (("dart", "flutter", {}), ("ts", "bunx", {}),
+                 ("generic", "fake-tests", {"EBT_TEST_CMD": "fake-tests"}))
+        for stack, command, extra in cases:
             with self.subTest(stack=stack):
                 project = self.clone.parent / f"run-{stack}"
                 target = project / "ebt"
@@ -683,20 +701,30 @@ exit "${FAKE_RC:-0}"
                     out.mkdir()
                     return subprocess.run([str(target / "test.sh"), "one", "two"], cwd=project,
                                           capture_output=True, text=True,
-                                          env={**path_env, "OUT_DIR": str(out), "FAKE_RC": str(rc)}), out
+                                          env={**path_env, "OUT_DIR": str(out), "FAKE_RC": str(rc),
+                                               **extra}), out
 
                 p, out = run_tests(0, "out")
                 self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
                 self.assertTrue((out / "a.jsonl").is_file())
                 args = (project / "command.args").read_text(encoding="utf-8").strip()
                 self.assertIn("one two", args)
-                self.assertIn("--no-pub" if stack == "dart" else "run", args)
+                if stack == "dart":
+                    self.assertIn("--no-pub", args)
+                elif stack == "ts":
+                    self.assertIn("run", args)
+                else:
+                    # Слова из EBT_TESTS переданы команде как отдельные аргументы, без eval.
+                    self.assertEqual(args, "one two")
 
                 p, out = run_tests(1, "out-failed")
                 self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
                 self.assertTrue((out / "a.jsonl").is_file())
 
                 p, _ = run_tests(2, "out-error")
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+
+                p, _ = run_tests(7, "out-ambiguous")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
         project = self.clone.parent / "run-jvm"
@@ -756,6 +784,67 @@ exit 0
             self.fail("test.sh завис: grep читал stdin при отсутствии XML-отчётов")
         stdout, stderr = process.communicate()
         self.assertEqual(process.returncode, 2, stdout + stderr)
+
+    def test_generic_test_script_settings(self):
+        """generic: обязательный EBT_TEST_CMD, EBT_EVIDENCE_DIR, EBT_TEST_FAIL_CODES и аргументы."""
+        env = {k: v for k, v in os.environ.items() if not k.startswith("EBT_") and k != "OUT_DIR"}
+        env["PYTHONPATH"] = ""
+        project = self.clone.parent / "run-generic-settings"
+        target = project / "ebt"
+        p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", "generic", str(target)],
+                           capture_output=True, text=True, env=env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        bin_dir = project / "bin"
+        bin_dir.mkdir()
+        fake = bin_dir / "fake-tests"
+        fake.write_text("""#!/bin/bash
+mkdir -p "${FAKE_EVIDENCE:-build/ebt}"
+printf '%s\\n' "$#" > "$FAKE_ARGS"
+printf '%s\\n' "$@" >> "$FAKE_ARGS"
+printf '%s\\n' '{"seq":1}' > "${FAKE_EVIDENCE:-build/ebt}/a.jsonl"
+exit "${FAKE_RC:-0}"
+""", encoding="utf-8")
+        fake.chmod(0o755)
+        path_env = {**env, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
+
+        # 1. Без EBT_TEST_CMD — код 2 с подсказкой, а не запуск пустой команды.
+        out = project / "out-no-command"
+        out.mkdir()
+        p = subprocess.run([str(target / "test.sh")], cwd=project, capture_output=True, text=True,
+                           env={**path_env, "OUT_DIR": str(out)})
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("EBT_TEST_CMD", p.stderr)
+
+        def run(name, **overrides):
+            out = project / name
+            out.mkdir()
+            return subprocess.run([str(target / "test.sh"), "a b"], cwd=project,
+                                  capture_output=True, text=True,
+                                  env={**path_env, "OUT_DIR": str(out), "EBT_TEST_CMD": "fake-tests",
+                                       "FAKE_ARGS": str(project / "command.args"),
+                                       "FAKE_RC": "0", **overrides}), out
+
+        # 2. Свидетельства берутся из EBT_EVIDENCE_DIR, старый файл оттуда не переживает прогон.
+        evidence_dir = project / "out/ev"
+        evidence_dir.mkdir(parents=True)
+        (evidence_dir / "old.jsonl").write_text('{"seq":1}\n', encoding="utf-8")
+        p, out = run("out-evidence", EBT_EVIDENCE_DIR="out/ev", FAKE_EVIDENCE=str(evidence_dir))
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(sorted(path.name for path in out.iterdir()), ["a.jsonl"])
+        self.assertFalse((evidence_dir / "old.jsonl").exists())
+
+        # 3. Код из EBT_TEST_FAIL_CODES — «тесты упали» (1), остальные коды — ошибка (2).
+        p, out = run("out-fail-code", EBT_TEST_FAIL_CODES="1 4", FAKE_RC="4")
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertTrue((out / "a.jsonl").is_file())
+        p, _ = run("out-other-code", EBT_TEST_FAIL_CODES="1 4", FAKE_RC="5")
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+
+        # 4. Аргумент с пробелом приходит команде одним словом: слова EBT_TESTS не переразбираются.
+        p, _ = run("out-args")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
 
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
@@ -1036,7 +1125,7 @@ exit 0
             self.assertIn(f"witnessbox/resources/lib/ebt/{name}", names)
         for name in ("README.md", "spec.toml", "checks.py", "test_checks.py",
                      "dart/test.sh", "dart/pinned.txt", "ts/test.sh", "ts/pinned.txt",
-                     "jvm/test.sh", "jvm/pinned.txt"):
+                     "jvm/test.sh", "jvm/pinned.txt", "generic/test.sh", "generic/pinned.txt"):
             self.assertIn(f"witnessbox/resources/scaffold/{name}", names)
         self.assertIn("witnessbox/checker/fixtures/record.jsonl", names)
         self.assertIn("witnessbox/api.py", names)
@@ -1054,6 +1143,8 @@ exit 0
                          "src/witnessbox/resources/lib/ebt/ebt.ts",
                          "src/witnessbox/resources/scaffold/test_checks.py",
                          "src/witnessbox/resources/scaffold/dart/test.sh",
+                         "src/witnessbox/resources/scaffold/generic/test.sh",
+                         "src/witnessbox/resources/scaffold/generic/pinned.txt",
                          "src/witnessbox/checker/fixtures/record.jsonl",
                          "src/witnessbox/api.py",
                          "src/ebt_verification/api.py"):

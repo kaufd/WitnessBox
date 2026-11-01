@@ -115,7 +115,7 @@ def write_summary(run, exit_code, reasons, message, commit, tests_rc, check_rc,
     tmp.replace(run / "gate.json")
 
 
-SCAFFOLD_STACKS = ("dart", "ts", "jvm")
+SCAFFOLD_STACKS = ("dart", "ts", "jvm", "generic")
 SCAFFOLD_FILES = ("spec.toml", "checks.py", "test_checks.py", "README.md")
 
 
@@ -136,7 +136,7 @@ def _copy_scaffold(sources, target):
 
 def scaffold(argv):
     """Заготовка ebt/: шаблоны spec, checks.py, test.sh выбранного стека и pinned.txt."""
-    usage = "usage: ebt-gate --scaffold <dart|ts|jvm> [<ebt-dir>]"
+    usage = "usage: ebt-gate --scaffold <dart|ts|jvm|generic> [<ebt-dir>]"
     if len(argv) not in (1, 2) or argv[0] not in SCAFFOLD_STACKS:
         print(usage, file=sys.stderr)
         return 2
