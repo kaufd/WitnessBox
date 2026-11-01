@@ -1,0 +1,6 @@
+include Makefile README.md CLAUDE.md
+recursive-include src *.py *.sh *.jsonl *.java *.dart *.ts *.toml *.md *.txt
+recursive-include tests *.py *.java *.ts *.dart *.jsonl
+recursive-include docs *.md *.svg
+recursive-include examples *
+global-exclude .DS_Store

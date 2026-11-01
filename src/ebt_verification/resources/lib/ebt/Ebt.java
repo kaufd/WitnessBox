@@ -1,0 +1,130 @@
+package ebt;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.List;
+import java.util.Map;
+
+/**
+ * Запись свидетельств EBT на JVM (Java и Kotlin): строки JSONL того же формата, что ebt.ts —
+ * {"seq","scope"?,"req","inv","ok","data"}. Решения не принимает: правило проверяет чекер.
+ *
+ * Без зависимостей; только API, которые есть и в JDK 17, и в android.jar (API 26+).
+ * Запись сериализуется в момент вызова ev() — это снимок: изменение переданных коллекций
+ * после вызова на лог не влияет. Значение, которое нельзя записать
+ * точно (дробные числа, BigDecimal, произвольный объект), — IllegalArgumentException,
+ * а не строка: свидетельство не должно молча терять точность.
+ *
+ * Включение не управляется: файл кладут только в тестовый набор исходников (src/test/java),
+ * в сборку приложения он не попадает. Методы synchronized — тесты могут писать из корутин.
+ */
+public final class Ebt {
+
+    private static final List<String> records = new ArrayList<>();
+    private static int seq = 0;
+    private static String scope = null;
+
+    private Ebt() {
+    }
+
+    public static synchronized void ev(String inv, String req, boolean ok, Map<String, ?> data) {
+        StringBuilder out = new StringBuilder();
+        out.append("{\"seq\":").append(seq + 1);
+        if (scope != null) {
+            out.append(",\"scope\":");
+            string(out, scope);
+        }
+        out.append(",\"req\":");
+        string(out, req);
+        out.append(",\"inv\":");
+        string(out, inv);
+        out.append(",\"ok\":").append(ok).append(",\"data\":");
+        value(out, data, "data");
+        out.append('}');
+        seq++;
+        records.add(out.toString());
+    }
+
+    public static synchronized void setScope(String value) {
+        scope = value;
+    }
+
+    public static synchronized String toJsonl() {
+        return String.join("\n", records);
+    }
+
+    public static synchronized void reset() {
+        records.clear();
+        seq = 0;
+        scope = null;
+    }
+
+    public static synchronized void writeTo(Path file) throws IOException {
+        Path parent = file.toAbsolutePath().getParent();
+        if (parent != null) Files.createDirectories(parent);
+        // Files.write(Path, byte[]), а не writeString: юнит-тесты Android компилируются против
+        // android.jar, где writeString нет; write есть с API 26.
+        Files.write(file, toJsonl().getBytes(StandardCharsets.UTF_8));
+    }
+
+    private static void value(StringBuilder out, Object v, String path) {
+        if (v == null) {
+            out.append("null");
+        } else if (v instanceof String s) {
+            string(out, s);
+        } else if (v instanceof Boolean b) {
+            out.append(b);
+        } else if (v instanceof Integer || v instanceof Long || v instanceof Short || v instanceof Byte) {
+            out.append(v);
+        } else if (v instanceof Map<?, ?> map) {
+            out.append('{');
+            boolean first = true;
+            for (Map.Entry<?, ?> e : map.entrySet()) {
+                if (!(e.getKey() instanceof String key)) {
+                    throw new IllegalArgumentException(path + ": ключ не строка: " + e.getKey());
+                }
+                if (!first) out.append(',');
+                first = false;
+                string(out, key);
+                out.append(':');
+                value(out, e.getValue(), path + "." + key);
+            }
+            out.append('}');
+        } else if (v instanceof Collection<?> list) {
+            out.append('[');
+            int i = 0;
+            for (Object item : list) {
+                if (i > 0) out.append(',');
+                value(out, item, path + "[" + i + "]");
+                i++;
+            }
+            out.append(']');
+        } else {
+            throw new IllegalArgumentException(path + ": нельзя записать точно значение типа "
+                    + v.getClass().getName() + " — передайте целое, строку, bool, список или map");
+        }
+    }
+
+    private static void string(StringBuilder out, String s) {
+        out.append('"');
+        for (int i = 0; i < s.length(); i++) {
+            char c = s.charAt(i);
+            switch (c) {
+                case '"' -> out.append("\\\"");
+                case '\\' -> out.append("\\\\");
+                case '\n' -> out.append("\\n");
+                case '\r' -> out.append("\\r");
+                case '\t' -> out.append("\\t");
+                default -> {
+                    if (c < 0x20) out.append(String.format("\\u%04x", (int) c));
+                    else out.append(c);
+                }
+            }
+        }
+        out.append('"');
+    }
+}

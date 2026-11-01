@@ -1,0 +1,227 @@
+{
+  "spec_version": "2026-10-28",
+  "spec_sha": "1c6f0c6e620c",
+  "records": 12,
+  "scopes": 2,
+  "findings": [
+    {
+      "kind": "FALSE_PROOF",
+      "line": 3,
+      "scope": "checkout_discount",
+      "seq": 3,
+      "inv": "INV-CART-3",
+      "req": "REQ-CART-1",
+      "claim": true,
+      "verdict": false,
+      "reason": "off=150, по правилу скидки percent:15 должно быть 149",
+      "witness": {
+        "lines": [
+          [
+            333,
+            3
+          ]
+        ],
+        "discount": {
+          "type": "percent",
+          "value": 15
+        },
+        "subtotal": 999,
+        "off": 150,
+        "result": 849
+      }
+    },
+    {
+      "kind": "WITNESS_INCOMPLETE",
+      "line": 9,
+      "scope": "checkout_discount",
+      "seq": 9,
+      "inv": "INV-CART-3",
+      "req": "REQ-CART-1",
+      "claim": true,
+      "verdict": null,
+      "reason": "нет полей: lines, discount, subtotal, off",
+      "witness": {
+        "result": 8490
+      }
+    },
+    {
+      "kind": "UNKNOWN_INV",
+      "line": 10,
+      "scope": "checkout_discount",
+      "seq": 10,
+      "inv": "INV-CART-9",
+      "req": "REQ-CART-1",
+      "claim": true,
+      "verdict": null,
+      "reason": "нет в ebt/spec.toml — новый инвариант должен пройти утверждение",
+      "witness": {
+        "items": 2
+      }
+    },
+    {
+      "kind": "FALSE_PROOF",
+      "line": 12,
+      "scope": "sync_offline",
+      "seq": 2,
+      "inv": "INV-SYNC-1",
+      "req": "REQ-SYNC-1",
+      "claim": true,
+      "verdict": false,
+      "reason": "лишние/удалённые ['e']",
+      "witness": {
+        "local": [
+          [
+            "e",
+            5,
+            false
+          ]
+        ],
+        "remote": [
+          [
+            "e",
+            5,
+            true
+          ]
+        ],
+        "out": [
+          [
+            "e",
+            5
+          ]
+        ]
+      }
+    }
+  ],
+  "req_without_inv": [
+    "REQ-PROFILE-1"
+  ],
+  "inv_never_fired": [],
+  "uncovered_partitions": {
+    "INV-CART-3": [
+      "empty_cart",
+      "percent",
+      "percent_rounding",
+      "fixed_exceeds_subtotal"
+    ],
+    "INV-SYNC-1": [
+      "conflict_remote_wins",
+      "conflict_tie"
+    ],
+    "SM-CHECKOUT": [
+      "confirmed --edit--> cart"
+    ]
+  },
+  "baseline": {
+    "appeared": [
+      "checkout_discount / INV-CART-9"
+    ],
+    "vanished": [],
+    "count_changed": [
+      {
+        "key": "checkout_discount / INV-CART-3",
+        "before": 3,
+        "after": 4
+      }
+    ],
+    "changed_total": 2,
+    "changed": [
+      {
+        "key": "checkout_discount / INV-CART-3",
+        "index": 1,
+        "diff": [
+          "off: 149 → 150",
+          "result: 850 → 849"
+        ]
+      },
+      {
+        "key": "sync_offline / INV-SYNC-1",
+        "index": 1,
+        "diff": [
+          "out: [] → [[\"e\", 5]]"
+        ]
+      }
+    ]
+  },
+  "self_test": {
+    "INV-CART-3": {
+      "samples": 2,
+      "fields": {
+        "lines": {
+          "tried": 2,
+          "killed": 2,
+          "errors": 0
+        },
+        "discount": {
+          "tried": 2,
+          "killed": 2,
+          "errors": 0
+        },
+        "subtotal": {
+          "tried": 2,
+          "killed": 2,
+          "errors": 0
+        },
+        "off": {
+          "tried": 2,
+          "killed": 2,
+          "errors": 0
+        },
+        "result": {
+          "tried": 2,
+          "killed": 2,
+          "errors": 0
+        }
+      },
+      "weak_fields": [],
+      "crashing_fields": []
+    },
+    "INV-SYNC-1": {
+      "samples": 1,
+      "fields": {
+        "local": {
+          "tried": 1,
+          "killed": 1,
+          "errors": 0
+        },
+        "remote": {
+          "tried": 1,
+          "killed": 1,
+          "errors": 0
+        },
+        "out": {
+          "tried": 1,
+          "killed": 1,
+          "errors": 0
+        }
+      },
+      "weak_fields": [],
+      "crashing_fields": []
+    },
+    "SM-CHECKOUT": {
+      "samples": 5,
+      "fields": {
+        "from": {
+          "tried": 5,
+          "killed": 5,
+          "errors": 0
+        },
+        "event": {
+          "tried": 5,
+          "killed": 5,
+          "errors": 0
+        },
+        "to": {
+          "tried": 5,
+          "killed": 5,
+          "errors": 0
+        }
+      },
+      "weak_fields": [],
+      "crashing_fields": []
+    }
+  },
+  "known_findings": [],
+  "coverage_scope": null,
+  "known_unused": [],
+  "weak_required": {}
+}

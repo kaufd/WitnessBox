@@ -1,0 +1,10 @@
+{"seq": 1, "scope": "checkout_discount", "req": "REQ-CHECKOUT-2", "inv": "SM-CHECKOUT", "ok": true, "data": {"from": "cart", "event": "confirm", "to": "confirmed"}}
+{"seq": 2, "scope": "checkout_discount", "req": "REQ-CART-1", "inv": "INV-CART-3", "ok": true, "data": {"lines": [[49900, 1], [1990, 3]], "discount": {"type": "none", "value": 0}, "subtotal": 55870, "off": 0, "result": 55870}}
+{"seq": 3, "scope": "checkout_discount", "req": "REQ-CART-1", "inv": "INV-CART-3", "ok": true, "data": {"lines": [[333, 3]], "discount": {"type": "percent", "value": 15}, "subtotal": 999, "off": 149, "result": 850}}
+{"seq": 4, "scope": "checkout_discount", "req": "REQ-CART-1", "inv": "INV-CART-3", "ok": true, "data": {"lines": [[120000, 1]], "discount": {"type": "fixed", "value": 50000}, "subtotal": 120000, "off": 50000, "result": 70000}}
+{"seq": 5, "scope": "checkout_discount", "req": "REQ-CHECKOUT-2", "inv": "SM-CHECKOUT", "ok": true, "data": {"from": "confirmed", "event": "pay", "to": "paying"}}
+{"seq": 6, "scope": "checkout_discount", "req": "REQ-CHECKOUT-2", "inv": "SM-CHECKOUT", "ok": true, "data": {"from": "paying", "event": "failed", "to": "confirmed"}}
+{"seq": 7, "scope": "checkout_discount", "req": "REQ-CHECKOUT-2", "inv": "SM-CHECKOUT", "ok": true, "data": {"from": "confirmed", "event": "pay", "to": "paying"}}
+{"seq": 8, "scope": "checkout_discount", "req": "REQ-CHECKOUT-2", "inv": "SM-CHECKOUT", "ok": true, "data": {"from": "paying", "event": "paid", "to": "done"}}
+{"seq": 1, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["a", 3, false], ["b", 1, false], ["c", 2, true]], "remote": [["a", 2, false], ["d", 1, false], ["c", 1, false]], "out": [["a", 3], ["b", 1], ["d", 1]]}}
+{"seq": 2, "scope": "sync_offline", "req": "REQ-SYNC-1", "inv": "INV-SYNC-1", "ok": true, "data": {"local": [["e", 5, false]], "remote": [["e", 5, true]], "out": []}}

@@ -1,0 +1,22 @@
+.DS_Store
+
+# Dependencies
+node_modules/
+
+# Build output
+build/
+dist/
+.dart_tool/
+*.dill
+*.snapshot
+
+# Python caches and build metadata
+__pycache__/
+*.pyc
+*.egg-info/
+.pytest_cache/
+.venv/
+
+# Editors
+.idea/
+.vscode/
