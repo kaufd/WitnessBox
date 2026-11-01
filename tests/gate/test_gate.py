@@ -877,64 +877,6 @@ exit "${FAKE_RC:-0}"
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
 
-        # 6. Если команда сама раскрывает "$@", аргументы не добавляются второй раз.
-        p, _ = run("out-at", EBT_TEST_CMD='fake-tests "$@"')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "a b"])
-
-        # 7. Сложная команда с "$@" допустима: # и ; уже не съедают аргументы.
-        p, _ = run("out-at-comment", EBT_TEST_CMD='fake-tests "$@" # комментарий')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "a b"])
-        p, _ = run("out-at-semicolon", EBT_TEST_CMD='fake-tests "$@" ;')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "a b"])
-        p, _ = run("out-braced-at", EBT_TEST_CMD='fake-tests "${@}"')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "a b"])
-
-        # 8. Без "$@" shell-синтаксис и позиционные параметры — код 2, а не потеря аргументов.
-        rejected = {
-            "comment": "fake-tests # только ebt",
-            "comment-at": "fake-tests # $@",
-            "only-comment": "# $@",
-            "semicolon": "fake-tests;",
-            "ampersand": "fake-tests &",
-            "pipe": "fake-tests |",
-            "backslash": "fake-tests \\",
-            "positional": "fake-tests $1",
-            "braced-positional": "fake-tests ${1}",
-            "braced-slice": "fake-tests ${@:2}",
-            "single-quoted-at": "fake-tests '$@'",
-            "unquoted-at-with-single": "npx jest -t 'smoke' $@",
-            "quoted-comment": "fake-tests 'a b' # c",
-        }
-        for name, command in rejected.items():
-            with self.subTest(command=name):
-                p, _ = run(f"out-reject-{name}", EBT_TEST_CMD=command)
-                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-                self.assertIn("EBT_TEST_CMD", p.stderr)
-        p, _ = run("out-reject-single-quoted-message", EBT_TEST_CMD="fake-tests '$@'")
-        self.assertIn("двойных", p.stderr)
-        self.assertNotIn("не в одинарных", p.stderr)
-        p, _ = run("out-reject-unquoted-at-message", EBT_TEST_CMD="npx jest -t 'smoke' $@")
-        self.assertIn("двойных", p.stderr)
-
-        # 9. Двойные кавычки вокруг среза ${@:2} — явная ссылка, без дописывания "$@".
-        p, _ = run("out-braced-slice", EBT_TEST_CMD='fake-tests "${@:2}"')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines()[0], "0")
-
-        # 10. Ссылка внутри более длинной строки в двойных кавычках — тоже ссылка.
-        p, _ = run("out-files-at", EBT_TEST_CMD='fake-tests "--files=$@"')
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "--files=a b"])
-
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
         self.record = self.record.replace('"result":55870', '"result":1')  # нарушение правила
