@@ -8,7 +8,7 @@ LINUX_IMAGE ?= ghcr.io/astral-sh/uv:python3.12-bookworm
 .PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart test-sdk example check baseline clean
 
 help:
-	@echo "make test         — тесты исходного чекера и установленного гейта"
+	@echo "make test         — тесты исходного чекера, установленного гейта и actions"
 	@echo "make test-linux   — make test и make example для закоммиченного HEAD в Linux-контейнере (нужен docker)"
 	@echo "make release-check — wheel+sdist, тесты из sdist, build/release/<версия>/release.json"
 	@echo "make test-checker — тесты исходного чекера"

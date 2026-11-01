@@ -1,6 +1,6 @@
 # Witnessbox
 
-Evidence-based testing (EBT) of application behaviour: during tests the code records which decision it made and on what data, and an independent checker re-verifies every decision against a human-approved specification. The kit consists of a run gate, a checker and SDKs for Java, Dart and TypeScript. The runtime requires Python 3.11+ and has no third-party dependencies.
+Evidence-based testing (EBT) of application behaviour: during tests the code records which decision it made and on what data, and an independent checker re-verifies every decision against a human-approved specification. The kit consists of a run gate, a checker and SDKs for Java, Dart and TypeScript. The runtime requires Python 3.11+ and has no third-party dependencies. The gate is a bash script tested on macOS and Linux; native Windows is not supported, and running it under WSL is not covered by tests.
 
 ## Quick start
 
@@ -21,9 +21,10 @@ The documentation is written in Russian.
 The gate checks what was recorded and re-verifies the rule, but it is not a sandbox: the code under test and the gate run as the same OS user, so the guarantee is detection, not a privilege boundary ([D26](https://github.com/kaufd/WitnessBox/blob/main/docs/decisions.md)).
 
 - A decision that was made but not recorded, with consequences not visible outside observation-level (OBS) scenarios, is not caught; mutation audit is a research tool, not part of the gate (D29).
-- An installation tampered with before the run is not caught: the caller compares `gate_sha256` and `checker_sha256` with the release values (D33).
+- An installation tampered with before the run is not caught: the caller compares `gate_sha256` and `checker_sha256` with the release values (D33); in CI, `actions/setup` checks the wheel and `--installation` against the release (D45).
 - A deliberate bypass from `test.sh` by the same user — a background process, `~/.gitconfig`, `PATH` — is not caught (D26).
-- Editing evidence after the verdict is visible when re-checking against `gate.json`; a coordinated substitution of the files and the result is not caught (D34).
+- A coordinated substitution of evidence and `gate.json` before the verdict is not caught; in CI the trusted stage re-checks the evidence and signs the result, but the evidence is still produced by the code under test (D34, D45).
+- In CI, a verdict from the untrusted `pull_request` stage is not trusted: a `workflow_run` stage re-verifies the evidence against `ebt/` from the base branch, signs `gate.json` and sets the `witnessbox/gate` commit status (D45, [CI mode](https://github.com/kaufd/WitnessBox/blob/main/docs/ci.md)).
 
 A human approves the specification (D4). The full "attack → how it is caught → what is not" table is in the [threat model](https://github.com/kaufd/WitnessBox/blob/main/docs/security.md).
 
@@ -31,6 +32,7 @@ A human approves the specification (D4). The full "attack → how it is caught �
 
 - [How it works](https://github.com/kaufd/WitnessBox/blob/main/docs/example.md) — one example from requirement to verdict, for a first look.
 - [Threat model](https://github.com/kaufd/WitnessBox/blob/main/docs/security.md) — what the gate detects and what it does not promise.
+- [CI mode](https://github.com/kaufd/WitnessBox/blob/main/docs/ci.md) — two-stage GitHub Actions gate with a signed verdict and the `witnessbox/gate` status.
 - [New project](https://github.com/kaufd/WitnessBox/blob/main/docs/scaffold.md) — the `ebt/` scaffold: specification, stack-specific `test.sh` and `pinned.txt`.
 - [Architecture](https://github.com/kaufd/WitnessBox/blob/main/docs/architecture.md) — the actual modules and the verification flow.
 - [Extensions](https://github.com/kaufd/WitnessBox/blob/main/docs/extensions.md) — public types and the contract for project checkers.
