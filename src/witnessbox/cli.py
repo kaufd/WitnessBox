@@ -23,10 +23,11 @@ def _runtime_files(root: Path, suffix: str):
     )
 
 
-def _code_hash(package: Path, paths):
+def _code_hash(files):
+    """Fingerprint of shipped code: names and bytes; lengths delimit files."""
     digest = hashlib.sha256()
-    for path in sorted(set(paths), key=lambda p: p.relative_to(package).as_posix()):
-        name = path.relative_to(package).as_posix().encode("utf-8")
+    for name, path in sorted(files, key=lambda item: item[0]):
+        name = name.encode("utf-8")
         data = path.read_bytes()
         # Lengths make file boundaries unambiguous, including rename/empty-file changes.
         for part in (name, data):
@@ -35,14 +36,26 @@ def _code_hash(package: Path, paths):
     return digest.hexdigest()
 
 
+def _named(root: Path, paths, prefix: str = ""):
+    """(fingerprint name, path) pairs; the prefix keeps sibling packages apart."""
+    return [(f"{prefix}{path.relative_to(root).as_posix()}", path) for path in paths]
+
+
 def installation():
     package = Path(__file__).resolve().parent
     checker = package / "checker" / "ebt_check.py"
-    modules = _runtime_files(package / "checker", ".py")
+    modules = _named(package, _runtime_files(package / "checker", ".py"))
     public_api = package / "api.py"
     if public_api.is_file():
-        modules.append(public_api)
-    gate_files = _runtime_files(package, ".sh") + [Path(__file__).resolve()]
+        modules.append(("api.py", public_api))
+    # Совместимый пакет исполняется проектными чекерами (from ebt_verification.api),
+    # поэтому его байты входят в отпечаток чекера: иначе правка совместимого слоя
+    # не меняла бы ни один отпечаток запуска.
+    compat = package.parent / "ebt_verification"
+    if compat.is_dir():
+        modules += _named(compat, _runtime_files(compat, ".py"), prefix="ebt_verification/")
+    gate_files = _named(package, _runtime_files(package, ".sh"))
+    gate_files.append(("cli.py", Path(__file__).resolve()))
     return {
         "distribution": "witnessbox",
         "version": version("witnessbox"),
@@ -50,8 +63,8 @@ def installation():
         "resources": str(package / "resources"),
         "python": sys.executable,
         "checker": str(checker),
-        "checker_sha256": _code_hash(package, modules),
-        "gate_sha256": _code_hash(package, gate_files),
+        "checker_sha256": _code_hash(modules),
+        "gate_sha256": _code_hash(gate_files),
     }
 
 

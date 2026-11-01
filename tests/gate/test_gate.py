@@ -268,8 +268,12 @@ class Gate(unittest.TestCase):
         import json
         import shutil
         info = json.loads(subprocess.check_output([str(self.bin / "ebt-gate"), "--installation"]))
-        package = self.clone.parent / "identity-package"
-        shutil.copytree(info["package"], package)
+        installed = Path(info["package"])
+        site = self.clone.parent / "identity-site"
+        package = site / "witnessbox"
+        compat = site / "ebt_verification"
+        shutil.copytree(installed, package)
+        shutil.copytree(installed.parent / "ebt_verification", compat)
         code = ("import importlib.util,json,sys; "
                 "s=importlib.util.spec_from_file_location('identity_cli',sys.argv[1]); "
                 "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
@@ -297,6 +301,17 @@ class Gate(unittest.TestCase):
         scaffold_spec.write_text(scaffold_spec.read_text(encoding="utf-8") + "\n# data change\n",
                                  encoding="utf-8")
         self.assertEqual(before["gate_sha256"], identity()["gate_sha256"])
+        self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
+        # Совместимый пакет исполняется проектными чекерами при импорте, поэтому его
+        # байты входят в отпечаток чекера, а не только байты witnessbox/.
+        for name in ("api.py", "__init__.py"):
+            target = compat / name
+            original = target.read_bytes()
+            target.write_bytes(original + b"# compatibility change\n")
+            changed = identity()
+            self.assertNotEqual(stable["checker_sha256"], changed["checker_sha256"])
+            self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
+            target.write_bytes(original)
         self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
         helper = package / "runners" / "flutter.sh"
         helper.write_text(helper.read_text() + "\n# identity change\n")
@@ -754,12 +769,20 @@ exit 0
         env = {**os.environ, "PYTHONPATH": ""}  # make test-gate задаёт PYTHONPATH=src: нужен установленный пакет
         info = json.loads(subprocess.check_output([str(self.bin / "ebt-gate"), "--installation"], env=env))
         self.assertIn("site-packages", info["package"])
-        target = Path(info["package"]) / "checker" / "checkers.py"
-        self.addCleanup(target.write_bytes, target.read_bytes())
-        p = self.gate(self.write_to('"$OUT_DIR"') + f'echo "# changed" >> "{target}"\n')
-        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertEqual(self.gate_json()["result"], "ERROR")
-        self.assertIn("код поставки изменён во время прогона", self.gate_json()["message"])
+        package = Path(info["package"])
+        # Совместимый пакет исполняется проектными чекерами, поэтому его правка —
+        # такая же порча поставки, как правка witnessbox/checker/.
+        for target in (package / "checker" / "checkers.py",
+                       package.parent / "ebt_verification" / "api.py"):
+            with self.subTest(verifier=target.name):
+                original = target.read_bytes()
+                try:
+                    p = self.gate(self.write_to('"$OUT_DIR"') + f'echo "# changed" >> "{target}"\n')
+                    self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                    self.assertEqual(self.gate_json()["result"], "ERROR")
+                    self.assertIn("код поставки изменён во время прогона", self.gate_json()["message"])
+                finally:
+                    target.write_bytes(original)
 
     def test_installed_gate_without_source_access(self):
         import sys
