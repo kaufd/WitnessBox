@@ -39,7 +39,7 @@ fi
 [ -d "$target" ] || fail "в BASE $base нет каталога ebt/"
 # prepare.sh из BASE не должен остаться: вторая стадия не исполняет подготовку проекта.
 rm -rf "$target/prepare.sh" || fail "не удалось удалить prepare.sh из копии"
-rm -f "$target/test.sh" || fail "не удалось заменить test.sh в копии"
+rm -rf "$target/test.sh" || fail "не удалось заменить test.sh в копии"
 cp "$script_dir/replay.sh" "$target/test.sh" || fail "не удалось скопировать replay.sh"
 chmod 755 "$target/test.sh" || fail "не удалось сделать test.sh исполняемым"
 printf 'prepare.sh: ebt/ из BASE %s подготовлен в %s\n' "$base" "$target"
