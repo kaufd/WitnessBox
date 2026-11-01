@@ -185,8 +185,10 @@ def scaffold(argv):
     for name in sources:
         print(f"  {name}")
     print("Дальше: замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием,")
-    print("скопируйте SDK и помощников по pinned.txt командой ebt-gate --sync-pinned ebt")
-    print("из корня проекта и напишите тесты свидетельств в build/ebt/.")
+    print("прогоните тесты чекера: ebt-gate --test-checks ebt,")
+    print("скопируйте SDK и помощников: ebt-gate --sync-pinned ebt,")
+    print("проверьте подключение: ebt-gate --check-only ebt .,")
+    print("напишите тесты свидетельств в build/ebt/ и запустите гейт.")
     print("Подробности — в README.md каталога.")
     return 0
 

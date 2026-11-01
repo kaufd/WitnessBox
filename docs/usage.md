@@ -17,13 +17,13 @@ uv tool update-shell
 
 ```bash
 uv build
-uv tool install dist/witnessbox-0.6.0-py3-none-any.whl
+uv tool install dist/witnessbox-0.7.0-py3-none-any.whl
 uv tool update-shell
 ```
 
 `uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить. Из тега без клона: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.6.0`.
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.6.0-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.7.0-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Переход со старого дистрибутива
 
@@ -83,6 +83,33 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 Наличие исполняемого `test.sh` включает строгий интерфейс; `EBT_RUNNER=test.sh` задаёт его явно, `EBT_RUNNER=flutter` — явный запуск Flutter, только когда `test.sh` нет. Если `EBT_RUNNER` не задан и `test.sh` отсутствует, сохраняется режим совместимости с `flutter test --no-pub ${EBT_TESTS:-test/ebt}` и предупреждением. `prepare.sh`, если он задан, подготавливает зависимости чистого checkout. `test.sh` исполняется с правами гейта, а `OUT_DIR` не является песочницей. Чекер читает копию `spec.toml`, `checks.py`, `known.toml` и `baseline.jsonl`, снятую в `inputs/` каталога результатов до `prepare.sh`; если оригиналы или код поставки изменились за прогон, итог — ERROR. От намеренного обхода это не защищает ([решения](decisions.md), D26).
 
+## Проверка подключения и тесты чекера
+
+До полного прогона ошибки подключения находит команда, запущенная из корня проекта:
+
+```bash
+ebt-gate --check-only ebt .
+```
+
+Она проверяет `spec.toml`, загрузку `checks.py` и регистрацию всех чекеров
+спецификации, `known.toml`, `baseline.jsonl`, выбор runner, `pinned.txt`, чистоту
+клона и скрытые правки (`skip-worktree`/`assume-unchanged`), а при `BASE` —
+изменения защищённых путей. `prepare.sh` и `test.sh` не исполняются, файлы не
+меняются; `checks.py` импортируется так же, как в чекере. Коды: `0` — проблем нет,
+`1` — найдены проблемы, `2` — ошибка вызова. Это подсказка, а не вердикт:
+гарантировано только, что каждая найденная проблема даст гейту на том же входе
+не-PASS; тесты и свидетельства команда не проверяет. Без `BASE` вывод прямо
+говорит, что защищённые пути не проверялись.
+
+Тесты проектного чекера запускаются интерпретатором поставки:
+
+```bash
+ebt-gate --test-checks ebt
+```
+
+`<ebt-dir>` по умолчанию — `ebt`. Нулевой прогон (в каталоге нет `test_*.py`) —
+код `1`, а не успех.
+
 ## Импорты в проектных чекерах
 
 Установленные проектные чекеры импортируют публичные типы из `witnessbox.api`; `PYTHONPATH` и editable install не требуются. Совместимый `ebt_verification.api` переэкспортирует те же объекты и не содержит второй реализации, а `from checkers import ...` остаётся историческим импортом. Тесты разработчика могут отдельно импортировать исходники из дерева разработки.
@@ -93,7 +120,7 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 | Поддерживаемый интерфейс | Внутренняя реализация |
 |---|---|
-| команды `ebt-gate`, `ebt-gate --sync-pinned`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
+| команды `ebt-gate`, `ebt-gate --sync-pinned`, `ebt-gate --check-only`, `ebt-gate --test-checks`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
 | `witnessbox.api`, совместимый `ebt_verification.api` и `from checkers import ...` | функции `checker/engine.py` и `checker/input.py` |
 | формат свидетельств JSONL, `report.json` и `gate.json` | устройство реестра чекеров |
 | договор `test.sh`/`prepare.sh`, `OUT_DIR`, переменные `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | bash-функции гейта |
