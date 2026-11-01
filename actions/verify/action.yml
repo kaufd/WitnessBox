@@ -1,0 +1,210 @@
+name: Witnessbox verify
+description: Перепроверяет свидетельства из workflow_run, подписывает gate.json и ставит commit status
+
+inputs:
+  github-token:
+    description: Токен с правами actions:read и statuses:write (по умолчанию github.token)
+    required: false
+    default: ${{ github.token }}
+
+runs:
+  using: composite
+  steps:
+    - name: Поставить статус pending
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+      run: |
+        set -euo pipefail
+        if [ -z "$HEAD_SHA" ]; then
+          echo "нет head_sha у workflow_run" >&2
+          exit 1
+        fi
+        gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+          -f state=pending -f context=witnessbox/gate \
+          -f description="перепроверка свидетельств" -f target_url="$TARGET_URL" >/dev/null
+
+    - name: Проверить событие и BASE
+      shell: bash
+      env:
+        EVENT_NAME: ${{ github.event_name }}
+        BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+      run: |
+        set -euo pipefail
+        if [ "$EVENT_NAME" != "workflow_run" ]; then
+          echo "EBT_VERIFY_ERROR=actions/verify запускается только в job на workflow_run" >> "$GITHUB_ENV"
+          exit 1
+        fi
+        if [ -z "${BASE_SHA:-}" ]; then
+          echo "EBT_VERIFY_ERROR=нет BASE: PR из форка или push без PR не поддерживается" >> "$GITHUB_ENV"
+          exit 1
+        fi
+        echo "BASE=$BASE_SHA" >> "$GITHUB_ENV"
+
+    - name: Проверить, что actions/setup выполнен
+      shell: bash
+      run: |
+        set -euo pipefail
+        if ! command -v ebt-gate >/dev/null 2>&1; then
+          echo "EBT_VERIFY_ERROR=ebt-gate не найден на PATH: сначала выполните actions/setup" >> "$GITHUB_ENV"
+          exit 1
+        fi
+
+    - name: Получить коммит PR
+      # actions/checkout разрешает path только внутри GITHUB_WORKSPACE; RUNNER_TEMP здесь
+      # недоступен. Клон всё равно не исполняется: prepare.sh читает его только через git/tar.
+      uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      with:
+        repository: ${{ github.event.workflow_run.head_repository.full_name }}
+        ref: ${{ github.event.workflow_run.head_sha }}
+        fetch-depth: 0
+        persist-credentials: false
+        path: clone
+
+    - name: Скачать свидетельства первой стадии
+      id: evidence
+      continue-on-error: true
+      uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
+      with:
+        name: witnessbox-evidence
+        path: ${{ runner.temp }}/evidence
+        run-id: ${{ github.event.workflow_run.id }}
+        github-token: ${{ inputs.github-token }}
+
+    - name: Проверить наличие артефакта
+      if: steps.evidence.outcome != 'success'
+      shell: bash
+      run: |
+        echo "EBT_VERIFY_ERROR=нет артефакта witnessbox-evidence" >> "$GITHUB_ENV"
+        exit 1
+
+    - name: Подготовить ebt/ из BASE
+      shell: bash
+      run: |
+        set -euo pipefail
+        if output=$("$GITHUB_ACTION_PATH/prepare.sh" "$GITHUB_WORKSPACE/clone" \
+                     "$BASE" "$RUNNER_TEMP/ebt" 2>&1); then
+          printf '%s\n' "$output"
+        else
+          rc=$?
+          printf '%s\n' "$output" >&2
+          message=$(printf '%s' "$output" | tr '\n' ' ')
+          echo "EBT_VERIFY_ERROR=$message" >> "$GITHUB_ENV"
+          exit "$rc"
+        fi
+
+    - name: Перепроверить свидетельства доверенным гейтом
+      id: gate
+      shell: bash
+      env:
+        EBT_REPLAY_DIR: ${{ runner.temp }}/evidence
+        PYTHONPATH: ""
+        PYTHONHOME: ""
+      run: |
+        set -euo pipefail
+        run="$RUNNER_TEMP/run"
+        rm -rf "$run"
+        mkdir -p "$run"
+        set +e
+        BASE="$BASE" EBT_RUNNER=test.sh EBT_CHECK= EBT_REPLAY_DIR="$EBT_REPLAY_DIR" \
+          ebt-gate "$RUNNER_TEMP/ebt" "$GITHUB_WORKSPACE/clone" "$run"
+        rc=$?
+        set -e
+        echo "EBT_VERIFY_RC=$rc" >> "$GITHUB_ENV"
+        echo "EBT_GATE_RUN=$run" >> "$GITHUB_ENV"
+        if [ -f "$run/gate.json" ]; then
+          echo "gate_json=true" >> "$GITHUB_OUTPUT"
+        else
+          echo "gate_json=false" >> "$GITHUB_OUTPUT"
+        fi
+        exit 0
+
+    - name: Опубликовать gate.md в summary
+      if: always()
+      shell: bash
+      run: |
+        set -euo pipefail
+        if [ -f "$RUNNER_TEMP/run/gate.md" ]; then
+          cat "$RUNNER_TEMP/run/gate.md" >> "$GITHUB_STEP_SUMMARY"
+        fi
+
+    - name: Подписать gate.json аттестацией GitHub
+      id: attest
+      if: steps.gate.outputs.gate_json == 'true'
+      uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
+      with:
+        subject-path: ${{ runner.temp }}/run/gate.json
+
+    - name: Выгрузить вердикт второй стадии
+      if: always()
+      uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+      with:
+        name: witnessbox-verdict
+        path: ${{ runner.temp }}/run
+        if-no-files-found: warn
+
+    - name: Поставить итоговый commit status
+      if: always()
+      shell: bash
+      env:
+        GH_TOKEN: ${{ inputs.github-token }}
+        HEAD_SHA: ${{ github.event.workflow_run.head_sha }}
+        TARGET_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        ATTEST_OUTCOME: ${{ steps.attest.outcome }}
+      run: |
+        set -u
+        if [ -z "${HEAD_SHA:-}" ]; then
+          echo "нет head_sha: итоговый статус не поставлен" >&2
+          exit 1
+        fi
+        rc=${EBT_VERIFY_RC:-2}
+        gate_json="$RUNNER_TEMP/run/gate.json"
+        if [ -f "$gate_json" ]; then
+          case $rc in
+            0) state=success ;;
+            1) state=failure ;;
+            *) state=error ;;
+          esac
+        else
+          state=error
+          rc=2
+        fi
+        # PASS без подписи не даёт гарантии D45: успехом считается только подписанный вердикт.
+        if [ "$state" = success ] && [ "${ATTEST_OUTCOME:-}" != success ]; then
+          state=error
+          rc=2
+        fi
+        description=$(python3 -I - "$gate_json" <<'PY'
+        import json
+        import os
+        import sys
+
+        fallback = os.environ.get("EBT_VERIFY_ERROR") or "перепроверка не выполнена"
+        try:
+            with open(sys.argv[1], encoding="utf-8") as stream:
+                summary = json.load(stream)
+        except (OSError, UnicodeError, ValueError):
+            text = fallback
+        else:
+            result = summary.get("result") if isinstance(summary, dict) else None
+            reasons = summary.get("reasons") if isinstance(summary, dict) else None
+            message = summary.get("message") if isinstance(summary, dict) else None
+            parts = [str(result or "ERROR")]
+            if reasons:
+                parts.append(", ".join(str(reason) for reason in reasons))
+            if message:
+                parts.append(str(message))
+            text = " · ".join(parts).replace("\n", " ")
+        print(text[:140])
+        PY
+        ) || description="перепроверка не выполнена"
+        [ -n "$description" ] || description="перепроверка не выполнена"
+        gh api --method POST "repos/$GITHUB_REPOSITORY/statuses/$HEAD_SHA" \
+          -f state="$state" -f context=witnessbox/gate \
+          -f description="$description" -f target_url="$TARGET_URL" >/dev/null
+        echo "witnessbox/gate: $state — $description"
+        # Любой исход гейта уже отражён в статусе; job не валим из-за FAIL,
+        # но ошибка до гейта должна остаться видимой.
+        [ "$rc" -ne 2 ] || exit 1
