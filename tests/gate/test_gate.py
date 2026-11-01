@@ -265,61 +265,133 @@ class Gate(unittest.TestCase):
                         or [e["file"] for e in s["evidence"]] == ["a.jsonl", "b.jsonl"])
 
     def test_installation_identity_covers_shipped_code_and_gate_helpers(self):
-        import json
-        import shutil
+        """Отпечаток покрывает весь поставляемый .py/.sh; scaffold — данные, cli.py — гейт."""
         info = self.installation()
-        installed = Path(info["package"])
-        site = self.clone.parent / "identity-site"
-        package = site / "witnessbox"
-        compat = site / "ebt_verification"
-        shutil.copytree(installed, package)
-        shutil.copytree(installed.parent / "ebt_verification", compat)
-        for module in ("checkers.py", "ebt_check.py"):
-            shutil.copyfile(installed.parent / module, site / module)
-        code = ("import importlib.util,json,sys; "
-                "s=importlib.util.spec_from_file_location('identity_cli',sys.argv[1]); "
-                "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
-                "print(json.dumps(m.installation()))")
-        def identity():
-            return json.loads(subprocess.check_output([str(self.bin / "python"), "-I", "-c", code,
-                                                       str(package / "cli.py")]))
-        before = identity()
-        # Исполняемый код поставки: пакет witnessbox (включая __init__), py-modules и
-        # совместимый пакет. Правка любого из этих файлов меняет отпечаток чекера.
+        package = Path(info["package"])
+        compat = package.parent / "ebt_verification"
+        before = info
         for target in (package / "__init__.py",
                        package / "checker" / "checkers.py",
                        package / "api.py",
-                       site / "checkers.py",
-                       site / "ebt_check.py",
+                       package.parent / "checkers.py",
+                       package.parent / "ebt_check.py",
                        compat / "__init__.py",
                        compat / "api.py"):
-            with self.subTest(file=target.relative_to(site).as_posix()):
+            with self.subTest(file=target.relative_to(package.parent).as_posix()):
                 original = target.read_bytes()
-                target.write_bytes(original + b"# identity change\n")
-                changed = identity()
-                self.assertNotEqual(before["checker_sha256"], changed["checker_sha256"])
-                self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
-                target.write_bytes(original)
-        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
+                try:
+                    target.write_bytes(original + b"# identity change\n")
+                    changed = self.installation()
+                    self.assertNotEqual(before["checker_sha256"], changed["checker_sha256"])
+                    self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
+                finally:
+                    target.write_bytes(original)
+        self.assertEqual(before["checker_sha256"], self.installation()["checker_sha256"])
         # cli.py — код гейта, а не чекера: он входит только в gate_sha256.
         cli = package / "cli.py"
         original = cli.read_bytes()
-        cli.write_bytes(original + b"# identity change\n")
-        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
-        self.assertNotEqual(before["gate_sha256"], identity()["gate_sha256"])
-        cli.write_bytes(original)
-        self.assertEqual(before["gate_sha256"], identity()["gate_sha256"])
+        try:
+            cli.write_bytes(original + b"# identity change\n")
+            changed = self.installation()
+            self.assertEqual(before["checker_sha256"], changed["checker_sha256"])
+            self.assertNotEqual(before["gate_sha256"], changed["gate_sha256"])
+        finally:
+            cli.write_bytes(original)
+        self.assertEqual(before["gate_sha256"], self.installation()["gate_sha256"])
         # Заготовка — данные для нового проекта, а не код проверки: её правка не должна
         # менять удостоверение установленного гейта.
         scaffold_spec = package / "resources" / "scaffold" / "spec.toml"
-        scaffold_spec.write_text(scaffold_spec.read_text(encoding="utf-8") + "\n# data change\n",
-                                 encoding="utf-8")
-        self.assertEqual(before["gate_sha256"], identity()["gate_sha256"])
-        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
+        original = scaffold_spec.read_bytes()
+        try:
+            scaffold_spec.write_bytes(original + b"\n# data change\n")
+            changed = self.installation()
+            self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
+            self.assertEqual(before["checker_sha256"], changed["checker_sha256"])
+        finally:
+            scaffold_spec.write_bytes(original)
         helper = package / "runners" / "flutter.sh"
-        helper.write_text(helper.read_text() + "\n# identity change\n")
-        self.assertNotEqual(before["gate_sha256"], identity()["gate_sha256"])
-        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
+        original = helper.read_bytes()
+        try:
+            helper.write_bytes(original + b"\n# identity change\n")
+            changed = self.installation()
+            self.assertNotEqual(before["gate_sha256"], changed["gate_sha256"])
+            self.assertEqual(before["checker_sha256"], changed["checker_sha256"])
+        finally:
+            helper.write_bytes(original)
+
+    def test_installation_falls_back_when_record_lacks_package_files(self):
+        """Editable/PYTHONPATH: RECORD без witnessbox/ — отпечаток строится обходом дерева."""
+        import hashlib
+        import json
+        import shutil
+        import sys
+        root = self.clone.parent / "source-install"
+        tree = root / "src"
+        shutil.copytree(KIT / "src", tree,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.egg-info"))
+        site = root / "site-packages"
+        dist_info = site / f"witnessbox-{VERSION}.dist-info"
+        dist_info.mkdir(parents=True)
+        (dist_info / "METADATA").write_text(
+            f"Metadata-Version: 2.1\nName: witnessbox\nVersion: {VERSION}\n", encoding="utf-8")
+        env = {**os.environ, "PYTHONPATH": f"{site}{os.pathsep}{tree}"}
+        env.pop("PYTHONHOME", None)
+
+        def installation():
+            p = subprocess.run([sys.executable, "-m", "witnessbox.cli", "--installation"], cwd=root,
+                               capture_output=True, text=True, env=env)
+            self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+            return json.loads(p.stdout)
+
+        empty = hashlib.sha256(b"").hexdigest()
+        for record in ("", f"__editable__.witnessbox.pth,,\n"):
+            with self.subTest(record=record or "empty"):
+                (dist_info / "RECORD").write_text(record, encoding="utf-8")
+                info = installation()
+                self.assertEqual((info["distribution"], info["version"]), ("witnessbox", VERSION))
+                self.assertEqual(Path(info["package"]), (tree / "witnessbox").resolve())
+                self.assertNotEqual(info["checker_sha256"], empty)
+                self.assertNotEqual(info["gate_sha256"], empty)
+                # Обход дерева покрывает ровно то же, что RECORD установленного wheel.
+                installed_info = self.installation()
+                self.assertEqual(info["checker_sha256"], installed_info["checker_sha256"])
+                self.assertEqual(info["gate_sha256"], installed_info["gate_sha256"])
+
+                checker = tree / "witnessbox" / "checker" / "checkers.py"
+                original = checker.read_bytes()
+                try:
+                    checker.write_bytes(original + b"# source change\n")
+                    changed = installation()
+                    self.assertNotEqual(info["checker_sha256"], changed["checker_sha256"])
+                    self.assertEqual(info["gate_sha256"], changed["gate_sha256"])
+                finally:
+                    checker.write_bytes(original)
+
+                gate = tree / "witnessbox" / "gate.sh"
+                original = gate.read_bytes()
+                try:
+                    gate.write_bytes(original + b"\n# source change\n")
+                    changed = installation()
+                    self.assertNotEqual(info["gate_sha256"], changed["gate_sha256"])
+                    self.assertEqual(info["checker_sha256"], changed["checker_sha256"])
+                finally:
+                    gate.write_bytes(original)
+
+    def test_installation_refuses_empty_fingerprint(self):
+        """Пустой набор файлов — ошибка установки, а не постоянный SHA пустого ввода."""
+        code = (
+            "import witnessbox.cli as cli\n"
+            "cli._installed_entries = lambda package, dist: (package.parent, [])\n"
+            "try:\n"
+            "    cli.installation()\n"
+            "except RuntimeError as error:\n"
+            "    print(error)\n"
+        )
+        p = subprocess.run([str(self.bin / "python"), "-I", "-c", code],
+                           capture_output=True, text=True,
+                           env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertIn("пустой отпечаток", p.stdout)
 
     def installation(self) -> dict:
         import json

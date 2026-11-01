@@ -11,16 +11,24 @@ import tempfile
 
 
 def _installed_entries(package: Path, dist):
-    """Relative paths of this distribution's files; RECORD first, tree scan as fallback."""
-    if dist.files is not None:
-        return [Path(entry) for entry in dist.files]
+    """(root, paths) поставляемого кода: RECORD, а для editable — обход дерева.
+
+    RECORD задан относительно dist.locate_file(""), а не package.parent. В editable
+    установке и при запуске из src через PYTHONPATH в RECORD лежат только .pth и
+    finder-файлы, а исходников пакета там нет: такой RECORD непригоден, и тогда
+    отпечаток строится обходом дерева.
+    """
+    files = dist.files or ()
+    if any(Path(entry).parts[:1] == (package.name,) for entry in files):
+        root = Path(dist.locate_file("")).resolve()
+        return root, [Path(dist.locate_file(entry)).resolve() for entry in files]
     root = package.parent
     paths = [root / "checkers.py", root / "ebt_check.py",
              *package.rglob("*.py"), *package.rglob("*.sh")]
     compat = root / "ebt_verification"
     if compat.is_dir():
         paths += list(compat.rglob("*.py"))
-    return [path.relative_to(root) for path in paths]
+    return root, paths
 
 
 def _code_hash(root: Path, paths):
@@ -37,18 +45,21 @@ def _code_hash(root: Path, paths):
 
 def installation():
     package = Path(__file__).resolve().parent
-    root = package.parent
     dist = distribution("witnessbox")
-    # RECORD перечисляет файлы именно этой поставки: обход каталога подхватил бы
-    # оставшиеся файлы прежнего дистрибутива и чужие модули рядом.
-    entries = [Path(entry) for entry in _installed_entries(package, dist)]
+    root, installed = _installed_entries(package, dist)
     # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
     # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
-    code = [entry for entry in entries
-            if entry.suffix in (".py", ".sh") and "scaffold" not in entry.parts]
-    cli = Path(__file__).resolve().relative_to(root)
-    modules = [root / entry for entry in code if entry.suffix == ".py" and entry != cli]
-    gate_files = [root / entry for entry in code if entry.suffix == ".sh"] + [root / cli]
+    code = [path for path in installed
+            if path.suffix in (".py", ".sh") and "scaffold" not in path.parts]
+    cli = Path(__file__).resolve()
+    modules = [path for path in code if path.suffix == ".py" and path.resolve() != cli]
+    shell_files = [path for path in code if path.suffix == ".sh"]
+    if not modules or not shell_files:
+        # Пустой или неполный набор файлов дал бы постоянный SHA пустого ввода:
+        # молчаливое «удостоверение», которое ничего не удостоверяет.
+        raise RuntimeError(
+            "installation: пустой отпечаток кода witnessbox "
+            f"(python={len(modules)}, shell={len(shell_files)}); проверьте установку пакета")
     return {
         "distribution": dist.metadata["Name"],
         "version": dist.version,
@@ -57,7 +68,7 @@ def installation():
         "python": sys.executable,
         "checker": str(package / "checker" / "ebt_check.py"),
         "checker_sha256": _code_hash(root, modules),
-        "gate_sha256": _code_hash(root, gate_files),
+        "gate_sha256": _code_hash(root, [*shell_files, cli]),
     }
 
 
@@ -177,7 +188,11 @@ def scaffold(argv):
 def main():
     if sys.argv[1:2] == ["--scaffold"]:
         return scaffold(sys.argv[2:])
-    info = installation()
+    try:
+        info = installation()
+    except RuntimeError as error:
+        print(f"ebt-gate: {error}", file=sys.stderr)
+        return 2
     if sys.argv[1:] == ["--version"]:
         print(f"witnessbox {info['version']}")
         return 0
