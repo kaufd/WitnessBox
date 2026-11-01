@@ -31,6 +31,7 @@ runs:
       env:
         EVENT_NAME: ${{ github.event_name }}
         BASE_SHA: ${{ github.event.workflow_run.pull_requests[0].base.sha }}
+        HEAD_REPOSITORY: ${{ github.event.workflow_run.head_repository.full_name }}
       run: |
         set -euo pipefail
         if [ "$EVENT_NAME" != "workflow_run" ]; then
@@ -39,6 +40,10 @@ runs:
         fi
         if [ -z "${BASE_SHA:-}" ]; then
           echo "EBT_VERIFY_ERROR=нет BASE: PR из форка или push без PR не поддерживается" >> "$GITHUB_ENV"
+          exit 1
+        fi
+        if [ "${HEAD_REPOSITORY:-}" != "$GITHUB_REPOSITORY" ]; then
+          echo "EBT_VERIFY_ERROR=PR из форка не поддерживается: head_repository=$HEAD_REPOSITORY" >> "$GITHUB_ENV"
           exit 1
         fi
         echo "BASE=$BASE_SHA" >> "$GITHUB_ENV"
