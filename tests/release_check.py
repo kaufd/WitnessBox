@@ -4,7 +4,8 @@
 2. Из извлечённого sdist запускает make test и make example (и make test-sdk, если есть
    bun, javac и dart): sdist самодостаточен и проходит тесты.
 3. Собирает wheel из sdist и сравнивает его содержимое с выпускным.
-4. Ставит выпускной wheel в чистый venv без индекса и PYTHONPATH и сверяет версию установки.
+4. Ставит выпускной wheel в чистый venv без индекса и PYTHONPATH, сверяет дистрибутив,
+   версию и совместимый импорт установки.
 5. Пишет build/release/<version>/release.json с версией, SHA-256 артефактов и итогами.
 """
 import hashlib
@@ -69,14 +70,22 @@ def main() -> int:
     run([uv, "venv", "--python", sys.executable, venv])
     run([uv, "pip", "install", "--python", venv / "bin/python", "--no-index", wheel])
     installation = json.loads(subprocess.check_output([str(venv / "bin/ebt-gate"), "--installation"], env=ENV))
+    identity = subprocess.run(
+        [str(venv / "bin/python"), "-I", "-c",
+         "from witnessbox.api import Verdict; "
+         "from ebt_verification.api import Verdict as Compatible; "
+         "assert Compatible is Verdict"],
+        env=ENV, capture_output=True, text=True)
 
-    ok = payload_identical and installation["version"] == version
+    ok = (payload_identical and identity.returncode == 0
+          and installation["distribution"] == "witnessbox" and installation["version"] == version)
     release = {
         "version": version,
         "result": "PASS" if ok else "FAIL",
         "wheel": {"file": wheel.name, "sha256": sha256(wheel)},
         "sdist": {"file": sdist.name, "sha256": sha256(sdist)},
-        "installation": {k: installation[k] for k in ("version", "gate_sha256", "checker_sha256")},
+        "installation": {k: installation[k] for k in ("distribution", "version", "gate_sha256", "checker_sha256")},
+        "compat_import": identity.returncode == 0,
         "sdist_tests": "make test example" + (" test-sdk" if sdk else "; test-sdk пропущен: нет bun или javac"),
         "sdist_wheel_payload_identical": payload_identical,
     }

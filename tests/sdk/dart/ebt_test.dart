@@ -4,7 +4,7 @@
 
 import 'dart:io';
 
-import '../../../src/ebt_verification/resources/lib/ebt/ebt.dart';
+import '../../../src/witnessbox/resources/lib/ebt/ebt.dart';
 
 void main() {
   var assertsOn = false;

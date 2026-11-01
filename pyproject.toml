@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "witnessbox"
-version = "0.4.0"
-description = "Самостоятельная верификация EBT: гейт, чекер и SDK"
+version = "0.5.0"
+description = "Independent verification of agent-written code through test evidence."
 readme = "docs/usage.md"
 requires-python = ">=3.11"
 license = "MIT"
@@ -13,8 +13,8 @@ license-files = ["LICENSE"]
 dependencies = []
 
 [project.scripts]
-ebt-gate = "ebt_verification.cli:main"
-ebt-check = "ebt_verification.checker.ebt_check:main"
+ebt-gate = "witnessbox.cli:main"
+ebt-check = "witnessbox.checker.ebt_check:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}
@@ -25,9 +25,9 @@ include-package-data = false
 where = ["src"]
 
 [tool.setuptools.package-data]
-ebt_verification = ["gate.sh", "runners/*.sh"]
-"ebt_verification.checker" = ["fixtures/*.jsonl"]
-"ebt_verification.resources" = [
+witnessbox = ["gate.sh", "runners/*.sh"]
+"witnessbox.checker" = ["fixtures/*.jsonl"]
+"witnessbox.resources" = [
   "lib/ebt/Ebt.java",
   "lib/ebt/ebt.dart",
   "lib/ebt/ebt.ts",
@@ -42,5 +42,5 @@ ebt_verification = ["gate.sh", "runners/*.sh"]
 # Тестовые модули runtime не поставляются. Заготовка — данные, а не runtime:
 # её test_checks.py должен попасть в wheel, поэтому исключение задано по пакетам,
 # а не шаблоном "*".
-"ebt_verification" = ["test_*.py"]
-"ebt_verification.checker" = ["test_*.py"]
+witnessbox = ["test_*.py"]
+"witnessbox.checker" = ["test_*.py"]

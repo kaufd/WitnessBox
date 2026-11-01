@@ -14,7 +14,8 @@ from tests._verification_test_support import install_verification
 from pathlib import Path
 
 KIT = Path(__file__).resolve().parents[2]
-FIXTURE = KIT / "src/ebt_verification/checker/fixtures/record.jsonl"
+FIXTURE = KIT / "src/witnessbox/checker/fixtures/record.jsonl"
+VERSION = tomllib.loads((KIT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 
 SPEC = """[req.REQ-CART-1]
 text = "Итог корзины = сумма позиций минус скидка."
@@ -30,7 +31,7 @@ partitions = ["no_discount"]
 class Gate(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.install_tmp, cls.bin, cls.wheel = install_verification()
+        cls.install_tmp, cls.bin, cls.wheel, cls.sdist = install_verification()
         cls.addClassCleanup(cls.install_tmp.cleanup)
 
     def setUp(self):
@@ -211,7 +212,7 @@ class Gate(unittest.TestCase):
         self.assertEqual((s["tests_exit_code"], s["checker_exit_code"], s["message"]), (0, 0, None))
         head = subprocess.check_output(["git", "-C", str(self.clone), "rev-parse", "HEAD"], text=True).strip()
         self.assertEqual(s["commit"], head)
-        self.assertEqual((s["verifier"]["distribution"], s["verifier"]["version"]), ("witnessbox", "0.4.0"))
+        self.assertEqual((s["verifier"]["distribution"], s["verifier"]["version"]), ("witnessbox", VERSION))
         self.assertRegex(s["verifier"]["gate_sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(s["checker"]["sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(s["spec_sha256"], "^[0-9a-f]{64}$")
@@ -302,6 +303,53 @@ class Gate(unittest.TestCase):
         self.assertNotEqual(before["gate_sha256"], identity()["gate_sha256"])
         self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
 
+    def installation(self) -> dict:
+        import json
+        return json.loads(subprocess.check_output(
+            [str(self.bin / "ebt-gate"), "--installation"], text=True,
+            env={**os.environ, "PYTHONPATH": ""}))
+
+    def test_installation_reports_witnessbox_and_existing_paths(self):
+        """--installation описывает установленный witnessbox, а его пути существуют."""
+        info = self.installation()
+        self.assertEqual((info["distribution"], info["version"]), ("witnessbox", VERSION))
+        for key in ("package", "resources", "python", "checker"):
+            self.assertTrue(Path(info[key]).exists(), f"{key}: {info[key]}")
+        self.assertEqual(Path(info["python"]).resolve(), (self.bin / "python").resolve())
+        self.assertEqual(Path(info["package"]).name, "witnessbox")
+        self.assertTrue((Path(info["resources"]) / "lib/ebt/Ebt.java").is_file())
+        self.assertTrue((Path(info["package"]) / "gate.sh").is_file())
+        self.assertRegex(info["gate_sha256"], "^[0-9a-f]{64}$")
+        self.assertRegex(info["checker_sha256"], "^[0-9a-f]{64}$")
+
+    def test_installed_public_imports_are_identical_without_checkout(self):
+        """Поставка работает без checkout и PYTHONPATH; новый и совместимый импорты — один класс."""
+        code = (
+            "import sys\n"
+            "import witnessbox\n"
+            "from witnessbox.api import Verdict, WitnessError\n"
+            "from ebt_verification.api import Verdict as CompatVerdict\n"
+            "from ebt_verification.api import WitnessError as CompatWitnessError\n"
+            "from checkers import Verdict as LegacyVerdict\n"
+            "assert CompatVerdict is Verdict is LegacyVerdict\n"
+            "assert CompatWitnessError is WitnessError\n"
+            "assert Verdict.__module__ == 'witnessbox.api'\n"
+            "assert 'site-packages' in witnessbox.__file__, witnessbox.__file__\n"
+            f"assert {str(KIT / 'src')!r} not in sys.path, sys.path\n"
+            "print('ok')\n"
+        )
+        p = subprocess.run([str(self.bin / "python"), "-I", "-c", code], cwd=self.clone.parent,
+                           capture_output=True, text=True,
+                           env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual(p.stdout.strip(), "ok")
+
+    def test_checker_cli_runs_from_distribution(self):
+        p = subprocess.run([str(self.bin / "ebt-check"), "--version"], capture_output=True, text=True,
+                           env={**os.environ, "PYTHONPATH": ""})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertRegex(p.stdout.strip(), r"^ebt-check \d+\.\d+\.\d+$")
+
     def test_scaffold_creates_ebt_for_each_stack(self):
         expected = {
             "dart": ("lib/ebt/ebt.dart", "lib/ebt/ebt.dart"),
@@ -326,6 +374,11 @@ class Gate(unittest.TestCase):
                 self.assertEqual(spec["inv"]["INV-EXAMPLE-1"]["checker"], "example_rule")
                 self.assertIn("example_rule", (target / "checks.py").read_text(encoding="utf-8"))
                 self.assertIn(f"kit:{sdk}  {destination}", (target / "pinned.txt").read_text(encoding="utf-8"))
+                # Новые шаблоны импортируют публичный witnessbox.api, прежний импорт — только совместимость.
+                for name in ("checks.py", "test_checks.py"):
+                    template = (target / name).read_text(encoding="utf-8")
+                    self.assertIn("from witnessbox.api import", template)
+                    self.assertNotIn("from ebt_verification.api import", template)
 
                 # Договор test.sh: без OUT_DIR — ошибка исполнения, а не «тесты упали».
                 p = subprocess.run([str(target / "test.sh")], cwd=target, capture_output=True, text=True,
@@ -334,7 +387,7 @@ class Gate(unittest.TestCase):
 
                 # Пример чекера и его тесты — рабочие, а не комментарии. Инструкция
                 # должна запускать интерпретатор поставки: системный python3 пакет
-                # ebt_verification не видит.
+                # witnessbox не видит.
                 for name in ("test_checks.py", "README.md"):
                     self.assertIn("ebt-gate --installation", (target / name).read_text(encoding="utf-8"))
                 shell = """
@@ -390,16 +443,19 @@ python=$(ebt-gate --installation | python3 -c 'import json, sys; print(json.load
         self.assertTrue((default / "ebt" / "spec.toml").is_file())
 
     def test_scaffold_accepts_current_directory(self):
-        """`.` — текущий пустой каталог; раньше он удалялся как временный и падал."""
+        """`.` — текущий пустой каталог для каждого стека; раньше он удалялся как временный и падал."""
         env = {**os.environ, "PYTHONPATH": ""}
-        dot = self.clone.parent / "scaffold-dot"
-        dot.mkdir()
-        p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", "ts", "."], cwd=dot,
-                           capture_output=True, text=True, env=env)
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertTrue((dot / "spec.toml").is_file())
-        self.assertTrue((dot / "test.sh").is_file())
-        self.assertFalse((dot / "ebt").exists())
+        for stack in ("dart", "ts", "jvm"):
+            with self.subTest(stack=stack):
+                dot = self.clone.parent / f"scaffold-dot-{stack}"
+                dot.mkdir()
+                p = subprocess.run([str(self.bin / "ebt-gate"), "--scaffold", stack, "."], cwd=dot,
+                                   capture_output=True, text=True, env=env)
+                self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+                self.assertTrue((dot / "spec.toml").is_file())
+                self.assertTrue((dot / "test.sh").is_file())
+                self.assertTrue((dot / "pinned.txt").is_file())
+                self.assertFalse((dot / "ebt").exists())
 
     def test_scaffold_test_scripts_follow_gate_contract(self):
         """Шаблон test.sh: аргументы EBT_TESTS, OUT_DIR, коды 0/1/2 и свидетельства при любом исходе."""
@@ -509,11 +565,11 @@ exit 0
         env = {"PATH": f"{fake.parent}:{os.environ['PATH']}"}
         p = self.gate(self.write_to('"$OUT_DIR"'), env)
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("witnessbox 0.4.0", self.gate_md())
+        self.assertIn(f"witnessbox {VERSION}", self.gate_md())
         self.assertIn(str(self.bin.parent), self.gate_md())
 
     def test_project_cannot_shadow_bundled_checker_package(self):
-        poison = self.clone / "ebt_verification"
+        poison = self.clone / "witnessbox"
         poison.mkdir()
         (poison / "__init__.py").write_text("raise RuntimeError('wrong checker from project cwd')")
         subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
@@ -623,18 +679,38 @@ exit 0
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
         self.assertIn("Закреплённые копии отличаются", self.gate_md())
 
-    def test_artifact_has_sdk_fixture_and_no_role_prompts(self):
+    def test_wheel_from_sdist_ships_sdk_templates_and_compat_module(self):
+        """Wheel собран из sdist: SDK и все шаблоны едут в поставке, совместимость — без второй копии."""
         import zipfile
         with zipfile.ZipFile(self.wheel) as wheel:
             names = wheel.namelist()
         for name in ("Ebt.java", "ebt.dart", "ebt.ts"):
-            self.assertIn(f"ebt_verification/resources/lib/ebt/{name}", names)
+            self.assertIn(f"witnessbox/resources/lib/ebt/{name}", names)
         for name in ("README.md", "spec.toml", "checks.py", "test_checks.py",
                      "dart/test.sh", "dart/pinned.txt", "ts/test.sh", "ts/pinned.txt",
                      "jvm/test.sh", "jvm/pinned.txt"):
-            self.assertIn(f"ebt_verification/resources/scaffold/{name}", names)
-        self.assertIn("ebt_verification/checker/fixtures/record.jsonl", names)
+            self.assertIn(f"witnessbox/resources/scaffold/{name}", names)
+        self.assertIn("witnessbox/checker/fixtures/record.jsonl", names)
+        self.assertIn("witnessbox/api.py", names)
+        # Старый импорт — тонкая пересылка ebt_verification/api.py, а не второй runtime.
+        self.assertIn("ebt_verification/api.py", names)
+        self.assertNotIn("ebt_verification/checker/checkers.py", names)
         self.assertFalse(any("prompts/" in p or p.endswith(("roles.toml", "run_role.py")) for p in names))
+
+    def test_sdist_ships_sdk_templates_and_compat_module(self):
+        import tarfile
+        with tarfile.open(self.sdist) as archive:
+            names = archive.getnames()
+        for relative in ("src/witnessbox/resources/lib/ebt/Ebt.java",
+                         "src/witnessbox/resources/lib/ebt/ebt.dart",
+                         "src/witnessbox/resources/lib/ebt/ebt.ts",
+                         "src/witnessbox/resources/scaffold/test_checks.py",
+                         "src/witnessbox/resources/scaffold/dart/test.sh",
+                         "src/witnessbox/checker/fixtures/record.jsonl",
+                         "src/witnessbox/api.py",
+                         "src/ebt_verification/api.py"):
+            self.assertTrue(any(name.endswith(relative) for name in names), relative)
+        self.assertFalse(any(name.endswith("src/ebt_verification/checker/checkers.py") for name in names))
 
     def test_dirty_checkout_and_hidden_edits_are_errors(self):
         (self.clone / "untracked").write_text("dirty")
@@ -701,8 +777,9 @@ exit 0
         (self.ebt / "spec.toml").write_text(SPEC.replace('"cart_total"', '"project_cart"'))
         (self.ebt / "checks.py").write_text(
             'from checkers import Verdict, WitnessError\n'
-            'from ebt_verification.checker.checkers import cart_total, Verdict as InstalledVerdict\n'
-            'assert Verdict is InstalledVerdict\n'
+            'from witnessbox.checker.checkers import cart_total, Verdict as InstalledVerdict\n'
+            'from ebt_verification.api import Verdict as CompatVerdict\n'
+            'assert Verdict is InstalledVerdict is CompatVerdict\n'
             'CHECKERS = {"project_cart": cart_total}\n')
         self.gate(self.write_to('"$OUT_DIR"'))  # Сохранить проектные входы до запрета исходников.
         env = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_CHECK": ""}
@@ -710,7 +787,7 @@ exit 0
                                      str(self.run_dir)], capture_output=True, text=True,
                            cwd=self.clone.parent, env=env)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("witnessbox 0.4.0", self.gate_md())
+        self.assertIn(f"witnessbox {VERSION}", self.gate_md())
 
 
 if __name__ == "__main__":

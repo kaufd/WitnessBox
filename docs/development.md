@@ -16,10 +16,10 @@ Standalone artifacts собираются и проверяются отдель
 
 ```bash
 uv build --wheel --sdist
-uv tool install --force dist/witnessbox-0.4.0-py3-none-any.whl
+uv tool install --force dist/witnessbox-0.5.0-py3-none-any.whl
 ```
 
-Интеграционные тесты гейта устанавливают wheel во временное изолированное окружение; они проверяют поставку без editable install и без `PYTHONPATH`. Source-checker tests используют `PYTHONPATH=src` локально как тесты дерева разработки. Этот приём не нужен проектным расширениям: установленные чекеры импортируют типы через `ebt_verification.api`.
+Интеграционные тесты гейта устанавливают wheel во временное изолированное окружение; они проверяют поставку без editable install и без `PYTHONPATH`. Source-checker tests используют `PYTHONPATH=src` локально как тесты дерева разработки. Этот приём не нужен проектным расширениям: установленные чекеры импортируют типы через `witnessbox.api`.
 
 `make release-check` собирает sdist и wheel из него, запускает из извлечённого sdist `make test example` и `make test-sdk` (если есть bun, javac и dart), сравнивает wheel из sdist с выпускным и ставит выпускной wheel в чистый venv без индекса, проверяя версию и отпечатки установки. Итог, версия и SHA-256 артефактов — в `build/release/<версия>/release.json`. Wheel собирается только из sdist: прямая сборка из рабочего дерева переиспользует устаревший `build/lib`.
 
@@ -29,4 +29,4 @@ uv tool install --force dist/witnessbox-0.4.0-py3-none-any.whl
 
 ## Совместимость импортов
 
-Библиотечные импорты `from checkers import Verdict, WitnessError` остаются совместимыми для установленной поставки. Предпочтительный публичный импорт — `from ebt_verification.api import Verdict, WitnessError`. Ни shim каталога `tool/ebt_check`, ни symlink `lib/ebt` в текущем дереве исходников нет.
+Библиотечные импорты `from checkers import Verdict, WitnessError` и `from ebt_verification.api import Verdict, WitnessError` остаются совместимыми для установленной поставки: оба возвращают объекты из `witnessbox.api`. Предпочтительный публичный импорт — `from witnessbox.api import Verdict, WitnessError`; новые шаблоны заготовки используют его. Ни shim каталога `tool/ebt_check`, ни symlink `lib/ebt` в текущем дереве исходников нет.

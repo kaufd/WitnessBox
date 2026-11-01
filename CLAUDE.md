@@ -1,12 +1,12 @@
-# Правила разработки WitnessBox
+# Правила разработки Witnessbox
 
 ## Структура и независимость
 
-- `src/ebt_verification/` — единственный runtime и установленный пакет; публичные Python-команды — `ebt-gate` и `ebt-check`.
-- `src/ebt_verification/checker/` — независимая реализация правил. Чекер и проектные расширения не импортируют приложение или SDK и не полагаются на `ok` приложения.
-- `src/ebt_verification/api.py` — публичные типы расширений. Новый код импортирует `Verdict`, `WitnessError` из `ebt_verification.api`; совместимость с `from checkers import ...` сохраняется.
-- `src/ebt_verification/resources/lib/ebt/` — поставляемые SDK; `tests/` — тесты чекера, установленного wheel-гейта и SDK; `examples/` — демонстрация.
-- `src/ebt_verification/resources/scaffold/` — шаблоны нового проекта: `spec.toml`, `checks.py`, `test_checks.py`, `test.sh` для стеков Dart, TypeScript и JVM, `pinned.txt`. Шаблонная `spec.toml` — пример, а не утверждённая спецификация. `test.sh` и `pinned.txt` — часть поставляемого интерфейса заготовки; менять договор гейта в них можно только вместе с `docs/scaffold.md` и тестами.
+- `src/witnessbox/` — единственный runtime и установленный пакет; публичные Python-команды — `ebt-gate` и `ebt-check`.
+- `src/witnessbox/checker/` — независимая реализация правил. Чекер и проектные расширения не импортируют приложение или SDK и не полагаются на `ok` приложения.
+- `src/witnessbox/api.py` — публичные типы расширений. Новый код импортирует `Verdict`, `WitnessError` из `witnessbox.api`; `src/ebt_verification/api.py` переэкспортирует те же объекты для существующих проектов, совместимость с `from checkers import ...` сохраняется.
+- `src/witnessbox/resources/lib/ebt/` — поставляемые SDK; `tests/` — тесты чекера, установленного wheel-гейта и SDK; `examples/` — демонстрация.
+- `src/witnessbox/resources/scaffold/` — шаблоны нового проекта: `spec.toml`, `checks.py`, `test_checks.py`, `test.sh` для стеков Dart, TypeScript и JVM, `pinned.txt`. Шаблонная `spec.toml` — пример, а не утверждённая спецификация. `test.sh` и `pinned.txt` — часть поставляемого интерфейса заготовки; менять договор гейта в них можно только вместе с `docs/scaffold.md` и тестами.
 
 ## Спецификация и решения
 
@@ -20,4 +20,4 @@
 
 Документация, сообщения и отчёты пишутся на русском; идентификаторы и код — на английском. В Dart денежные значения выражайте целыми минимальными единицами, а `ev()` вызывайте только внутри `assert`. Не утверждайте, что Dart-код проверен или работает, пока он не прошёл `flutter analyze` и тесты.
 
-Runtime не должен приобретать сторонние зависимости. При изменении runtime учитывайте, что fingerprint установки включает `src/ebt_verification/`. Интеграционные проверки установленного wheel должны оставаться независимыми от checkout и `PYTHONPATH`; исходные тесты дерева разработки могут импортировать `src` отдельно.
+Runtime не должен приобретать сторонние зависимости. При изменении runtime учитывайте, что fingerprint установки включает `src/witnessbox/`. Интеграционные проверки установленного wheel должны оставаться независимыми от checkout и `PYTHONPATH`; исходные тесты дерева разработки могут импортировать `src` отдельно.

@@ -1,4 +1,4 @@
-# Модель угроз WitnessBox
+# Модель угроз Witnessbox
 
 Гейт и чекер отвечают на вопрос «что записано и согласуется ли запись с правилом», а не «что исполнялось». Противник — код под проверкой и его автор, в том числе агент-кодировщик; он работает от того же пользователя ОС, что и гейт. Гарантия — **обнаружение** несоответствия, а не граница прав: гейт не песочница и не доказательство отсутствия обхода (D26).
 
@@ -11,7 +11,7 @@
 | Чекер не смотрит на поле | `--self-test` | [test_self_test_finds_ignored_field](../tests/checker/test_checker.py) |
 | Класс входов не покрыт | `uncovered_partitions`, FAIL без `--allow-uncovered` | [test_coverage](../tests/checker/test_checker.py) |
 | Тесты упали, а чекер зелёный | `tests_failed`, FAIL | [D19](decisions.md) |
-| Ветка правит `ebt/` или `tool/ebt_check/` | `protected_paths_changed`; нужен `BASE` | [gate.sh](../src/ebt_verification/gate.sh) |
+| Ветка правит `ebt/` или `tool/ebt_check/` | `protected_paths_changed`; нужен `BASE` | [gate.sh](../src/witnessbox/gate.sh) |
 | Ветка правит закреплённую копию SDK | `pinned_drift` | `pinned.txt`, [D25](decisions.md) |
 | Входы проверки изменены во время прогона | снимок `inputs/`, ERROR `gate_error` | [D26](decisions.md) |
 | Код гейта или чекера изменён во время прогона | сверка `--installation`, ERROR | [D26](decisions.md) |

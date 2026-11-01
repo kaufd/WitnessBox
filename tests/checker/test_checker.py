@@ -471,7 +471,7 @@ class FormatFixture(unittest.TestCase):
     """fixtures/record.jsonl — запись в формате, который пишут SDK (ebt.ts, Ebt.java): чекер её принимает."""
 
     def test_format_fixture_is_valid_record(self):
-        records, bad = ec.load_jsonl(KIT / "src/ebt_verification/checker/fixtures/record.jsonl")
+        records, bad = ec.load_jsonl(KIT / "src/witnessbox/checker/fixtures/record.jsonl")
         self.assertEqual(bad, [])
         self.assertEqual(len(records), 1)
         spec, _ = ec.load_spec(SPEC)
@@ -482,7 +482,7 @@ class Packaging(unittest.TestCase):
     def test_checker_version_remains_public(self):
         # Версия поставки теперь независима от версии контракта CLI-чекера.
         import subprocess
-        p = subprocess.run([sys.executable, "-m", "ebt_verification.checker.ebt_check", "--version"],
+        p = subprocess.run([sys.executable, "-m", "witnessbox.checker.ebt_check", "--version"],
                            capture_output=True, text=True,
                            env={**__import__("os").environ, "PYTHONPATH": str(SRC)})
         self.assertEqual(p.returncode, 0)
@@ -552,7 +552,7 @@ class InputBoundaries(unittest.TestCase):
                 '[inv.I]\nreq = "R"\nchecker = "boundary_check"\n'
                 'witness = ["n", "n"]\npartitions = ["one", "one"]\n'
                 'not_in_verdict = ["unused", "unused"]\ntransitions = "project-specific"\n')
-        project = ('from ebt_verification.api import Verdict\n'
+        project = ('from witnessbox.api import Verdict\n'
                    'CHECKERS = {"boundary_check": lambda w, inv: Verdict(True, parts={"one"})}\n')
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
@@ -724,8 +724,8 @@ class CheckerReturnBoundary(unittest.TestCase):
                 ec.CHECKERS.pop("boundary_check", None)
 
     def test_public_and_legacy_types_and_registries_share_identity(self):
-        from ebt_verification import api
-        from ebt_verification.checker import checkers as canonical, engine
+        from witnessbox import api
+        from witnessbox.checker import checkers as canonical, engine
         self.assertIs(checkers, canonical)
         self.assertIs(checkers.Verdict, api.Verdict)
         self.assertIs(checkers.WitnessError, api.WitnessError)
@@ -735,6 +735,16 @@ class CheckerReturnBoundary(unittest.TestCase):
         self.assertIs(ec.CHECKERS, engine.CHECKERS)
         self.assertIs(ec.CHECKERS, canonical.CHECKERS)
         self.assertIs(ec.DERIVED_PARTITIONS, engine.DERIVED_PARTITIONS)
+
+    def test_legacy_ebt_verification_api_reexports_witnessbox_objects(self):
+        """Совместимый импорт возвращает те же объекты и не заводит вторую реализацию."""
+        from ebt_verification import api as compat
+        from witnessbox import api
+        for name in ("Verdict", "WitnessError", "CheckFn", "PartitionsFn"):
+            with self.subTest(name=name):
+                self.assertIs(getattr(compat, name), getattr(api, name))
+        self.assertEqual(api.Verdict.__module__, "witnessbox.api")
+        self.assertEqual(compat.Verdict.__module__, "witnessbox.api")
 
 
 class OutputBoundaries(unittest.TestCase):
