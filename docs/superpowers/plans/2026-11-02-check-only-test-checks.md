@@ -1,6 +1,6 @@
 # План: `ebt-gate --check-only` и `ebt-gate --test-checks`
 
-> **Для исполнителя-агента:** обязательный sub-skill — superpowers:subagent-driven-development (рекомендуется) или superpowers:executing-plans. Шаги отмечаются чекбоксами (`- [ ]`).
+> **Для исполнителя-агента:** обязательный sub-skill — superpowers:subagent-driven-development (рекомендуется) или superpowers:executing-plans. Шаги отмечаются чекбоксами (`- [x]`).
 
 **Цель:** ошибки подключения находятся до прогона тестов, а тесты проектного чекера запускаются одной командой. Сейчас неверная `spec.toml`, неисполняемый `test.sh` или `pinned_drift` выясняются только после полного прогона. Тесты `checks.py` запускаются обходным рецептом с `python` из `--installation` (D32).
 
@@ -43,9 +43,9 @@
 - Производит: `PinnedCopy = tuple[int, Path, str, Path]` — `(номер строки, оригинал, dest как в файле, разрешённый путь назначения)`.
 - `sync_pinned` вызывает `read_pinned` и сохраняет прежний вывод и коды.
 
-- [ ] **Шаг 1:** вынести первый проход `sync_pinned` (чтение байтов, `\r`, комментарии, `kit:`/абсолютный/относительный оригинал, отсутствие оригинала, абсолютный dest, выход за корень, каталог, повтор пути) в `read_pinned`.
-- [ ] **Шаг 2:** `PYTHONPATH=src python3 -m unittest tests.gate.test_gate.Gate -k sync_pinned` — зелёный, тексты ошибок прежние.
-- [ ] **Шаг 3: Коммит** `cli: общий разбор pinned.txt для --sync-pinned и --check-only`.
+- [x] **Шаг 1:** вынести первый проход `sync_pinned` (чтение байтов, `\r`, комментарии, `kit:`/абсолютный/относительный оригинал, отсутствие оригинала, абсолютный dest, выход за корень, каталог, повтор пути) в `read_pinned`.
+- [x] **Шаг 2:** `PYTHONPATH=src python3 -m unittest tests.gate.test_gate.Gate -k sync_pinned` — зелёный, тексты ошибок прежние.
+- [x] **Шаг 3: Коммит** `cli: общий разбор pinned.txt для --sync-pinned и --check-only`.
 
 ---
 
@@ -71,7 +71,7 @@
   7. `clone` — `git status --porcelain` пуст; в `git ls-files -v` нет строк с флагом `[a-zS]`, как в `gate.sh:93`.
   8. `base` — если задан `BASE`, коммит существует и `git diff --name-only BASE HEAD -- ebt tool/ebt_check` пуст; без `BASE` — `пропущено`.
 
-- [ ] **Шаг 1: Тесты.** Исходное состояние `setUp` класса `Gate`: spec без `checks.py` и чистый клон. Тестовый `test.sh` создаётся через `self.gate(...)` или явной записью исполняемого файла.
+- [x] **Шаг 1: Тесты.** Исходное состояние `setUp` класса `Gate`: spec без `checks.py` и чистый клон. Тестовый `test.sh` создаётся через `self.gate(...)` или явной записью исполняемого файла.
   - `test_check_only_clean_project_is_ok` → код 0, все строки `ок`, кроме `пропущено base`.
   - `test_check_only_reports_each_problem` — по подтесту на каждый пункт фокуса ревью 1–3:
     - неизвестный `inv.checker`;
@@ -86,10 +86,10 @@
     Ожидание в каждом подтесте: код 1, строка `проблема <проверка>`, в stderr нет `Traceback`.
   - `test_check_only_problems_are_not_gate_pass` — для тех же подтестов `self.gate(self.write_to('"$OUT_DIR"'))` возвращает не 0 (FAIL или ERROR). Так закреплено ограничение «каждая проблема — не-PASS гейта».
   - `test_check_only_usage_errors` — без аргументов и с несуществующим каталогом → код 2, `usage:` или «нет каталога» в stderr.
-- [ ] **Шаг 2: Запуск — FAIL** (`PYTHONPATH=src python3 -m unittest tests.gate.test_gate.Gate -k check_only`): аргумент уходит в `gate.sh`, коды и вывод не совпадают.
-- [ ] **Шаг 3: Реализовать `check_only`.** Функции чекера импортируются внутри функции, чтобы `--scaffold` и `--version` не тянули модули чекера. `ValueError`/`OSError` из них превращаются в строку `проблема`. Git вызывается через `subprocess.run([...], cwd=clone, capture_output=True, text=True)`. Отказ git — `проблема clone: git … упал`.
-- [ ] **Шаг 4:** `make test-gate` — зелёный.
-- [ ] **Шаг 5: Коммит** `ebt-gate --check-only: проверки подключения до прогона (D47)`.
+- [x] **Шаг 2: Запуск — FAIL** (`PYTHONPATH=src python3 -m unittest tests.gate.test_gate.Gate -k check_only`): аргумент уходит в `gate.sh`, коды и вывод не совпадают.
+- [x] **Шаг 3: Реализовать `check_only`.** Функции чекера импортируются внутри функции, чтобы `--scaffold` и `--version` не тянули модули чекера. `ValueError`/`OSError` из них превращаются в строку `проблема`. Git вызывается через `subprocess.run([...], cwd=clone, capture_output=True, text=True)`. Отказ git — `проблема clone: git … упал`.
+- [x] **Шаг 4:** `make test-gate` — зелёный.
+- [x] **Шаг 5: Коммит** `ebt-gate --check-only: проверки подключения до прогона (D47)`.
 
 ---
 
@@ -103,15 +103,15 @@
 **Интерфейсы:**
 - Производит: `test_checks(argv: list[str]) -> int`. `<ebt-dir>` по умолчанию `ebt`. Запускает `[sys.executable, "-I", "-m", "unittest", "discover", "-s", <ebt-dir>, "-t", <ebt-dir>, "-p", "test_*.py", "-v"]` и возвращает его код. Если `unittest` сообщил `Ran 0 tests`, возвращает 1 и пишет «тестов чекера не найдено» (п. 4 фокуса ревью).
 
-- [ ] **Шаг 1: Тесты.**
+- [x] **Шаг 1: Тесты.**
   - `test_test_checks_runs_scaffold_tests` — `--scaffold ts <dir>`, затем `--test-checks <dir>` установленной командой из чужого cwd с системным `PATH` → код 0, в выводе `OK`.
   - `test_test_checks_fails_on_broken_checker` — в `checks.py` заготовки `expected = value * 2` заменено на `value * 3` → код 1.
   - `test_test_checks_without_tests_is_not_green` — каталог только с `checks.py` → код 1 и сообщение.
-- [ ] **Шаг 2: Запуск — FAIL.**
-- [ ] **Шаг 3: Реализовать.** Подсчёт тестов — по строке `Ran N tests` в объединённом выводе `unittest`, который сначала печатается пользователю как есть.
-- [ ] **Шаг 4: Обновить инструкции.** В docstring `test_checks.py`, README заготовки и `docs/scaffold.md` рецепт из D32 (`python=$(ebt-gate --installation | …)`) заменяется на `ebt-gate --test-checks ebt`. Тест D32 `test_scaffold_*`, запускающий пример ровно по инструкции, переводится на новую команду.
-- [ ] **Шаг 5:** `make test` — зелёный.
-- [ ] **Шаг 6: Коммит** `ebt-gate --test-checks: тесты проектного чекера интерпретатором поставки (D47)`.
+- [x] **Шаг 2: Запуск — FAIL.**
+- [x] **Шаг 3: Реализовать.** Подсчёт тестов — по строке `Ran N tests` в объединённом выводе `unittest`, который сначала печатается пользователю как есть.
+- [x] **Шаг 4: Обновить инструкции.** В docstring `test_checks.py`, README заготовки и `docs/scaffold.md` рецепт из D32 (`python=$(ebt-gate --installation | …)`) заменяется на `ebt-gate --test-checks ebt`. Тест D32 `test_scaffold_*`, запускающий пример ровно по инструкции, переводится на новую команду.
+- [x] **Шаг 5:** `make test` — зелёный.
+- [x] **Шаг 6: Коммит** `ebt-gate --test-checks: тесты проектного чекера интерпретатором поставки (D47)`.
 
 ---
 
@@ -119,7 +119,7 @@
 
 **Файлы:** `docs/usage.md` (таблица поддерживаемого интерфейса, раздел запуска), `docs/scaffold.md` (шаг 6 — `--check-only` перед первым запуском гейта), `docs/decisions.md` (D47, «Текущий статус»), `cli.py` — текст подсказки `scaffold` (порядок «test-checks → sync-pinned → check-only → гейт»).
 
-- [ ] **Шаг 1:** D47 «`--check-only` и `--test-checks`». Содержание:
+- [x] **Шаг 1:** D47 «`--check-only` и `--test-checks`». Содержание:
   - причины — поздние ошибки подключения и рецепт D32;
   - `--check-only` — подсказка, а не вердикт; гарантирована только связь «проблема → не-PASS»;
   - `checks.py` импортируется; `prepare.sh` и `test.sh` не запускаются;
@@ -127,8 +127,8 @@
   - версия `0.7.0`.
 
   Статус: принято.
-- [ ] **Шаг 2:** `make test example` — зелёный, четыре дефекта.
-- [ ] **Шаг 3: Коммит** `Документы: --check-only и --test-checks (D47)`.
+- [x] **Шаг 2:** `make test example` — зелёный, четыре дефекта.
+- [x] **Шаг 3: Коммит** `Документы: --check-only и --test-checks (D47)`.
 
 ## Что не входит
 

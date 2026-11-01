@@ -52,7 +52,7 @@
   Отображение кодов: 0 → 0; код из `EBT_TEST_FAIL_CODES` → 1; всё остальное → 2.
 - Производит: `generic/pinned.txt` — только комментарии с форматом строки и примерами для всех трёх SDK. Пустой набор строк гейт уже принимает.
 
-- [ ] **Шаг 1: Тесты.**
+- [x] **Шаг 1: Тесты.**
   - В `test_scaffold_creates_ebt_for_each_stack` добавить `generic`.
   - В `test_scaffold_test_scripts_follow_gate_contract` — подтест `generic` с `EBT_TEST_CMD=<fake-команда>`. Проверяются те же ожидания, что для `ts`: аргументы `EBT_TESTS`, свидетельства в `OUT_DIR` при кодах 0, 1 и 7, итоговые коды 0, 1 и 2.
   - `test_generic_test_script_settings` проверяет:
@@ -61,10 +61,10 @@
     - `EBT_TEST_FAIL_CODES="1 4"` и код команды 4 → 1;
     - аргумент `"a b"` приходит одним словом;
     - старый файл в каталоге свидетельств не попадает в `OUT_DIR`.
-- [ ] **Шаг 2: Запуск — FAIL** (`make test-gate`: стека нет).
-- [ ] **Шаг 3: Реализовать шаблоны.** Заголовок `test.sh` устроен как у `jvm`: договор, затем переменные с умолчаниями. `bash -n` проходит.
-- [ ] **Шаг 4:** `make test-gate` — зелёный.
-- [ ] **Шаг 5: Коммит** `Заготовка: стек generic с командой тестов из EBT_TEST_CMD (D48)`.
+- [x] **Шаг 2: Запуск — FAIL** (`make test-gate`: стека нет).
+- [x] **Шаг 3: Реализовать шаблоны.** Заголовок `test.sh` устроен как у `jvm`: договор, затем переменные с умолчаниями. `bash -n` проходит.
+- [x] **Шаг 4:** `make test-gate` — зелёный.
+- [x] **Шаг 5: Коммит** `Заготовка: стек generic с командой тестов из EBT_TEST_CMD (D48)`.
 
 ---
 
@@ -72,14 +72,14 @@
 
 **Файлы:** `docs/scaffold.md` (таблица стеков, новый раздел «Стек generic»), `src/witnessbox/resources/scaffold/README.md` (одна строка о `generic`).
 
-- [ ] **Шаг 1:** строка `generic` в таблице стеков: «любой инструмент», `test.sh` — `$EBT_TEST_CMD`, SDK — по языку.
-- [ ] **Шаг 2:** раздел с рецептами. Значения переменных и строка `pinned.txt` для каждого:
+- [x] **Шаг 1:** строка `generic` в таблице стеков: «любой инструмент», `test.sh` — `$EBT_TEST_CMD`, SDK — по языку.
+- [x] **Шаг 2:** раздел с рецептами. Значения переменных и строка `pinned.txt` для каждого:
   - npm + Jest: `EBT_TEST_CMD="npx jest --testPathPattern ebt"`; с TS SDK — оговорка из `docs/sdk.md` о `import.meta.env`: Jest его не задаёт, нужен Vite/Vitest или своя подстановка.
   - pnpm + Vitest: `EBT_TEST_CMD="pnpm exec vitest run .ebt.test"`.
   - Maven: `EBT_TEST_CMD="mvn -q test -Dtest='*EbtTest'"`, `EBT_EVIDENCE_DIR=target/ebt`. Предупреждение из фокуса ревью п. 2: Maven возвращает 1 и на сломанную сборку; для точности перейдите на разбор отчётов, как в `jvm/test.sh`.
   - `dart test` без Flutter: `EBT_TEST_CMD="dart test test/ebt"`.
-- [ ] **Шаг 3:** абзац «pytest»: SDK для Python не поставляется. Подключение Python-проекта ждёт решения о Python SDK (см. план `2026-11-02-sdk-conformance.md`), поэтому рецепта нет.
-- [ ] **Шаг 4: Коммит** `docs/scaffold: рецепты стека generic (D48)`.
+- [x] **Шаг 3:** абзац «pytest»: SDK для Python не поставляется. Подключение Python-проекта ждёт решения о Python SDK (см. план `2026-11-02-sdk-conformance.md`), поэтому рецепта нет.
+- [x] **Шаг 4: Коммит** `docs/scaffold: рецепты стека generic (D48)`.
 
 ---
 
@@ -105,7 +105,7 @@
 - Тесты примеров пишут свидетельства в `build/ebt/double.jsonl` через SDK по пути из `ebt/pinned.txt`. Свидетельство — `{"value", "result"}` для классов `zero`, `positive`, `negative`, как требует шаблонная spec.
 - Make: `make e2e STACK=ts|jvm|generic` вызывает `examples/e2e/run.sh $(STACK) examples/e2e/<ts для generic, иначе STACK>`.
 
-- [ ] **Шаг 1: Драйвер `run.sh`.** Шаги:
+- [x] **Шаг 1: Драйвер `run.sh`.** Шаги:
   1. Временный каталог, `git init`, копирование примера без `defect/`.
   2. `ebt-gate --scaffold <stack> ebt`, затем копирование `example/ebt/*` поверх заготовки.
   3. Для `jvm` — `gradle wrapper --gradle-version <закреплённая>`.
@@ -118,15 +118,15 @@
   10. Для `generic` экспортируется `EBT_TEST_CMD="bunx vitest run .ebt.test"`.
 
   Каталог результатов печатается при отказе, временный каталог удаляется при успехе.
-- [ ] **Шаг 2: Пример TS.** Повторяет проверенный демо-проект D45 без CI-файлов: `double(value)`, тест с тремя классами и `ev("INV-EXAMPLE-1", "REQ-EXAMPLE-1", …)`. `bun.lock` закоммичен, Vitest — точная версия.
-- [ ] **Шаг 3: Пример JVM.** `Doubler.twice(int)`, JUnit-тест `DoublerEbtTest` с тремя классами и `Ebt.ev(...)`; запись `Ebt.toJsonl()` в `build/ebt/double.jsonl` в `@AfterAll`. Путь SDK — `src/test/java/ebt/Ebt.java` (из шаблонного `jvm/pinned.txt`).
-- [ ] **Шаг 4: Локальная проверка.**
+- [x] **Шаг 2: Пример TS.** Повторяет проверенный демо-проект D45 без CI-файлов: `double(value)`, тест с тремя классами и `ev("INV-EXAMPLE-1", "REQ-EXAMPLE-1", …)`. `bun.lock` закоммичен, Vitest — точная версия.
+- [x] **Шаг 3: Пример JVM.** `Doubler.twice(int)`, JUnit-тест `DoublerEbtTest` с тремя классами и `Ebt.ev(...)`; запись `Ebt.toJsonl()` в `build/ebt/double.jsonl` в `@AfterAll`. Путь SDK — `src/test/java/ebt/Ebt.java` (из шаблонного `jvm/pinned.txt`).
+- [x] **Шаг 4: Локальная проверка.**
   1. Собрать и поставить wheel: `uv build && uv tool install --force dist/witnessbox-*.whl`.
   2. `make e2e STACK=ts` → 0.
   3. `make e2e STACK=generic` → 0.
   4. `make e2e STACK=jvm` → 0, если есть `gradle` и JDK 17; иначе проверка JVM — только в CI, это записать в PR.
   5. Контроль чувствительности: временно сделать дефект корректным кодом → драйвер даёт код 1 «дефект не обнаружен». Затем вернуть.
-- [ ] **Шаг 5: Коммит** `Сквозные примеры TS и JVM и драйвер e2e (D48)`.
+- [x] **Шаг 5: Коммит** `Сквозные примеры TS и JVM и драйвер e2e (D48)`.
 
 ---
 
@@ -134,7 +134,7 @@
 
 **Файлы:** `.github/workflows/test.yml` (новый job), `docs/development.md`.
 
-- [ ] **Шаг 1:** job `e2e` на `ubuntu-latest`, матрица `stack: [ts, generic, jvm]`, `fail-fast: false`, права `contents: read`. Шаги:
+- [x] **Шаг 1:** job `e2e` на `ubuntu-latest`, матрица `stack: [ts, generic, jvm]`, `fail-fast: false`, права `contents: read`. Шаги:
   - `actions/checkout`, `astral-sh/setup-uv`;
   - сборка и установка wheel из checkout (`uv build`, `uv tool install dist/witnessbox-*.whl`);
   - для `ts`/`generic` — `oven-sh/setup-bun`;
@@ -142,10 +142,10 @@
   - `make e2e STACK=${{ matrix.stack }}`.
 
   Все `uses:` закреплены SHA (сверка — `gh api repos/<owner>/<repo>/commits/<tag> --jq .sha`).
-- [ ] **Шаг 2:** `check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/test.yml` → `ok`.
-- [ ] **Шаг 3:** в `docs/development.md` — что делает `make e2e` и какие инструменты нужны.
+- [x] **Шаг 2:** `check-jsonschema --builtin-schema vendor.github-workflows .github/workflows/test.yml` → `ok`.
+- [x] **Шаг 3:** в `docs/development.md` — что делает `make e2e` и какие инструменты нужны.
 - [ ] **Шаг 4:** PR и зелёный CI во всех трёх `e2e` и прежних заданиях.
-- [ ] **Шаг 5: Коммит** `CI: сквозные примеры ts, generic и jvm (D48)`.
+- [x] **Шаг 5: Коммит** `CI: сквозные примеры ts, generic и jvm (D48)`.
 
 ---
 
@@ -153,7 +153,7 @@
 
 **Файлы:** `docs/decisions.md` (D48, «Текущий статус»), `docs/usage.md` (`--scaffold <dart|ts|jvm|generic>`), `README.md` (Quick start — `generic` в перечне стеков).
 
-- [ ] **Шаг 1:** D48 «Стек `generic` и сквозные примеры в CI». Содержание:
+- [x] **Шаг 1:** D48 «Стек `generic` и сквозные примеры в CI». Содержание:
   - причины — переписывание `test.sh` под инструмент и отсутствие сквозной проверки (D19);
   - устройство `generic`: переменные, отображение кодов и его граница для Maven/Gradle;
   - примеры используют шаблонную spec как фиксированный вход, а не как утверждённую;
@@ -163,8 +163,8 @@
   - версия `0.7.0`.
 
   Статус: принято.
-- [ ] **Шаг 2:** `make test example` — зелёный.
-- [ ] **Шаг 3: Коммит** `Решение D48: стек generic и сквозные примеры`.
+- [x] **Шаг 2:** `make test example` — зелёный.
+- [x] **Шаг 3: Коммит** `Решение D48: стек generic и сквозные примеры`.
 
 ## Что не входит
 
