@@ -425,6 +425,13 @@ def _allowed(path: str, allowed: set[str]) -> bool:
 # ── Сборка отчёта ─────────────────────────────────────────────────────
 
 
+def missing_checkers(spec: dict, scope: list[str] | None = None) -> list[str]:
+    """Инварианты в scope, для которых нет зарегистрированного чекера."""
+    required = set(scope) if scope is not None else set(spec["inv"])
+    return sorted(inv_id for inv_id in required
+                  if inv_id in spec["inv"] and spec["inv"][inv_id]["checker"] not in CHECKERS)
+
+
 def build_report(spec: dict, sha: str, records, bad_lines, baseline, limit: int, do_self_test: bool,
                  known: list[dict] | None = None, scope: list[str] | None = None,
                  file_starts: set[int] = frozenset()) -> Report:
@@ -432,6 +439,15 @@ def build_report(spec: dict, sha: str, records, bad_lines, baseline, limit: int,
                records=len(records), scopes=len({rec.get("scope") for _, rec in records}))
     r.findings.extend(bad_lines)
     r.findings.extend(check_integrity(records, file_starts))
+    # Инвариант в scope с неизвестным чекером нельзя проверить даже без записей.
+    # Если запись для него есть, NO_CHECKER придёт из check_record — не дублируем.
+    recorded_invs = {rec.get("inv") for _, rec in records}
+    for inv_id in missing_checkers(spec, scope):
+        if inv_id in recorded_invs:
+            continue
+        inv = spec["inv"][inv_id]
+        r.findings.append(Finding(NO_CHECKER, line=0, inv=inv_id, req=inv["req"],
+                                  reason=f"чекер {inv['checker']!r} не реализован"))
 
     hits: dict[str, set[str]] = {}
     seen: set[str] = set()

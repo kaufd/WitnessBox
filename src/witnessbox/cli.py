@@ -358,8 +358,8 @@ def check_only(argv):
     # Импорт проектного checks.py не должен оставлять __pycache__ в каталоге проверки:
     # команда обещает не менять файлы проекта.
     sys.dont_write_bytecode = True
-    from .checker.input import (load_checkers, load_jsonl, load_known, load_spec,
-                                validate_checkers, validate_known)
+    from .checker.engine import missing_checkers
+    from .checker.input import load_checkers, load_jsonl, load_known, load_spec, validate_known
 
     problems = 0
 
@@ -377,34 +377,45 @@ def check_only(argv):
     def git(*args):
         return subprocess.run(["git", "-C", str(clone), *args], capture_output=True, text=True)
 
-    # 1. spec: файл есть и разбирается теми же load_spec, что у чекера.
+    # Внешний EBT_CHECK сам разбирает spec, checks.py, known и baseline: локальная
+    # проверка их содержимого дала бы проблему, которую гейт с ним не разделяет.
+    ebt_check = os.environ.get("EBT_CHECK", "")
+    external = bool(ebt_check)
+    external_ok = external and shutil.which(ebt_check) is not None
+
+    # 1. spec: файл есть и (для штатного чекера) разбирается его load_spec.
     spec = None
+    scope = None
     spec_path = ebt / "spec.toml"
     if not spec_path.is_file():
         problem("spec", f"нет {spec_path}")
+    elif external:
+        skip("spec", f"EBT_CHECK={ebt_check}: содержимое проверяет внешний чекер")
     else:
         try:
-            spec, _ = load_spec(spec_path)
+            loaded, _ = load_spec(spec_path)
             raw_scope = os.environ.get("EBT_INV", "")
             if raw_scope:
                 scope = [item.strip() for item in raw_scope.split(",") if item.strip()]
-                unknown = [item for item in scope if item not in spec["inv"]]
+                unknown = [item for item in scope if item not in loaded["inv"]]
                 if not scope or unknown:
                     raise ValueError(f"EBT_INV: нет в spec: {', '.join(unknown) or '(пусто)'}")
         except (OSError, ValueError) as error:
             problem("spec", error)
         else:
+            spec = loaded
             ok("spec")
 
-    # 2. checks: расширение загружается, каждый checker из spec зарегистрирован.
-    if spec is None:
+    # 2. checks: расширение загружается, каждый checker в scope зарегистрирован.
+    if external:
+        if external_ok:
+            skip("checks", f"EBT_CHECK={ebt_check}: checks.py и регистрацию проверяет внешний чекер")
+        else:
+            problem("checks", f"EBT_CHECK={ebt_check}: команда не найдена")
+    elif spec is None:
         skip("checks", "нет загруженной спецификации")
     else:
         checks_loaded = True
-        ebt_check = os.environ.get("EBT_CHECK", "")
-        if ebt_check and shutil.which(ebt_check) is None:
-            problem("checks", f"EBT_CHECK={ebt_check}: команда не найдена")
-            checks_loaded = False
         checks_path = ebt / "checks.py"
         if checks_path.is_file():
             try:
@@ -413,21 +424,18 @@ def check_only(argv):
                 problem("checks", error)
                 checks_loaded = False
         if checks_loaded:
-            if os.environ.get("EBT_CHECK"):
-                # Внешний чекер может знать свои чекеры; сверять его реестр нечем,
-                # а ложная проблема нарушила бы гарантию «проблема → не-PASS».
-                skip("checks", f"EBT_CHECK={ebt_check}: регистрацию проверяет внешний чекер")
+            missing = missing_checkers(spec, scope)
+            if missing:
+                details = ", ".join(f"{inv_id}: {spec['inv'][inv_id]['checker']}" for inv_id in missing)
+                problem("checks", "чекер не зарегистрирован ни в ядре, ни в checks.py: " + details)
             else:
-                try:
-                    validate_checkers(spec)
-                except ValueError as error:
-                    problem("checks", error)
-                else:
-                    ok("checks")
+                ok("checks")
 
     # 3. known: тот же разбор и та же сверка с witness, что при запуске чекера.
     known_path = ebt / "known.toml"
-    if not known_path.is_file():
+    if external:
+        skip("known", f"EBT_CHECK={ebt_check}: known.toml проверяет внешний чекер")
+    elif not known_path.is_file():
         ok("known", "нет known.toml")
     elif spec is None:
         skip("known", "нет загруженной спецификации")
@@ -442,7 +450,9 @@ def check_only(argv):
 
     # 4. baseline: битая строка в baseline — ошибка и у чекера, а не тихий пропуск.
     baseline_path = ebt / "baseline.jsonl"
-    if not baseline_path.is_file():
+    if external:
+        skip("baseline", f"EBT_CHECK={ebt_check}: baseline.jsonl проверяет внешний чекер")
+    elif not baseline_path.is_file():
         ok("baseline", "нет baseline.jsonl")
     else:
         try:

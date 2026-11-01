@@ -9,11 +9,12 @@
 #
 # Команда тестов задаётся переменной окружения:
 #   EBT_TEST_CMD        обязательная строка команды; исполняется как bash -c.
-#                       Слова EBT_TESTS добавляются к последней команде, если сама
-#                       команда не ссылается на "$@"/"$*": тогда они приходят ей
-#                       позиционными параметрами. Хвостовые переводы строк и
-#                       комментарий в конце строки отбрасываются — иначе аргументы
-#                       потерялись бы или выполнились отдельной командой;
+#                       Слова EBT_TESTS добавляются к простой команде отдельными
+#                       argv. Символы #, ;, &, | и \ в команде требуют явного
+#                       "$@"/"$*" — иначе аргументы потерялись бы или выполнились
+#                       отдельной командой (код 2). Позиционные $1…$9 без "$@"
+#                       запрещены по той же причине. Хвостовые переводы строк и
+#                       пробелы отбрасываются;
 #   EBT_EVIDENCE_DIR    каталог JSONL от тестов, по умолчанию build/ebt;
 #   EBT_TEST_FAIL_CODES коды команды, означающие «тесты выполнились и упали»,
 #                       через пробел, по умолчанию 1.
@@ -37,11 +38,7 @@ fail_codes=${EBT_TEST_FAIL_CODES:-1}
 # Свидетельства прошлого прогона не должны пережить текущий, даже если тесты упали.
 rm -rf "$evidence_dir" || exit 2
 
-# Готовим команду, не исполняя аргументы как код: хвостовой комментарий и переводы
-# строк отбрасываются; если команда сама ссылается на "$@", аргументы не дублируются.
-prepared_cmd=
-command_uses_args=0
-
+# Хвостовые переводы строк и пробелы из YAML-блока не должны менять команду.
 trim_command() {
   local value=$1
   while [ -n "$value" ]; do
@@ -53,75 +50,44 @@ trim_command() {
   printf '%s' "$value"
 }
 
-prepare_command() {
-  local cmd i c prev next quote=0 escaped=0 in_comment=0 comment=-1 newline=-1
-  cmd=$(trim_command "$1")
-  for ((i = 0; i < ${#cmd}; i++)); do
-    c=${cmd:i:1}
-    if [ "$in_comment" = 1 ]; then
-      [ "$c" = $'\n' ] && { in_comment=0; newline=$i; }
-      continue
-    fi
-    if [ "$escaped" = 1 ]; then escaped=0; continue; fi
-    if [ "$quote" = 1 ]; then
-      [ "$c" = "'" ] && quote=0
-      continue
-    fi
-    if [ "$quote" = 2 ]; then
-      case $c in
-        '\') escaped=1 ;;
-        '"') quote=0 ;;
-        '$')
-          next=${cmd:i+1:1}
-          case $next in
-            '@'|'*') command_uses_args=1 ;;
-            '{') case ${cmd:i+1:2} in '{@'|'{*') command_uses_args=1 ;; esac ;;
-          esac ;;
-      esac
-      continue
-    fi
-    case $c in
-      '\') escaped=1 ;;
-      "'") quote=1 ;;
-      '"') quote=2 ;;
-      $'\n') newline=$i ;;
-      '$')
-        next=${cmd:i+1:1}
-        case $next in
-          '@'|'*') command_uses_args=1 ;;
-          '{') case ${cmd:i+1:2} in '{@'|'{*') command_uses_args=1 ;; esac ;;
-        esac ;;
-      '#')
-        if [ "$i" -eq 0 ]; then
-          comment=$i
-          in_comment=1
-        else
-          prev=${cmd:i-1:1}
-          case $prev in ' '|$'\t'|$'\n'|';'|'&'|'|'|'(')
-            comment=$i
-            in_comment=1 ;;
-          esac
-        fi ;;
-    esac
-  done
-  if [ "$comment" -ge 0 ] && [ "$comment" -gt "$newline" ]; then
-    cmd=$(trim_command "${cmd:0:$comment}")
-  fi
-  prepared_cmd=$cmd
-}
+cmd=$(trim_command "$EBT_TEST_CMD")
+[ -n "$cmd" ] || { echo "test.sh: EBT_TEST_CMD пуст" >&2; exit 2; }
 
-prepare_command "$EBT_TEST_CMD"
-[ -n "$prepared_cmd" ] || {
-  echo "test.sh: EBT_TEST_CMD пуст после удаления комментария" >&2
-  exit 2
-}
+# Команда должна быть простой: слова EBT_TESTS добавляются к ней отдельными argv.
+# Shell-синтаксис не разбираем: без явного "$@" он либо съест аргументы, либо
+# выполнит их отдельной командой. В сложном случае команда сама раскрывает "$@"/
+# "$*" и получает EBT_TESTS позиционными параметрами.
+uses_args=0
+case $cmd in *'$@'*|*'$*'*) uses_args=1 ;; esac
+case $cmd in
+  *'#'*)
+    case ${cmd%%#*} in
+      *'$@'*|*'$*'*) ;;
+      *) echo "test.sh: в EBT_TEST_CMD есть #, но нет \"\$@\"; упростите команду или добавьте \"\$@\"" >&2
+         exit 2 ;;
+    esac ;;
+esac
+case $cmd in
+  *';'*|*'&'*|*'|'*|*'\'*)
+    if [ "$uses_args" -eq 0 ]; then
+      echo "test.sh: EBT_TEST_CMD содержит ;, &, | или \\, но не ссылается на \"\$@\"" >&2
+      exit 2
+    fi ;;
+esac
+case $cmd in
+  *'$1'*|*'$2'*|*'$3'*|*'$4'*|*'$5'*|*'$6'*|*'$7'*|*'$8'*|*'$9'*)
+    if [ "$uses_args" -eq 0 ]; then
+      echo "test.sh: EBT_TEST_CMD: используйте \"\$@\", а не позиционные \$1…\$9" >&2
+      exit 2
+    fi ;;
+esac
 
-if [ "$command_uses_args" = 1 ]; then
-  # Команда сама раскрывает "$@": аргументы передаются ей как позиционные параметры.
-  bash -c "$prepared_cmd" _ "$@"
+if [ "$uses_args" -eq 1 ]; then
+  # Команда сама раскрывает "$@": аргументы передаются позиционными параметрами.
+  bash -c "$cmd" _ "$@"
 else
   # Слова EBT_TESTS — отдельные argv последней команды, без eval и повторного разбора.
-  bash -c "$prepared_cmd"' "$@"' _ "$@"
+  bash -c "$cmd"' "$@"' _ "$@"
 fi
 rc=$?
 

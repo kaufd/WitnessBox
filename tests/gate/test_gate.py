@@ -181,7 +181,6 @@ class Gate(unittest.TestCase):
     def problem_cases(self):
         return {
             "checks: неизвестный checker": (self.case_unknown_checker, "checks"),
-            "checks: неизвестный checker вне EBT_INV": (self.case_unknown_checker_out_of_scope, "checks"),
             "checks: EBT_CHECK не найден": (self.case_missing_ebt_check, "checks"),
             "checks: checks.py падает": (self.case_broken_checks, "checks"),
             "checks: имя чекера ядра": (self.case_core_checker, "checks"),
@@ -878,26 +877,39 @@ exit "${FAKE_RC:-0}"
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
 
-        # 6. Хвостовой комментарий не съедает аргументы.
-        p, _ = run("out-comment", EBT_TEST_CMD="fake-tests # только ebt")
-        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
-                         ["1", "a b"])
-
-        # 7. Если команда сама раскрывает "$@", аргументы не добавляются второй раз.
+        # 6. Если команда сама раскрывает "$@", аргументы не добавляются второй раз.
         p, _ = run("out-at", EBT_TEST_CMD='fake-tests "$@"')
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
 
-        # 8. "$@" внутри комментария не считается раскрытием аргументов.
-        p, _ = run("out-comment-at", EBT_TEST_CMD="fake-tests # $@")
+        # 7. Сложная команда с "$@" допустима: # и ; уже не съедают аргументы.
+        p, _ = run("out-at-comment", EBT_TEST_CMD='fake-tests "$@" # комментарий')
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
-        p, _ = run("out-only-comment", EBT_TEST_CMD="# $@")
-        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("пуст", p.stderr)
+        p, _ = run("out-at-semicolon", EBT_TEST_CMD='fake-tests "$@" ;')
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
+
+        # 8. Без "$@" shell-синтаксис и позиционные параметры — код 2, а не потеря аргументов.
+        rejected = {
+            "comment": "fake-tests # только ebt",
+            "comment-at": "fake-tests # $@",
+            "only-comment": "# $@",
+            "semicolon": "fake-tests;",
+            "ampersand": "fake-tests &",
+            "pipe": "fake-tests |",
+            "backslash": "fake-tests \\",
+            "positional": "fake-tests $1",
+            "quoted-comment": "fake-tests 'a b' # c",
+        }
+        for name, command in rejected.items():
+            with self.subTest(command=name):
+                p, _ = run(f"out-reject-{name}", EBT_TEST_CMD=command)
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                self.assertIn("EBT_TEST_CMD", p.stderr)
 
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
@@ -1104,6 +1116,24 @@ exit "${FAKE_RC:-0}"
         self.assertEqual([marker.name for marker in markers if marker.exists()], [])
         self.assertFalse((self.ebt / "__pycache__").exists(), "check-only оставил __pycache__")
 
+    def test_check_only_unknown_checker_out_of_scope_is_not_problem(self):
+        """Утверждённая spec может опережать код: вне EBT_INV незавершённый чекер не мешает."""
+        env = self.case_unknown_checker_out_of_scope()
+        p = self.check_only(env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        p = self.gate(self.write_to('"$OUT_DIR"'), env)
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+
+    def test_check_only_unknown_checker_in_scope_fails_gate(self):
+        """Проблема check-only в scope должна быть FAIL гейта, а не ERROR и не PASS."""
+        self.case_unknown_checker()
+        p = self.check_only()
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        p = self.gate(self.write_to('"$OUT_DIR"'))
+        self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
+        self.assertEqual(self.gate_json()["reasons"], ["checker_failed"])
+        self.assertIn("Нет чекера", (self.run_dir / "report.md").read_text(encoding="utf-8"))
+
     def test_check_only_does_not_judge_external_checker_registry(self):
         """EBT_CHECK может знать свой чекер: локальная проверка регистрации дала бы ложную проблему."""
         fake = self.fake_checker(0)
@@ -1112,6 +1142,21 @@ exit "${FAKE_RC:-0}"
         p = self.check_only({"EBT_CHECK": str(fake)})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertIn("пропущено checks", p.stdout)
+
+    def test_check_only_does_not_judge_external_checker_files(self):
+        """С внешним чекером локальный разбор spec/checks/known/baseline дал бы ложную проблему."""
+        fake = self.fake_checker(0)
+        (self.ebt / "spec.toml").write_text("это не TOML\n", encoding="utf-8")
+        (self.ebt / "checks.py").write_text('raise RuntimeError("boom")\n', encoding="utf-8")
+        (self.ebt / "known.toml").write_text("[[known]]\n", encoding="utf-8")
+        (self.ebt / "baseline.jsonl").write_text("{not json\n", encoding="utf-8")
+        p = self.check_only({"EBT_CHECK": str(fake)})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        for name in ("spec", "checks", "known", "baseline"):
+            self.assertIn(f"пропущено {name}", p.stdout)
+        # Гейт с тем же внешним чекером на этих файлах тоже PASS: гарантия не нарушена.
+        p = self.gate(self.write_to('"$OUT_DIR"'), {"EBT_CHECK": str(fake)})
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_check_only_pinned_uses_gate_rules(self):
         """Строгости --sync-pinned не дают проблемы там, где гейт на том же входе PASS."""
