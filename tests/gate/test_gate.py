@@ -264,16 +264,18 @@ class Gate(unittest.TestCase):
         self.assertTrue(s["evidence"] is None
                         or [e["file"] for e in s["evidence"]] == ["a.jsonl", "b.jsonl"])
 
-    def test_installation_identity_covers_runtime_modules_and_gate_helpers(self):
+    def test_installation_identity_covers_shipped_code_and_gate_helpers(self):
         import json
         import shutil
-        info = json.loads(subprocess.check_output([str(self.bin / "ebt-gate"), "--installation"]))
+        info = self.installation()
         installed = Path(info["package"])
         site = self.clone.parent / "identity-site"
         package = site / "witnessbox"
         compat = site / "ebt_verification"
         shutil.copytree(installed, package)
         shutil.copytree(installed.parent / "ebt_verification", compat)
+        for module in ("checkers.py", "ebt_check.py"):
+            shutil.copyfile(installed.parent / module, site / module)
         code = ("import importlib.util,json,sys; "
                 "s=importlib.util.spec_from_file_location('identity_cli',sys.argv[1]); "
                 "m=importlib.util.module_from_spec(s); s.loader.exec_module(m); "
@@ -282,41 +284,42 @@ class Gate(unittest.TestCase):
             return json.loads(subprocess.check_output([str(self.bin / "python"), "-I", "-c", code,
                                                        str(package / "cli.py")]))
         before = identity()
-        module = package / "checker" / "new_runtime.py"
-        module.write_text("VALUE = 1\n")
-        after = identity()
-        self.assertNotEqual(before["checker_sha256"], after["checker_sha256"])
-        module.rename(module.with_name("renamed_runtime.py"))
-        self.assertNotEqual(after["checker_sha256"], identity()["checker_sha256"])
-        module.with_name("renamed_runtime.py").unlink()
-        (package / "api.py").write_text("PUBLIC_VALUE = 1\n")
-        self.assertNotEqual(before["checker_sha256"], identity()["checker_sha256"])
-        (package / "checker" / "test_ignored.py").write_text("not runtime\n")
-        stable = identity()
-        (package / "checker" / "test_ignored.py").write_text("still not runtime\n")
-        self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
+        # Исполняемый код поставки: пакет witnessbox (включая __init__), py-modules и
+        # совместимый пакет. Правка любого из этих файлов меняет отпечаток чекера.
+        for target in (package / "__init__.py",
+                       package / "checker" / "checkers.py",
+                       package / "api.py",
+                       site / "checkers.py",
+                       site / "ebt_check.py",
+                       compat / "__init__.py",
+                       compat / "api.py"):
+            with self.subTest(file=target.relative_to(site).as_posix()):
+                original = target.read_bytes()
+                target.write_bytes(original + b"# identity change\n")
+                changed = identity()
+                self.assertNotEqual(before["checker_sha256"], changed["checker_sha256"])
+                self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
+                target.write_bytes(original)
+        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
+        # cli.py — код гейта, а не чекера: он входит только в gate_sha256.
+        cli = package / "cli.py"
+        original = cli.read_bytes()
+        cli.write_bytes(original + b"# identity change\n")
+        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
+        self.assertNotEqual(before["gate_sha256"], identity()["gate_sha256"])
+        cli.write_bytes(original)
+        self.assertEqual(before["gate_sha256"], identity()["gate_sha256"])
         # Заготовка — данные для нового проекта, а не код проверки: её правка не должна
         # менять удостоверение установленного гейта.
         scaffold_spec = package / "resources" / "scaffold" / "spec.toml"
         scaffold_spec.write_text(scaffold_spec.read_text(encoding="utf-8") + "\n# data change\n",
                                  encoding="utf-8")
         self.assertEqual(before["gate_sha256"], identity()["gate_sha256"])
-        self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
-        # Совместимый пакет исполняется проектными чекерами при импорте, поэтому его
-        # байты входят в отпечаток чекера, а не только байты witnessbox/.
-        for name in ("api.py", "__init__.py"):
-            target = compat / name
-            original = target.read_bytes()
-            target.write_bytes(original + b"# compatibility change\n")
-            changed = identity()
-            self.assertNotEqual(stable["checker_sha256"], changed["checker_sha256"])
-            self.assertEqual(before["gate_sha256"], changed["gate_sha256"])
-            target.write_bytes(original)
-        self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
+        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
         helper = package / "runners" / "flutter.sh"
         helper.write_text(helper.read_text() + "\n# identity change\n")
         self.assertNotEqual(before["gate_sha256"], identity()["gate_sha256"])
-        self.assertEqual(stable["checker_sha256"], identity()["checker_sha256"])
+        self.assertEqual(before["checker_sha256"], identity()["checker_sha256"])
 
     def installation(self) -> dict:
         import json
@@ -336,6 +339,12 @@ class Gate(unittest.TestCase):
         self.assertTrue((Path(info["package"]) / "gate.sh").is_file())
         self.assertRegex(info["gate_sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(info["checker_sha256"], "^[0-9a-f]{64}$")
+        import zipfile
+        with zipfile.ZipFile(self.wheel) as wheel:
+            metadata = next(wheel.read(name) for name in wheel.namelist()
+                            if name.endswith(".dist-info/METADATA"))
+        self.assertIn(f"Name: {info['distribution']}\n".encode(), metadata)
+        self.assertIn(f"Version: {info['version']}\n".encode(), metadata)
 
     def test_installed_public_imports_are_identical_without_checkout(self):
         """Поставка работает без checkout и PYTHONPATH; новый и совместимый импорты — один класс."""
@@ -584,9 +593,10 @@ exit 0
         self.assertIn(str(self.bin.parent), self.gate_md())
 
     def test_project_cannot_shadow_bundled_checker_package(self):
-        poison = self.clone / "witnessbox"
-        poison.mkdir()
-        (poison / "__init__.py").write_text("raise RuntimeError('wrong checker from project cwd')")
+        for name in ("witnessbox", "ebt_verification"):
+            poison = self.clone / name
+            poison.mkdir()
+            (poison / "__init__.py").write_text("raise RuntimeError('wrong checker from project cwd')")
         subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
         subprocess.run(["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
                         "commit", "-qm", "name collision"], check=True)
@@ -677,8 +687,7 @@ exit 0
         self.assertFalse((self.run_dir / "gate.md").exists())
 
     def test_pinned_uses_installed_resource_and_detects_drift(self):
-        import json
-        info = json.loads(subprocess.check_output([str(self.bin / "ebt-gate"), "--installation"]))
+        info = self.installation()
         original = Path(info["resources"]) / "lib/ebt/Ebt.java"
         (self.clone / "Ebt.java").write_bytes(original.read_bytes())
         (self.ebt / "pinned.txt").write_text("kit:lib/ebt/Ebt.java Ebt.java")
@@ -773,7 +782,9 @@ exit 0
         # Совместимый пакет исполняется проектными чекерами, поэтому его правка —
         # такая же порча поставки, как правка witnessbox/checker/.
         for target in (package / "checker" / "checkers.py",
-                       package.parent / "ebt_verification" / "api.py"):
+                       package / "__init__.py",
+                       package.parent / "ebt_verification" / "api.py",
+                       package.parent / "checkers.py"):
             with self.subTest(verifier=target.name):
                 original = target.read_bytes()
                 try:

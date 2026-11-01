@@ -3,31 +3,30 @@
 import hashlib
 import json
 import os
-from importlib.metadata import version
+from importlib.metadata import distribution
 from pathlib import Path
 import shutil
 import sys
 import tempfile
 
 
-def _runtime_files(root: Path, suffix: str):
-    """Only shipped runtime code; paths and bytes both contribute to identity."""
-    # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
-    # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
-    excluded = {"compat", "tests", "fixtures", "cache", ".cache", "__pycache__", "scaffold"}
-    return sorted(
-        (p for p in root.rglob(f"*{suffix}")
-         if not excluded.intersection(p.relative_to(root).parts)
-         and not p.name.startswith("test_")),
-        key=lambda p: p.relative_to(root).as_posix(),
-    )
+def _installed_entries(package: Path, dist):
+    """Relative paths of this distribution's files; RECORD first, tree scan as fallback."""
+    if dist.files is not None:
+        return [Path(entry) for entry in dist.files]
+    root = package.parent
+    paths = [root / "checkers.py", root / "ebt_check.py",
+             *package.rglob("*.py"), *package.rglob("*.sh")]
+    compat = root / "ebt_verification"
+    if compat.is_dir():
+        paths += list(compat.rglob("*.py"))
+    return [path.relative_to(root) for path in paths]
 
 
-def _code_hash(files):
-    """Fingerprint of shipped code: names and bytes; lengths delimit files."""
+def _code_hash(root: Path, paths):
     digest = hashlib.sha256()
-    for name, path in sorted(files, key=lambda item: item[0]):
-        name = name.encode("utf-8")
+    for path in sorted(set(paths), key=lambda p: p.relative_to(root).as_posix()):
+        name = path.relative_to(root).as_posix().encode("utf-8")
         data = path.read_bytes()
         # Lengths make file boundaries unambiguous, including rename/empty-file changes.
         for part in (name, data):
@@ -36,35 +35,29 @@ def _code_hash(files):
     return digest.hexdigest()
 
 
-def _named(root: Path, paths, prefix: str = ""):
-    """(fingerprint name, path) pairs; the prefix keeps sibling packages apart."""
-    return [(f"{prefix}{path.relative_to(root).as_posix()}", path) for path in paths]
-
-
 def installation():
     package = Path(__file__).resolve().parent
-    checker = package / "checker" / "ebt_check.py"
-    modules = _named(package, _runtime_files(package / "checker", ".py"))
-    public_api = package / "api.py"
-    if public_api.is_file():
-        modules.append(("api.py", public_api))
-    # Совместимый пакет исполняется проектными чекерами (from ebt_verification.api),
-    # поэтому его байты входят в отпечаток чекера: иначе правка совместимого слоя
-    # не меняла бы ни один отпечаток запуска.
-    compat = package.parent / "ebt_verification"
-    if compat.is_dir():
-        modules += _named(compat, _runtime_files(compat, ".py"), prefix="ebt_verification/")
-    gate_files = _named(package, _runtime_files(package, ".sh"))
-    gate_files.append(("cli.py", Path(__file__).resolve()))
+    root = package.parent
+    dist = distribution("witnessbox")
+    # RECORD перечисляет файлы именно этой поставки: обход каталога подхватил бы
+    # оставшиеся файлы прежнего дистрибутива и чужие модули рядом.
+    entries = [Path(entry) for entry in _installed_entries(package, dist)]
+    # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
+    # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
+    code = [entry for entry in entries
+            if entry.suffix in (".py", ".sh") and "scaffold" not in entry.parts]
+    cli = Path(__file__).resolve().relative_to(root)
+    modules = [root / entry for entry in code if entry.suffix == ".py" and entry != cli]
+    gate_files = [root / entry for entry in code if entry.suffix == ".sh"] + [root / cli]
     return {
-        "distribution": "witnessbox",
-        "version": version("witnessbox"),
+        "distribution": dist.metadata["Name"],
+        "version": dist.version,
         "package": str(package),
         "resources": str(package / "resources"),
         "python": sys.executable,
-        "checker": str(checker),
-        "checker_sha256": _code_hash(modules),
-        "gate_sha256": _code_hash(gate_files),
+        "checker": str(package / "checker" / "ebt_check.py"),
+        "checker_sha256": _code_hash(root, modules),
+        "gate_sha256": _code_hash(root, gate_files),
     }
 
 

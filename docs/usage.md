@@ -4,21 +4,24 @@ Witnessbox — самостоятельная поставка гейта, че�
 
 ## Установка
 
-Выпуск из репозитория по тегу:
+Из клона репозитория соберите sdist и wheel из него и установите wheel:
+
+```bash
+uv build
+uv tool install dist/witnessbox-0.5.0-py3-none-any.whl
+uv tool update-shell
+```
+
+`uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить.
+
+После выпуска `0.5.0` (тег `v0.5.0`) поставку можно ставить из репозитория:
 
 ```bash
 uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.0
 uv tool update-shell
 ```
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Другие варианты — `uv tool install .` из корня клона или собранный wheel, переданный на целевую машину:
-
-```bash
-uv build --wheel
-uv tool install dist/witnessbox-0.5.0-py3-none-any.whl
-```
-
-Тег `v0.5.0` ставится при выпуске: до него устанавливайте wheel, собранный из текущего дерева. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.5.0-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Переход со старого дистрибутива
 
@@ -26,13 +29,16 @@ uv tool install dist/witnessbox-0.5.0-py3-none-any.whl
 
 ```bash
 uv tool uninstall ebt-verification   # если старая поставка ещё стоит
-uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.0
+uv build
+uv tool install dist/witnessbox-0.5.0-py3-none-any.whl
 uv tool update-shell
 ```
 
+После выпуска вместо сборки можно ставить из тега: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.5.0`.
+
 Для установки в venv вместо `uv tool` — `pip uninstall ebt-verification`, затем `pip install <wheel>`. Порядок важен: `uv tool install` отказывается ставить команду, которая уже принадлежит другому инструменту, а `pip uninstall ebt-verification` после установки `witnessbox` удалил бы общий файл `ebt_verification/api.py` и сломал совместимый импорт. Совмещать дистрибутивы в одном окружении нельзя.
 
-Что менять в проекте не нужно: команды и их аргументы, каталоги `ebt/` и `build/ebt/`, переменные `EBT_*`, имена SDK (`Ebt`, `ev()`, `traced()`), `spec.toml`, `pinned.txt` с префиксом `kit:`, форматы свидетельств и JSON-отчётов. Байты SDK не изменились, поэтому закреплённые копии не дают `pinned_drift`. Проектные чекеры с прежним импортом `from ebt_verification.api import ...` продолжают работать; новый код импортирует `from witnessbox.api import ...`. Для обновления установленной версии — `uv tool install --force <источник>`.
+Что менять в проекте не нужно: команды и их аргументы, каталоги `ebt/` и `build/ebt/`, переменные `EBT_*`, имена SDK (`Ebt`, `ev()`, `traced()`), `spec.toml`, `pinned.txt` с префиксом `kit:`, форматы свидетельств и JSON-отчётов. Байты SDK не изменились, поэтому закреплённые копии не дают `pinned_drift`. Проектные чекеры с прежним импортом `from ebt_verification.api import ...` или `from checkers import ...` продолжают работать; новый код импортирует `from witnessbox.api import ...`. Импорт внутренних модулей (`ebt_verification.checker.checkers`, `ebt_verification.checker.ebt_check`, `ebt_verification.cli`) не сохраняется: это не поддерживаемый интерфейс, после 0.5.0 те же модули — `witnessbox.checker.*` и `witnessbox.cli`, и такой `checks.py` нужно поправить один раз. Для обновления установленной версии — `uv tool install --force <источник>`.
 
 ## Заготовка для нового проекта
 
@@ -84,7 +90,7 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 | Поддерживаемый интерфейс | Внутренняя реализация |
 |---|---|
-| команды `ebt-gate`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета |
+| команды `ebt-gate`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
 | `witnessbox.api`, совместимый `ebt_verification.api` и `from checkers import ...` | функции `checker/engine.py` и `checker/input.py` |
 | формат свидетельств JSONL, `report.json` и `gate.json` | устройство реестра чекеров |
 | договор `test.sh`/`prepare.sh`, `OUT_DIR`, переменные `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | bash-функции гейта |

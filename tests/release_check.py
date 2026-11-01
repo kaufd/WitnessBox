@@ -57,7 +57,11 @@ def main() -> int:
     wheel, sdist = single((out / "dist").glob("*.whl")), single((out / "dist").glob("*.tar.gz"))
 
     with tarfile.open(sdist) as archive:
-        archive.extractall(out / "sdist", filter="data")
+        # filter= появился в 3.11.4; на 3.11.0–3.11.3 распаковываем свой же sdist без него.
+        if hasattr(tarfile, "data_filter"):
+            archive.extractall(out / "sdist", filter="data")
+        else:
+            archive.extractall(out / "sdist")
     tree = single((out / "sdist").iterdir())
     run(["make", "test", "example"], cwd=tree)
     sdk = bool(shutil.which("bun") and shutil.which("javac") and shutil.which("dart"))
@@ -76,6 +80,10 @@ def main() -> int:
          "from ebt_verification.api import Verdict as Compatible; "
          "assert Compatible is Verdict"],
         env=ENV, capture_output=True, text=True)
+    if identity.returncode:
+        # Без этого при FAIL виден только флаг: причина остаётся в захваченном выводе.
+        sys.stderr.write(identity.stdout + identity.stderr)
+        sys.stderr.flush()
 
     ok = (payload_identical and identity.returncode == 0
           and installation["distribution"] == "witnessbox" and installation["version"] == version)
@@ -89,6 +97,8 @@ def main() -> int:
         "sdist_tests": "make test example" + (" test-sdk" if sdk else "; test-sdk пропущен: нет bun или javac"),
         "sdist_wheel_payload_identical": payload_identical,
     }
+    if identity.returncode:
+        release["compat_import_error"] = (identity.stdout + identity.stderr).strip() or f"exit {identity.returncode}"
     (out / "release.json").write_text(json.dumps(release, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
     print(f"wheel из sdist совпал с выпускным: {payload_identical}")
     print(f"\nrelease-check {version}: {release['result']} → {out / 'release.json'}")
