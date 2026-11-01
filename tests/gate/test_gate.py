@@ -908,7 +908,9 @@ exit "${FAKE_RC:-0}"
             "backslash": "fake-tests \\",
             "positional": "fake-tests $1",
             "braced-positional": "fake-tests ${1}",
+            "braced-slice": "fake-tests ${@:2}",
             "single-quoted-at": "fake-tests '$@'",
+            "unquoted-at-with-single": "npx jest -t 'smoke' $@",
             "quoted-comment": "fake-tests 'a b' # c",
         }
         for name, command in rejected.items():
@@ -916,6 +918,16 @@ exit "${FAKE_RC:-0}"
                 p, _ = run(f"out-reject-{name}", EBT_TEST_CMD=command)
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 self.assertIn("EBT_TEST_CMD", p.stderr)
+        p, _ = run("out-reject-single-quoted-message", EBT_TEST_CMD="fake-tests '$@'")
+        self.assertIn("двойных", p.stderr)
+        self.assertNotIn("не в одинарных", p.stderr)
+        p, _ = run("out-reject-unquoted-at-message", EBT_TEST_CMD="npx jest -t 'smoke' $@")
+        self.assertIn("двойных", p.stderr)
+
+        # 9. Двойные кавычки вокруг среза ${@:2} — явная ссылка, без дописывания "$@".
+        p, _ = run("out-braced-slice", EBT_TEST_CMD='fake-tests "${@:2}"')
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines()[0], "0")
 
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
