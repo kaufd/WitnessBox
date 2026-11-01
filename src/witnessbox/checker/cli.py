@@ -40,7 +40,7 @@ from dataclasses import asdict
 from pathlib import Path
 
 from .engine import ExtensionError, build_report
-from .input import load_checkers, load_jsonl, load_known, load_spec, validate_known
+from .input import load_checkers, load_jsonl, load_known, load_spec, validate_checkers, validate_known
 from .rendering import render_md
 
 __version__ = "0.1.0"
@@ -67,6 +67,7 @@ def main(argv: list[str] | None = None) -> int:
         if a.checkers:
             load_checkers(a.checkers)
         spec, sha = load_spec(a.spec)
+        validate_checkers(spec)
         records, bad, file_starts, offset = [], [], set(), 0
         for path in a.evidence:
             recs, bd = load_jsonl(path, offset)

@@ -5,6 +5,7 @@ python3 -m unittest discover -s tests
 """
 
 import os
+import shutil
 import subprocess
 import tempfile
 import tomllib
@@ -59,7 +60,7 @@ class Gate(unittest.TestCase):
             script.write_text("#!/bin/bash\nset -u\n" + test_sh, encoding="utf-8")
             script.chmod(0o755)
         return subprocess.run([str(self.bin / "ebt-gate"), str(self.ebt), str(self.clone), str(self.run_dir)],
-                              capture_output=True, text=True, env={**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": "", **(env or {})})
+                              capture_output=True, text=True, env={**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": "", "EBT_CHECK": "", "EBT_INV": "", **(env or {})})
 
     def write_to(self, target: str) -> str:
         return f"mkdir -p {target}\ncat > {target}/a.jsonl <<'JSONL'\n{self.record}\nJSONL\n"
@@ -99,7 +100,8 @@ class Gate(unittest.TestCase):
 
     def check_only(self, env: dict | None = None, *paths: str) -> subprocess.CompletedProcess:
         argv = [str(self.bin / "ebt-gate"), "--check-only", *(paths or (str(self.ebt), str(self.clone)))]
-        base = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": ""}
+        base = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_RUNNER": "",
+                "EBT_CHECK": "", "EBT_INV": ""}
         return subprocess.run(argv, capture_output=True, text=True, env={**base, **(env or {})})
 
     def run_test_checks(self, *paths, cwd: Path | None = None,
@@ -158,15 +160,37 @@ class Gate(unittest.TestCase):
         self.commit_clone("изменение защищённого ebt/")
         return {"BASE": base}
 
+    def case_unknown_checker_out_of_scope(self) -> dict:
+        extra = ('\n[inv.INV-OUT]\nreq = "REQ-CART-1"\nchecker = "missing_rule"\n'
+                 'witness = ["a"]\n')
+        (self.ebt / "spec.toml").write_text(SPEC + extra, encoding="utf-8")
+        return {"EBT_INV": "INV-CART-3"}
+
+    def case_missing_ebt_check(self) -> dict:
+        return {"EBT_CHECK": "no-such-ebt-check"}
+
+    def case_unknown_ebt_inv(self) -> dict:
+        return {"EBT_INV": "INV-NOPE"}
+
+    def case_no_commits(self) -> dict:
+        shutil.rmtree(self.clone)
+        self.clone.mkdir()
+        subprocess.run(["git", "-C", str(self.clone), "init", "-q"], check=True)
+        return {}
+
     def problem_cases(self):
         return {
             "checks: неизвестный checker": (self.case_unknown_checker, "checks"),
+            "checks: неизвестный checker вне EBT_INV": (self.case_unknown_checker_out_of_scope, "checks"),
+            "checks: EBT_CHECK не найден": (self.case_missing_ebt_check, "checks"),
             "checks: checks.py падает": (self.case_broken_checks, "checks"),
             "checks: имя чекера ядра": (self.case_core_checker, "checks"),
+            "spec: неизвестный EBT_INV": (self.case_unknown_ebt_inv, "spec"),
             "runner: test.sh не исполняем": (self.case_non_executable_test_sh, "runner"),
             "pinned: расхождение": (self.case_pinned_drift, "pinned"),
             "clone: грязное дерево": (self.case_dirty_clone, "clone"),
             "clone: skip-worktree": (self.case_hidden_edit, "clone"),
+            "clone: репозиторий без коммитов": (self.case_no_commits, "clone"),
             "base: изменён ebt/": (self.case_base_changed, "base"),
         }
 
@@ -724,8 +748,10 @@ exit "${FAKE_RC:-0}"
                 p, _ = run_tests(2, "out-error")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
-                p, _ = run_tests(7, "out-ambiguous")
+                p, out = run_tests(7, "out-ambiguous")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                # Свидетельства копируются и при «ошибке исполнения»: код 7 не в EBT_TEST_FAIL_CODES.
+                self.assertTrue((out / "a.jsonl").is_file())
 
         project = self.clone.parent / "run-jvm"
         target = project / "ebt"
@@ -845,6 +871,33 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
+
+        # 5. Хвостовой перевод строки из YAML-блока не превращает аргумент в новую команду.
+        p, _ = run("out-newline", EBT_TEST_CMD="fake-tests\n")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
+
+        # 6. Хвостовой комментарий не съедает аргументы.
+        p, _ = run("out-comment", EBT_TEST_CMD="fake-tests # только ebt")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
+
+        # 7. Если команда сама раскрывает "$@", аргументы не добавляются второй раз.
+        p, _ = run("out-at", EBT_TEST_CMD='fake-tests "$@"')
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
+
+        # 8. "$@" внутри комментария не считается раскрытием аргументов.
+        p, _ = run("out-comment-at", EBT_TEST_CMD="fake-tests # $@")
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
+                         ["1", "a b"])
+        p, _ = run("out-only-comment", EBT_TEST_CMD="# $@")
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("пуст", p.stderr)
 
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
@@ -1004,6 +1057,13 @@ exit "${FAKE_RC:-0}"
                 self.assertIn("ebt-gate --sync-pinned:", p.stderr)
                 self.assertFalse((self.clone / "sdk/Ebt.java").exists())
 
+        # Строгий режим --sync-pinned не принимает комментарий не в UTF-8, даже если
+        # --check-only по правилам гейта его пропускает.
+        (self.ebt / "pinned.txt").write_bytes(b"# \xcf\xf0\xe8\xec\xe5\xf0 cp1251\n")
+        p = self.sync_pinned(self.ebt, cwd=self.clone)
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertIn("не удалось прочитать", p.stderr)
+
         p = subprocess.run([str(self.bin / "ebt-gate"), "--sync-pinned"],
                            capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
@@ -1043,6 +1103,53 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual([marker.name for marker in markers if marker.exists()], [])
         self.assertFalse((self.ebt / "__pycache__").exists(), "check-only оставил __pycache__")
+
+    def test_check_only_pinned_uses_gate_rules(self):
+        """Строгости --sync-pinned не дают проблемы там, где гейт на том же входе PASS."""
+        sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
+
+        def pin_in_clone():
+            (self.clone / "Ebt.java").write_bytes(sdk.read_bytes())
+            self.commit_clone("pinned copy")
+
+        def cr_comment():
+            pin_in_clone()
+            (self.ebt / "pinned.txt").write_bytes(b"# comment\r\nkit:lib/ebt/Ebt.java  Ebt.java\n")
+
+        def cp1251_comment():
+            (self.ebt / "pinned.txt").write_bytes(b"# \xcf\xf0\xe8\xec\xe5\xf0 cp1251\n")
+
+        def outside_relative():
+            (self.clone.parent / "Ebt.java").write_bytes(sdk.read_bytes())
+            (self.ebt / "pinned.txt").write_text("kit:lib/ebt/Ebt.java  ../Ebt.java\n", encoding="utf-8")
+
+        def duplicate_destination():
+            pin_in_clone()
+            (self.ebt / "pinned.txt").write_text(
+                "kit:lib/ebt/Ebt.java  Ebt.java\nkit:lib/ebt/Ebt.java  ./Ebt.java\n",
+                encoding="utf-8")
+
+        def absolute_destination():
+            target = self.clone.parent / "abs.java"
+            target.write_bytes(sdk.read_bytes())
+            (self.ebt / "pinned.txt").write_text(
+                f"kit:lib/ebt/Ebt.java  {target}\n", encoding="utf-8")
+
+        for name, prepare in {
+            "CR только в комментарии": cr_comment,
+            "комментарий не в UTF-8": cp1251_comment,
+            "dest вне клона": outside_relative,
+            "повтор dest": duplicate_destination,
+            "абсолютный dest": absolute_destination,
+        }.items():
+            with self.subTest(name=name):
+                self.new_project()
+                sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
+                prepare()
+                p = self.check_only()
+                self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+                p = self.gate(self.write_to('"$OUT_DIR"'))
+                self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_check_only_reports_each_problem(self):
         for name, (prepare, check) in self.problem_cases().items():

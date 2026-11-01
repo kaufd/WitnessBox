@@ -193,17 +193,69 @@ def scaffold(argv):
     return 0
 
 
-PinnedCopy = tuple[int, Path, str, Path]
+PinnedCopy = tuple[int, Path, str, Path | None]
 
 
-def read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | None]:
+def _printable(value: object) -> str:
+    """Текст без суррогатов: путь из cp1251 показываем как \\xNN, но не роняем печать."""
+    return str(value).encode("utf-8", "backslashreplace").decode("utf-8")
+
+
+def _gate_read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | None]:
+    """Разбор pinned.txt по правилам gate.sh, без строгостей --sync-pinned.
+
+    Гейт пропускает строки-комментарии (в том числе с \r и не в UTF-8), принимает
+    абсолютный dest, `../` и повтор пути; проверяет только наличие оригинала и
+    совпадение копии. Именно эти правила нужны --check-only, иначе он находил бы
+    проблему там, где гейт даёт PASS (D47).
+    """
+    pinned = ebt / "pinned.txt"
+    if not pinned.is_file():
+        return [], f"нет pinned.txt: {pinned}"
+    try:
+        raw = pinned.read_bytes()
+    except OSError as error:
+        return [], f"не удалось прочитать {pinned}: {error}"
+    resources = Path(__file__).resolve().parent / "resources"
+    copies: list[PinnedCopy] = []
+    # Bash read разделяет только пробелами и табуляцией; \r остаётся в последнем поле.
+    for number, line in enumerate(raw.split(b"\n"), start=1):
+        fields = [field for field in re.split(rb"[ \t]+", line.strip(b" \t")) if field]
+        if not fields or fields[0].startswith(b"#"):
+            continue
+        source = fields[0]
+        dest = fields[1] if len(fields) > 1 else b""
+        source_text = os.fsdecode(source)
+        if source_text.startswith("kit:"):
+            src = resources / source_text[len("kit:"):].lstrip("/")
+        elif os.path.isabs(source_text):
+            src = Path(source_text)
+        else:
+            src = ebt / source_text
+        if not src.is_file():
+            return [], f"pinned.txt:{number}: нет оригинала {_printable(src)}"
+        if not dest:
+            destination = None
+        else:
+            dest_text = os.fsdecode(dest)
+            destination = Path(dest_text) if os.path.isabs(dest_text) else root / dest_text
+        copies.append((number, src, _printable(os.fsdecode(dest)), destination))
+    return copies, None
+
+
+def read_pinned(ebt: Path, root: Path, gate_rules: bool = False) -> tuple[list[PinnedCopy], str | None]:
     """Разобрать pinned.txt: (копии, первая ошибка). Ошибка — текст без префикса команды.
 
     Первый проход ничего не пишет: отказ до первой записи не оставит половину копий.
     Формат тот же, что у гейта: пустые строки и строки с `#` пропускаются, первый токен —
     оригинал (`kit:` — ресурсы этой поставки, абсолютный — как есть, иначе рядом с ebt/),
     второй — путь в проекте. Возвращает (номер строки, оригинал, dest, разрешённый путь).
+
+    gate_rules=True — нестрогие правила gate.sh для --check-only: комментарии не
+    проверяются на \r/UTF-8, абсолютный dest, выход за корень и повтор разрешены.
     """
+    if gate_rules:
+        return _gate_read_pinned(ebt, root)
     pinned = ebt / "pinned.txt"
     if not pinned.is_file():
         return [], f"нет pinned.txt: {pinned}"
@@ -306,8 +358,8 @@ def check_only(argv):
     # Импорт проектного checks.py не должен оставлять __pycache__ в каталоге проверки:
     # команда обещает не менять файлы проекта.
     sys.dont_write_bytecode = True
-    from .checker.checkers import CHECKERS
-    from .checker.input import load_checkers, load_jsonl, load_known, load_spec, validate_known
+    from .checker.input import (load_checkers, load_jsonl, load_known, load_spec,
+                                validate_checkers, validate_known)
 
     problems = 0
 
@@ -320,7 +372,7 @@ def check_only(argv):
     def problem(name, text):
         nonlocal problems
         problems += 1
-        print(f"проблема {name}: {' '.join(str(text).split())}")
+        print(f"проблема {name}: {' '.join(_printable(text).split())}")
 
     def git(*args):
         return subprocess.run(["git", "-C", str(clone), *args], capture_output=True, text=True)
@@ -333,6 +385,12 @@ def check_only(argv):
     else:
         try:
             spec, _ = load_spec(spec_path)
+            raw_scope = os.environ.get("EBT_INV", "")
+            if raw_scope:
+                scope = [item.strip() for item in raw_scope.split(",") if item.strip()]
+                unknown = [item for item in scope if item not in spec["inv"]]
+                if not scope or unknown:
+                    raise ValueError(f"EBT_INV: нет в spec: {', '.join(unknown) or '(пусто)'}")
         except (OSError, ValueError) as error:
             problem("spec", error)
         else:
@@ -343,6 +401,10 @@ def check_only(argv):
         skip("checks", "нет загруженной спецификации")
     else:
         checks_loaded = True
+        ebt_check = os.environ.get("EBT_CHECK", "")
+        if ebt_check and shutil.which(ebt_check) is None:
+            problem("checks", f"EBT_CHECK={ebt_check}: команда не найдена")
+            checks_loaded = False
         checks_path = ebt / "checks.py"
         if checks_path.is_file():
             try:
@@ -351,10 +413,10 @@ def check_only(argv):
                 problem("checks", error)
                 checks_loaded = False
         if checks_loaded:
-            missing = sorted({inv["checker"] for inv in spec["inv"].values()} - set(CHECKERS))
-            if missing:
-                problem("checks", "чекер не зарегистрирован ни в ядре, ни в checks.py: "
-                        + ", ".join(missing))
+            try:
+                validate_checkers(spec)
+            except ValueError as error:
+                problem("checks", error)
             else:
                 ok("checks")
 
@@ -407,23 +469,33 @@ def check_only(argv):
     else:
         ok("runner", "legacy Flutter adapter")
 
-    # 6. pinned: разбор общий с --sync-pinned, сравнение — как в preflight гейта.
+    # 6. pinned: разбор по правилам гейта (не строгим правилам --sync-pinned),
+    # сравнение — как cmp в preflight: отсутствие копии — drift, отказ чтения — проблема.
     pinned_path = ebt / "pinned.txt"
     if not pinned_path.is_file():
         ok("pinned", "нет pinned.txt")
     else:
-        copies, error = read_pinned(ebt, clone)
+        copies, error = read_pinned(ebt, clone, gate_rules=True)
         if error:
             problem("pinned", error)
         else:
             drifted = []
-            try:
-                for _, src, dest, destination in copies:
+            failed = False
+            for number, src, dest, destination in copies:
+                if destination is None:
+                    drifted.append("(пустой путь назначения)")
+                    continue
+                if not destination.exists() and not destination.is_symlink():
+                    drifted.append(dest)
+                    continue
+                try:
                     if not destination.is_file() or destination.read_bytes() != src.read_bytes():
                         drifted.append(dest)
-            except OSError as error:
-                problem("pinned", error)
-            else:
+                except OSError as error:
+                    problem("pinned", f"pinned.txt:{number}: не удалось сравнить {dest}: {error}")
+                    failed = True
+                    break
+            if not failed:
                 if drifted:
                     problem("pinned", "закреплённые копии отличаются от оригинала: " + ", ".join(drifted))
                 else:
@@ -452,7 +524,15 @@ def check_only(argv):
                 elif hidden:
                     problem("clone", "в клоне есть skip-worktree/assume-unchanged: " + hidden[0])
                 else:
-                    ok("clone")
+                    try:
+                        head = git("rev-parse", "-q", "--verify", "HEAD")
+                    except OSError as error:
+                        problem("clone", f"git rev-parse HEAD упал: {error}")
+                    else:
+                        if head.returncode:
+                            problem("clone", "git rev-parse HEAD упал: " + (head.stderr.strip() or "нет коммитов"))
+                        else:
+                            ok("clone")
 
     # 8. base: без BASE защищённые пути не проверяются, и вывод говорит об этом явно.
     base = os.environ.get("BASE", "")

@@ -486,6 +486,21 @@ class Cli(unittest.TestCase):
             self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 1)  # битая строка
             self.assertEqual(ec.main(["--spec", "/nope.toml", "--evidence", str(ev)]), 2)
 
+    def test_unregistered_checker_is_launch_error_even_without_records(self):
+        """Иначе инвариант вне --scope молча проходил бы: NO_CHECKER возникает только на записи."""
+        with tempfile.TemporaryDirectory() as d:
+            d = Path(d)
+            spec = d / "spec.toml"
+            spec.write_text(SPEC.read_text(encoding="utf-8") + (
+                '\n[inv.INV-OUT]\nreq = "REQ-CART-1"\nchecker = "missing_rule"\n'
+                'witness = ["a"]\n'), encoding="utf-8")
+            ev = d / "e.jsonl"
+            ev.write_text(json.dumps(rec(1, "INV-CART-3", "REQ-CART-1", True,
+                                         cart([(1, 1)], "none", 0))) + "\n")
+            argv = ["--spec", str(spec), "--evidence", str(ev), "--md", str(d / "r.md"),
+                    "--scope", "INV-CART-3"]
+            self.assertEqual(ec.main(argv), 2)
+
     def test_non_string_ids_are_malformed_lines(self):
         with tempfile.TemporaryDirectory() as d:
             ev = Path(d) / "e.jsonl"

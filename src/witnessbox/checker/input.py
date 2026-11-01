@@ -127,6 +127,18 @@ def load_checkers(path: Path) -> None:
     DERIVED_PARTITIONS.update(derived)
 
 
+def validate_checkers(spec: dict) -> None:
+    """Каждый checker спецификации должен быть зарегистрирован до проверки записей.
+
+    NO_CHECKER возникает только на записи: инвариант без записей (или вне --scope)
+    иначе молча проходил бы, хотя проверить его нечем. Это ошибка подключения, а не
+    находка по свидетельствам.
+    """
+    missing = sorted({inv["checker"] for inv in spec["inv"].values()} - CHECKERS.keys())
+    if missing:
+        raise ValueError("чекер не зарегистрирован ни в ядре, ни в checks.py: " + ", ".join(missing))
+
+
 def load_known(path: Path) -> list[dict]:
     """Известные находки: [[known]] с inv, kind, match (поля witness), reason, accepted.
 

@@ -109,6 +109,12 @@ ebt-gate --scaffold <dart|ts|jvm|generic> [<каталог>]
 | Maven | `EBT_TEST_CMD="mvn -q test -Dtest='*EbtTest'"`, `EBT_EVIDENCE_DIR=target/ebt` | `kit:lib/ebt/Ebt.java  src/test/java/ebt/Ebt.java` |
 | `dart test` | `EBT_TEST_CMD="dart test test/ebt"` | `kit:lib/ebt/ebt.dart  lib/ebt/ebt.dart` |
 
+`EBT_TEST_CMD` исполняется как `bash -c`. Слова `EBT_TESTS` добавляются к последней
+команде; если команда сама ссылается на `"$@"`/`"$*"`, аргументы приходят ей
+позиционными параметрами и не дублируются. Хвостовые переводы строк и комментарий в
+конце строки отбрасываются: иначе аргумент из `EBT_TESTS` выполнился бы отдельной
+командой или попал в комментарий.
+
 TypeScript SDK включает запись по `import.meta.env.MODE === 'test'`. Jest этого
 значения не задаёт, а без `import.meta.env` модуль не импортируется: с Jest нужен
 Vite/Vitest или своя подстановка `MODE=test` в конфигурации Jest — см. [SDK](sdk.md).
