@@ -46,7 +46,7 @@ witnessbox --installation || uv tool install witnessbox   # или pipx install 
 witnessbox --installation
 ```
 
-Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). `--check-only` и `--test-checks` есть с версии 0.7.0; на более старой обнови установку: `uv tool install --force witnessbox`. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
+Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). `witnessbox gate --check-only` и `witnessbox test-checks` есть с версии 0.7.0; на более старой обнови установку: `uv tool install --force witnessbox`. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
 
 ## Этап 1. Разведка проекта
 
