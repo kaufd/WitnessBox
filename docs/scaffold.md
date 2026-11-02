@@ -20,7 +20,7 @@ ebt-gate --scaffold <dart|ts|jvm|generic> [<каталог>]
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
 | `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
 
-Путь от пустой заготовки до первого PASS на готовом TypeScript-примере — [быстрый старт](quickstart.md); как превратить требование в `spec.toml`, чекер и тесты свидетельств — [руководство по спецификации](authoring.md).
+Путь от пустой заготовки до первого PASS на готовом TypeScript-примере — [быстрый старт](quickstart.md); как превратить требование в `spec.toml`, чекер и тесты свидетельств — [руководство по спецификации](authoring.md). Подключение через агента-кодировщика — [инструкция для агента](agent.md).
 
 ## Что создаётся
 

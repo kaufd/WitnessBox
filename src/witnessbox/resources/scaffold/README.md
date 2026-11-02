@@ -18,7 +18,7 @@ ebt-gate --scaffold <dart|ts|jvm|generic> [<каталог>]
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
 | `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
 
-Подробнее — в документации Witnessbox: [быстрый старт](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) проводит от заготовки до первого PASS на примере, [руководство по спецификации](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) объясняет, как писать `spec.toml`, чекер и тесты свидетельств, включая уровень наблюдения `<INV>-OBS`. Этот файл — справка по заготовке, договор `test.sh` описан ниже.
+Подробнее — в документации Witnessbox: [быстрый старт](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) проводит от заготовки до первого PASS на примере, [руководство по спецификации](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) объясняет, как писать `spec.toml`, чекер и тесты свидетельств, включая уровень наблюдения `<INV>-OBS`. Если подключение выполняет агент-кодировщик, дайте ему [инструкцию для агента](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md). Этот файл — справка по заготовке, договор `test.sh` описан ниже.
 
 ## Что создаётся
 
