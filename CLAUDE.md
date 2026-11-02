@@ -2,7 +2,7 @@
 
 ## Структура и независимость
 
-- `src/witnessbox/` — единственный runtime и установленный пакет; публичные Python-команды — `ebt-gate` и `ebt-check`.
+- `src/witnessbox/` — единственный runtime и установленный пакет; публичная команда — `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`.
 - `src/witnessbox/checker/` — независимая реализация правил. Чекер и проектные расширения не импортируют приложение или SDK и не полагаются на `ok` приложения.
 - `src/witnessbox/api.py` — публичные типы расширений. Новый код импортирует `Verdict`, `WitnessError` из `witnessbox.api`; `src/ebt_verification/api.py` переэкспортирует те же объекты для существующих проектов, совместимость с `from checkers import ...` сохраняется.
 - `src/witnessbox/resources/lib/ebt/` — поставляемые SDK; `tests/` — тесты чекера, установленного wheel-гейта и SDK; `examples/` — демонстрация.

@@ -4,15 +4,15 @@
 
 ## Текущий статус
 
-- Продукт — Witnessbox, дистрибутив и пакет `witnessbox`, лицензия MIT (D36, D38); выпущена `0.6.0` (тег `v0.6.0`, PyPI, выпускные SHA-256 — D46): self-test по путям (D43), `--sync-pinned` (D44) и CI-режим GitHub Actions (D45); предыдущая — `0.5.2` (D42). Готовится `0.7.0`: `--check-only` и `--test-checks` (D47), стек `generic` и сквозные примеры в CI (D48). Публичная документация онбординга — [quickstart](quickstart.md) и [authoring](authoring.md) (D49), инструкция для агента-кодировщика — [agent](agent.md) (D50). Публикация — Trusted Publishing из `publish.yml` файлов, проверенных `make release-check` (D40). `gate.json` (D19) привязан к свидетельствам (D34). Чекер `rules` и схема полей `fields` в продукт не вошли (D24).
+- Продукт — Witnessbox, дистрибутив и пакет `witnessbox`, лицензия MIT (D36, D38); выпущена `0.6.0` (тег `v0.6.0`, PyPI, выпускные SHA-256 — D46): self-test по путям (D43), `--sync-pinned` (D44) и CI-режим GitHub Actions (D45); предыдущая — `0.5.2` (D42). Готовится `0.7.0`: `--check-only` и `--test-checks` (D47), стек `generic` и сквозные примеры в CI (D48), одна команда `witnessbox` (D51). Публичная документация онбординга — [quickstart](quickstart.md) и [authoring](authoring.md) (D49), инструкция для агента-кодировщика — [agent](agent.md) (D50). Публикация — Trusted Publishing из `publish.yml` файлов, проверенных `make release-check` (D40). `gate.json` (D19) привязан к свидетельствам (D34). Чекер `rules` и схема полей `fields` в продукт не вошли (D24).
 - SDK: общий golden для Java, TypeScript и Dart, допустимые значения, соглашения для дробей, времени и конкурентности и гарантии отключения записи — [sdk](sdk.md) (D20, D25, D27, D28). Общий контракт языков — `ev()`; `traced()` есть только в TypeScript (D25).
 - Граница поддерживаемого интерфейса и правила совместимости — в [usage](usage.md#поддерживаемый-интерфейс-и-совместимость).
-- Публичные команды — установленные `ebt-gate` (включая `--scaffold`, `--sync-pinned`, `--check-only` и `--test-checks`) и `ebt-check`; проектный API типов — `witnessbox.api`, совместимый импорт — `ebt_verification.api` (D38, D47).
+- Публичная команда — установленная `witnessbox` с подкомандами `gate` (включая `--check-only`), `check`, `scaffold`, `sync-pinned` и `test-checks`; проектный API типов — `witnessbox.api`, совместимый импорт — `ebt_verification.api` (D38, D47, D51).
 - Чекер независим от кода приложения и SDK. Требования с видимым исходом проверяются и на уровне наблюдения с контрактом наблюдения (D29).
 - Границы гарантий и модель угроз — [security](security.md): что гейт обнаруживает и чего не обещает.
 - CI-режим — недоверенные тесты `ebt-tests` на `pull_request` и доверенная перепроверка `ebt-verify` на `workflow_run`; подписанный `gate.json` и статус `witnessbox/gate` — [ci](ci.md) (D45).
 - `test.sh` — предпочтительный контракт запуска новых проектов; исторический Flutter fallback сохранён для совместимости.
-- Новый проект получает заготовку `ebt/` командой `ebt-gate --scaffold` для `dart`, `ts`, `jvm` или `generic` (D31, D48), а закреплённые в `pinned.txt` копии — командой `ebt-gate --sync-pinned` (D44); тесты чекера и проверку подключения запускают `--test-checks` и `--check-only` (D47). Шаблонная спецификация не является утверждённой.
+- Новый проект получает заготовку `ebt/` командой `witnessbox scaffold` для `dart`, `ts`, `jvm` или `generic` (D31, D48), а закреплённые в `pinned.txt` копии — командой `witnessbox sync-pinned` (D44); тесты чекера и проверку подключения запускают `witnessbox test-checks` и `witnessbox gate --check-only` (D47, D51). Шаблонная спецификация не является утверждённой.
 - Новый Runner API, UI и runtime-зависимости не добавляются без отдельного решения.
 
 История обсуждений, концепции, roadmap и evidence levels ведутся вне публичного репозитория и содержат исходный контекст; эти документы отражают историческое состояние и не являются обещанием будущей реализации.
@@ -335,3 +335,23 @@ D26 оставлял вердикт и `gate.json` в досягаемости �
 
 Принято: [agent](agent.md) — инструкция, которую человек даёт агенту одной ссылкой. В ней жёсткие запреты (не утверждать и не менять spec, не править `ebt/` и копию SDK в ветке задачи, не импортировать приложение в чекер, не ослаблять проверку), точки остановки (черновик spec — обязательная, неоднозначное требование, красный гейт на коде, который человек считает исправным), этапы от `--installation` до гейта, проверка чувствительности дефектом во временном `git worktree` без следа в ветках человека и формат итогового отчёта с явным перечнем того, что осталось вне проверки. Этапы 4–7 прогнаны на wheel 0.7.0 по `examples/e2e/ts`: `--test-checks` — 0, `--check-only` — все строки `ок`, гейт — PASS, дефект в worktree — FAIL с `checker_failed` и `tests_failed`, ветки и дерево проекта чистые. Инструкция в поставку и заготовку не входит: README заготовки только ссылается на неё. Runtime, чекер, SDK и договор `test.sh` не меняются.
 (2026-11-02, статус: принято; дополняет D49.)
+
+### D51. Одна команда `witnessbox`
+У `ebt-gate` было четыре флага-подкоманды (`--scaffold`, `--sync-pinned`, `--check-only`, `--test-checks`), а имя пакета `witnessbox` не совпадало с командами `ebt-gate` и `ebt-check`: после `uv tool install witnessbox` пользователь не находил команду `witnessbox`. Довод D36/D38 о правках у потребителей снят: потребители обновляются вместе с выпуском.
+
+Принято: единственный entry point `witnessbox = witnessbox.cli:main`. `main()` разбирает первую позицию argv и передаёт остаток существующим функциям, `witnessbox.checker.cli.main` для `check` или упакованному `gate.sh` для `gate`; импорт чекера остаётся ленивым. Таблица соответствия:
+
+| было | стало |
+|---|---|
+| `ebt-gate <ebt> <clone> <run>` | `witnessbox gate <ebt> <clone> <run>` |
+| `ebt-gate --check-only <ebt> <clone>` | `witnessbox gate --check-only <ebt> <clone>` |
+| `ebt-gate --scaffold <stack> [<dir>]` | `witnessbox scaffold <stack> [<dir>]` |
+| `ebt-gate --sync-pinned <ebt> [<root>]` | `witnessbox sync-pinned <ebt> [<root>]` |
+| `ebt-gate --test-checks [<ebt>]` | `witnessbox test-checks [<ebt>]` |
+| `ebt-gate --version`, `--installation` | `witnessbox --version`, `--installation` |
+| `ebt-check …`, `--version` | `witnessbox check …`, `--version` |
+
+`--check-only` остаётся флагом `gate`, а не подкомандой `check-only`: рядом с `check` (чекер) имя `check-only` читалось бы как режим чекера. Алиасов старых команд нет. Не меняются аргументы и коды выхода каждой подкоманды, `EBT_*`, `BASE`, каталоги `ebt/` и `build/ebt/`, формат свидетельств, JSON `--installation`, `gate.json` и `report.json`, имя файла `ebt-check.err` в каталоге итога, совместимые модули `ebt_check`, `checkers` и `ebt_verification`. Меняются `gate_sha256` (диспетчер в `cli.py` и `gate.sh`) и `checker_sha256` (`prog` и `--version` чекера). Версия — `0.7.0`.
+
+Миграция: `uv tool upgrade witnessbox` заменяет прежние entry points новыми; если старая версия стояла ещё и через `pipx`, вторую установку нужно удалить вручную. В проектах вызовы в `test.sh`, CI и вспомогательных скриптах заменяются по таблице.
+(2026-11-02, статус: принято; заменяет команды из D31, D44, D47 и entry point из D38.)

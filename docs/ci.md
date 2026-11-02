@@ -4,7 +4,7 @@
 
 ```text
 pull_request ──► ebt-tests (недоверенная стадия)
-                    │  ebt-gate как обычно
+                    │  witnessbox gate как обычно
                     │  artifact witnessbox-evidence: out/*.jsonl + gate.json
                     ▼
 workflow_run ◄──────┘
@@ -12,14 +12,14 @@ workflow_run ◄──────┘
      ▼
 ebt-verify (workflow из основной ветки)
   checkout head_sha; ebt/ из BASE; prepare.sh удалён; test.sh → replay.sh
-  настоящий ebt-gate; код проекта не исполняется
+  настоящий witnessbox gate; код проекта не исполняется
   attest gate.json; gate.md в summary; commit status witnessbox/gate
 ```
 
 - `ebt-tests` запускается на `pull_request` и недоверенна. Её вердикт — только сведения.
 - `ebt-verify` запускается на `workflow_run`. GitHub всегда берёт этот workflow из основной ветки, поэтому ветка задачи не может его изменить. `ebt/` и `checks.py` берутся из `BASE`, `prepare.sh` удаляется, вместо `test.sh` ставится replay-скрипт. Код проекта во второй стадии не исполняется.
 - `actions/setup` ставит witnessbox из PyPI, сверяет SHA-256 wheel и JSON `--installation` с `release.json` выпуска.
-- `actions/verify` перепроверяет свидетельства настоящим `ebt-gate`, подписывает `gate.json` аттестацией GitHub и ставит commit status `witnessbox/gate`: `success` — PASS, `failure` — FAIL, `error` — ERROR или отказ до гейта.
+- `actions/verify` перепроверяет свидетельства настоящей командой `witnessbox gate`, подписывает `gate.json` аттестацией GitHub и ставит commit status `witnessbox/gate`: `success` — PASS, `failure` — FAIL, `error` — ERROR или отказ до гейта.
 
 Логика лежит в composite actions [setup](../actions/setup/action.yml) и [verify](../actions/verify/action.yml); их скрипты проверяются локально в [test_verify.py](../tests/actions/test_verify.py). Перед первой стадией нужен выпуск witnessbox с `release.json` в GitHub Release: в примерах ниже используется `0.6.0`.
 
@@ -61,9 +61,9 @@ jobs:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set +e
-          ebt-gate ebt . "$RUNNER_TEMP/run"
+          witnessbox gate ebt . "$RUNNER_TEMP/run"
           rc=$?
-          echo "ebt-gate завершился с кодом $rc; вердикт этой стадии не доверенный"
+          echo "witnessbox gate завершился с кодом $rc; вердикт этой стадии не доверенный"
           exit 0
 
       - name: Выгрузить свидетельства и gate.json
@@ -116,7 +116,7 @@ jobs:
 
 Оба workflow должны быть влиты в основную ветку. `workflow_run` срабатывает только для workflow-файла из основной ветки; PR, меняющий `ebt-verify.yml`, не влияет на проверку этого PR. В примерах закреплён полный 40-символьный SHA коммита тега `v0.6.0`, а не `main` и не имя тега: тег можно переставить, коммит — нет.
 
-`actions/verify` требует, чтобы `actions/setup` уже выполнился в этом job: composite action не вызывает setup сам, иначе пришлось бы ссылаться на SHA того же коммита изнутри него. Если `ebt-gate` нет на `PATH`, `actions/verify` ставит `error`, а не молчит.
+`actions/verify` требует, чтобы `actions/setup` уже выполнился в этом job: composite action не вызывает setup сам, иначе пришлось бы ссылаться на SHA того же коммита изнутри него. Если `witnessbox` нет на `PATH`, `actions/verify` ставит `error`, а не молчит.
 
 ## Обязательная проверка
 
@@ -153,10 +153,10 @@ gh attestation verify gate.json \
 
 `--signer-workflow` — workflow потребителя, который вызвал composite action; `--source-ref refs/heads/main` привязывает подпись к основной ветке. Для приватного репозитория аттестации требуют тарифа GitHub с поддержкой artifact attestations; без неё шаг подписи не выполнится, а `witnessbox/gate` получит `error`.
 
-При желании перепроверьте свидетельства установленным `ebt-check`:
+При желании перепроверьте свидетельства установленным `witnessbox check`:
 
 ```bash
-ebt-check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
+witnessbox check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 ```
 
 Если в проекте есть `ebt/checks.py`, добавьте `--checkers ebt/checks.py`; при использовании `known.toml`, `baseline.jsonl` или `EBT_INV` добавьте соответствующие `--known`, `--baseline`, `--scope`. `gate.json` содержит `evidence` — имена и SHA-256 файлов `out/*.jsonl`, которые читал чекер; сверьте их с скачанными файлами. Согласованную подмену самих свидетельств и `gate.json` до вердикта это не ловит: свидетельства пишет код под проверкой, а `tests_exit_code` первой стадии — его заявление (D45).
@@ -175,7 +175,7 @@ ebt-check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 
 Сквозной сценарий нельзя проверить в PR самого Witnessbox: `workflow_run` срабатывает только для workflow из основной ветки. Приёмка идёт в отдельном публичном репозитории (например, `kaufd/witnessbox-ci-demo`).
 
-1. Создать репозиторий и влить в `main`: `ebt-gate --scaffold ts ebt` с утверждённой `spec.toml` из примера, оба workflow из шаблонов выше с одним и тем же SHA actions и branch protection с обязательной проверкой `witnessbox/gate`.
+1. Создать репозиторий и влить в `main`: `witnessbox scaffold ts ebt` с утверждённой `spec.toml` из примера, оба workflow из шаблонов выше с одним и тем же SHA actions и branch protection с обязательной проверкой `witnessbox/gate`.
 2. PR с корректным изменением: `witnessbox/gate` — `success`; `gh attestation verify gate.json ...` проходит.
 3. PR, нарушающий правило: `failure`; `gate.md` в summary второй стадии.
 4. PR, меняющий `ebt/spec.toml`: `failure` с `protected_paths_changed`, даже если spec ветки делает проверку зелёной.
@@ -192,7 +192,7 @@ ebt-check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 | `нет BASE: PR из форка или push без PR не поддерживается` | `workflow_run.pull_requests` пуст; форки в первой версии не поддержаны |
 | `PR из форка не поддерживается` | `BASE` есть, но `head_repository` не совпадает с репозиторием workflow |
 | `нет артефакта witnessbox-evidence` | первая стадия упала/отменена до upload или артефакт переименован |
-| `ebt-gate не найден на PATH: сначала выполните actions/setup` | в job нет шага `actions/setup` или он упал |
+| `witnessbox не найден на PATH: сначала выполните actions/setup` | в job нет шага `actions/setup` или он упал |
 | `ebt/ нет в BASE — сначала влейте ebt/ в основную ветку` | в основной ветке ещё нет каталога проверки |
 | `symlink в свидетельствах` / `не обычный файл` / `tests_exit_code` | артефакт первой стадии повреждён или подменён |
 | `gate.json` отсутствует | гейт не смог записать итог; вторая стадия ставит `error` |

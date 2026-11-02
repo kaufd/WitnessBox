@@ -18,7 +18,7 @@
 uv tool install witnessbox
 ```
 
-Появятся две команды: `ebt-gate` и `ebt-check`. Отдельной команды `witnessbox` нет. Версию и отпечатки поставки показывает `ebt-gate --installation`.
+Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
 
 ## 2. Проект и заготовка `ebt/`
 
@@ -90,7 +90,7 @@ build/
 
 ```bash
 bun install
-ebt-gate --scaffold ts ebt
+witnessbox scaffold ts ebt
 ```
 
 `bun install` создаст `bun.lock`: его нужно закоммитить, потому что гейт ставит зависимости в чистом клоне командой `bun install --frozen-lockfile`. Заготовка печатает список созданного:
@@ -116,7 +116,7 @@ ebt-gate --scaffold ts ebt
 ## 3. Копия SDK
 
 ```bash
-ebt-gate --sync-pinned ebt
+witnessbox sync-pinned ebt
 ```
 
 ```
@@ -188,7 +188,7 @@ chmod 755 ebt/prepare.sh
 Тесты чекера из заготовки:
 
 ```bash
-ebt-gate --test-checks ebt
+witnessbox test-checks ebt
 ```
 
 ```
@@ -215,7 +215,7 @@ git commit -m "Проект с заготовкой ebt"
 Проверка подключения (`prepare.sh` и `test.sh` она не запускает):
 
 ```bash
-BASE=$(git rev-parse HEAD) ebt-gate --check-only ebt .
+BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
 ```
 
 ```
@@ -234,7 +234,7 @@ BASE=$(git rev-parse HEAD) ebt-gate --check-only ebt .
 ## 7. Гейт: PASS
 
 ```bash
-BASE=$(git rev-parse HEAD) ebt-gate ebt . ../results
+BASE=$(git rev-parse HEAD) witnessbox gate ebt . ../results
 echo $?
 ```
 
@@ -280,7 +280,7 @@ export function double(value: number): number {
 
 ```bash
 git commit -am "double: умножение на 3"
-BASE=$(git rev-parse HEAD~1) ebt-gate ebt . ../results-defect
+BASE=$(git rev-parse HEAD~1) witnessbox gate ebt . ../results-defect
 echo $?
 ```
 
@@ -332,7 +332,7 @@ echo $?
 
 ## Автоматическая проверка учебника
 
-`make e2e STACK=ts` собирает временный репозиторий из заготовки и `examples/e2e/ts`, прогоняет гейт на исправном коде (ожидает PASS), накладывает `examples/e2e/ts/defect/` и ожидает FAIL с `checker_failed` и без `protected_paths_changed`. Аналоги — `STACK=jvm` и `STACK=generic`. Нужны установленный `ebt-gate`, `bun` (для `jvm` — `gradle` и JDK 17).
+`make e2e STACK=ts` собирает временный репозиторий из заготовки и `examples/e2e/ts`, прогоняет гейт на исправном коде (ожидает PASS), накладывает `examples/e2e/ts/defect/` и ожидает FAIL с `checker_failed` и без `protected_paths_changed`. Аналоги — `STACK=jvm` и `STACK=generic`. Нужна установленная команда `witnessbox`, `bun` (для `jvm` — `gradle` и JDK 17).
 
 ## Дальше
 

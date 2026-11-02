@@ -20,7 +20,7 @@
 
 1. Не коммить `ebt/spec.toml` и не запускай гейт «на зелёный», пока человек не утвердил требование, `witness`, `partitions` и, для `-OBS`, контракт наблюдения.
 2. После утверждения не меняй `spec.toml` по своей инициативе. Если оказалось, что правило не реализуемо или неоднозначно, остановись и спроси.
-3. Не правь `ebt/` и закреплённую копию SDK в ветке задачи, которую проверяет гейт: это `protected_paths_changed` и `pinned_drift`. Копию SDK обновляет только `ebt-gate --sync-pinned`.
+3. Не правь `ebt/` и закреплённую копию SDK в ветке задачи, которую проверяет гейт: это `protected_paths_changed` и `pinned_drift`. Копию SDK обновляет только `witnessbox sync-pinned`.
 4. `checks.py` не импортирует приложение, его SDK и сторонние пакеты и не читает поле `ok`. Константы правила берутся из текста требования, а не из кода приложения.
 5. В `data` свидетельства пишется то, что реально использовало и вернуло приложение, а не то, что тест пересчитал сам.
 6. Не ослабляй проверку, чтобы получить PASS: не убирай классы из `partitions`, поля из `witness`, не добавляй `not_in_verdict`, `known.toml` или `--allow-uncovered` без решения человека. Красный гейт на коде проекта — находка, о ней сообщают, а не прячут.
@@ -42,8 +42,8 @@
 ## Этап 0. Окружение
 
 ```bash
-ebt-gate --installation || uv tool install witnessbox   # или pipx install witnessbox
-ebt-gate --installation
+witnessbox --installation || uv tool install witnessbox   # или pipx install witnessbox
+witnessbox --installation
 ```
 
 Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). `--check-only` и `--test-checks` есть с версии 0.7.0; на более старой обнови установку: `uv tool install --force witnessbox`. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
@@ -66,7 +66,7 @@ ebt-gate --installation
 ## Этап 2. Черновик спецификации и утверждение
 
 ```bash
-ebt-gate --scaffold <стек> ebt
+witnessbox scaffold <стек> ebt
 ```
 
 Замени пример `REQ-EXAMPLE-1`/`INV-EXAMPLE-1` в `ebt/spec.toml` черновиком по [руководству](authoring.md#2-spectoml):
@@ -93,7 +93,7 @@ OBS: <нужен/не нужен и почему>; контракт: <пять �
 Напиши в `ebt/checks.py` функцию правила и зарегистрируй её в `CHECKERS` ([образец](authoring.md#3-checkspy)): `Verdict(ok, reason, parts)` при корректной форме, `WitnessError` при отсутствующем поле или неверном типе; `parts` возвращаются и при нарушении; имя не совпадает с чекерами ядра (`cart_total`, `transition`, `sync_merge`). В `ebt/test_checks.py` — случай на каждый класс, нарушение на границе, ошибка формы, регистрация.
 
 ```bash
-ebt-gate --test-checks ebt
+witnessbox test-checks ebt
 ```
 
 Ожидаемо — код `0`. Нулевой прогон (нет `test_*.py`) — код `1`.
@@ -101,7 +101,7 @@ ebt-gate --test-checks ebt
 ## Этап 4. SDK и тесты свидетельств
 
 ```bash
-ebt-gate --sync-pinned ebt
+witnessbox sync-pinned ebt
 ```
 
 Если проект кладёт SDK не туда, куда указывает шаблонная строка `ebt/pinned.txt`, сначала поправь путь назначения в `pinned.txt`, затем повтори команду. Файл SDK после этого не редактируй.
@@ -117,7 +117,7 @@ ebt-gate --sync-pinned ebt
 Закоммить подключение одним коммитом (спецификация уже утверждена): `ebt/`, копию SDK, тесты свидетельств, lock-файл. `build/` — в `.gitignore`.
 
 ```bash
-BASE=$(git rev-parse HEAD) ebt-gate --check-only ebt .
+BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
 ```
 
 Каждая строка должна быть `ок`; `проблема …` устрани и повтори. Это подсказка, а не вердикт.
@@ -125,7 +125,7 @@ BASE=$(git rev-parse HEAD) ebt-gate --check-only ebt .
 ## Этап 6. Гейт на исправном коде
 
 ```bash
-BASE=$(git rev-parse HEAD) ebt-gate ebt . ../ebt-results
+BASE=$(git rev-parse HEAD) witnessbox gate ebt . ../ebt-results
 echo $?
 ```
 
@@ -138,7 +138,7 @@ echo $?
 | FAIL, `checker_failed`, «не встретились классы входов» | тесты не дошли до класса — добавь сценарий; классы из `partitions` не убирай |
 | FAIL, `checker_failed`, нарушение или ложное доказательство | возможный дефект кода или ошибка спецификации — **остановись**, покажи находку человеку |
 | FAIL, `tests_failed` | упали сами тесты, смотри `test.log` |
-| FAIL, `pinned_drift` | копия SDK отличается — `ebt-gate --sync-pinned ebt`, коммит |
+| FAIL, `pinned_drift` | копия SDK отличается — `witnessbox sync-pinned ebt`, коммит |
 | FAIL, `protected_paths_changed` | `ebt/` изменён после `BASE` — проверь, какой коммит передан в `BASE` |
 | `report.md`: «порча путей … ни разу не поймана» | чекер не смотрит на поле: либо проверь его в чекере, либо спроси человека, не лишнее ли оно в `witness` |
 
@@ -150,7 +150,7 @@ PASS сам по себе не доказывает, что проверка р�
 git worktree add ../ebt-defect-check HEAD
 # в ../ebt-defect-check сломай границу правила в коде приложения (например, >= → >)
 git -C ../ebt-defect-check commit -am "временный дефект для проверки EBT"
-BASE=$(git rev-parse HEAD) ebt-gate ../ebt-defect-check/ebt ../ebt-defect-check ../ebt-results-defect
+BASE=$(git rev-parse HEAD) witnessbox gate ../ebt-defect-check/ebt ../ebt-defect-check ../ebt-results-defect
 echo $?
 git worktree remove --force ../ebt-defect-check
 ```

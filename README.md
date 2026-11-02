@@ -6,17 +6,17 @@ Evidence-based testing (EBT) of application behaviour: during tests the code rec
 
 ```bash
 uv tool install witnessbox          # or: pipx install witnessbox
-ebt-gate --scaffold ts ebt          # ebt/ scaffold for the dart, ts, jvm or generic stack
-ebt-gate --sync-pinned ebt          # copy the SDK pinned in ebt/pinned.txt into the project
+witnessbox scaffold ts ebt          # ebt/ scaffold for the dart, ts, jvm or generic stack
+witnessbox sync-pinned ebt          # copy the SDK pinned in ebt/pinned.txt into the project
 # write an evidence test and ebt/prepare.sh, then commit ebt/ and the project
-ebt-gate --test-checks ebt          # unit tests of the project checker
-ebt-gate --check-only ebt .         # wiring check; runs no tests
-BASE=$(git rev-parse HEAD) ebt-gate ebt . ../results   # gate: PASS, exit code 0
+witnessbox test-checks ebt          # unit tests of the project checker
+witnessbox gate --check-only ebt .  # wiring check; runs no tests
+BASE=$(git rev-parse HEAD) witnessbox gate ebt . ../results   # gate: PASS, exit code 0
 ```
 
-The scaffold contains an example `spec.toml`, `checks.py` and a stack-specific `test.sh`. A human approves the specification before the first run, and `test.sh` wires in the project's tests. The gate on a bare scaffold, before any evidence test exists, ends in ERROR (exit code `2`): no evidence is not a pass. The [quick start tutorial](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) walks the whole path on a small TypeScript project: scaffold, evidence test, PASS, an injected defect, FAIL with `checker_failed`, and how to read `gate.md` and `gate.json`. To write your own specification, see [authoring a specification](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md); the scaffold files are described in [new project](https://github.com/kaufd/WitnessBox/blob/main/docs/scaffold.md). `--check-only` and `--test-checks` need 0.7.0 or later. To have a coding agent wire up the project, give it the [agent instructions](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md): it drafts the specification and stops until a human approves it. The installation provides `ebt-gate` and `ebt-check`; there is no separate `witnessbox` command. Gate exit codes: `0` PASS, `1` FAIL, `2` ERROR. The machine-readable result for CI is `gate.json` in the results directory.
+The scaffold contains an example `spec.toml`, `checks.py` and a stack-specific `test.sh`. A human approves the specification before the first run, and `test.sh` wires in the project's tests. The gate on a bare scaffold, before any evidence test exists, ends in ERROR (exit code `2`): no evidence is not a pass. The [quick start tutorial](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) walks the whole path on a small TypeScript project: scaffold, evidence test, PASS, an injected defect, FAIL with `checker_failed`, and how to read `gate.md` and `gate.json`. To write your own specification, see [authoring a specification](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md); the scaffold files are described in [new project](https://github.com/kaufd/WitnessBox/blob/main/docs/scaffold.md). `--check-only` and `--test-checks` need 0.7.0 or later. To have a coding agent wire up the project, give it the [agent instructions](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md): it drafts the specification and stops until a human approves it. The installation provides one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks` subcommands; `witnessbox --help` lists them. The two separate commands from 0.6.0 are removed in 0.7.0. Gate exit codes: `0` PASS, `1` FAIL, `2` ERROR. The machine-readable result for CI is `gate.json` in the results directory.
 
-`ebt-gate --installation` prints the version and the SHA-256 of the gate and checker code; compare them with the release values in the [decision log](https://github.com/kaufd/WitnessBox/blob/main/docs/decisions.md). Building from source, moving from the previous distribution and migration are covered in [usage](https://github.com/kaufd/WitnessBox/blob/main/docs/usage.md).
+`witnessbox --installation` prints the version and the SHA-256 of the gate and checker code; compare them with the release values in the [decision log](https://github.com/kaufd/WitnessBox/blob/main/docs/decisions.md). Building from source, moving from the previous distribution and migration are covered in [usage](https://github.com/kaufd/WitnessBox/blob/main/docs/usage.md).
 
 The documentation is written in Russian.
 

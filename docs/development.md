@@ -16,7 +16,7 @@ make release-check  # проверка выпуска: sdist → wheel, тест
 
 `make test` и `make example` работают без сети и без Bun/Gradle. `make e2e`
 собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
-установленный `ebt-gate` дважды и проверяет `checker_failed`; нужны `ebt-gate` из
+установленную команду `witnessbox gate` дважды и проверяет `checker_failed`; нужна `witnessbox` из
 wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`) и сеть для
 зависимостей. Сгенерированные Gradle wrapper и `node_modules` в репозиторий не
 коммитятся.
@@ -45,8 +45,8 @@ uv tool install --force dist/witnessbox-0.7.0-py3-none-any.whl
 1. Поднять `version` в `pyproject.toml`, закоммитить, выполнить `make release-check` — итог PASS в `build/release/<версия>/release.json`.
 2. Поставить тег на этот коммит и отправить его: `git tag -a v<версия> -m ...`, `git push origin v<версия>`.
 3. Создать prerelease с проверенными файлами: `gh release create v<версия> --prerelease build/release/<версия>/dist/* build/release/<версия>/release.json`.
-4. Необязательно, пробный выпуск (нужен pending publisher на test.pypi.org с окружением `testpypi`): `gh workflow run publish.yml -f tag=v<версия> -f index=testpypi`, затем установка в чистое окружение — `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<версия> ebt-gate --installation` и `ebt-gate --scaffold` во временный каталог.
-5. Выпуск: `gh workflow run publish.yml -f tag=v<версия> -f index=pypi`; SHA-256 файлов на PyPI сверить с `release.json`, проверить `uvx --from witnessbox==<версия> ebt-gate --installation` и `--scaffold`, затем `gh release edit v<версия> --prerelease=false --latest`.
+4. Необязательно, пробный выпуск (нужен pending publisher на test.pypi.org с окружением `testpypi`): `gh workflow run publish.yml -f tag=v<версия> -f index=testpypi`, затем установка в чистое окружение — `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<версия> witnessbox --installation` и `witnessbox scaffold` во временный каталог.
+5. Выпуск: `gh workflow run publish.yml -f tag=v<версия> -f index=pypi`; SHA-256 файлов на PyPI сверить с `release.json`, проверить `uvx --from witnessbox==<версия> witnessbox --installation` и `--scaffold`, затем `gh release edit v<версия> --prerelease=false --latest`.
 6. Следующим коммитом — запись о выпуске с SHA-256 в журнале решений.
 
 Повторно загрузить файл с той же версией PyPI не даёт, поэтому ошибка после шага 5 исправляется только новой версией.
