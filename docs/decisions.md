@@ -4,7 +4,7 @@
 
 ## Текущий статус
 
-- Продукт — Witnessbox, дистрибутив и пакет `witnessbox`, лицензия MIT (D36, D38); выпущена `0.6.0` (тег `v0.6.0`, PyPI, выпускные SHA-256 — D46): self-test по путям (D43), `--sync-pinned` (D44) и CI-режим GitHub Actions (D45); предыдущая — `0.5.2` (D42). Готовится `0.7.0`: `--check-only` и `--test-checks` (D47), стек `generic` и сквозные примеры в CI (D48), одна команда `witnessbox` (D51). Публичная документация онбординга — [quickstart](quickstart.md) и [authoring](authoring.md) (D49), инструкция для агента-кодировщика — [agent](agent.md) (D50). Публикация — Trusted Publishing из `publish.yml` файлов, проверенных `make release-check` (D40). `gate.json` (D19) привязан к свидетельствам (D34). Чекер `rules` и схема полей `fields` в продукт не вошли (D24).
+- Продукт — Witnessbox, дистрибутив и пакет `witnessbox`, лицензия MIT (D36, D38); выпущена `0.7.0` (тег `v0.7.0`, PyPI, выпускные SHA-256 — D52): одна команда `witnessbox` (D51), `gate --check-only` и `test-checks` (D47), стек `generic` и сквозные примеры в CI (D48); предыдущая — `0.6.0` (D46): self-test по путям (D43), `sync-pinned` (D44) и CI-режим GitHub Actions (D45). Публичная документация онбординга — [quickstart](quickstart.md) и [authoring](authoring.md) (D49), инструкция для агента-кодировщика — [agent](agent.md) (D50). Публикация — Trusted Publishing из `publish.yml` файлов, проверенных `make release-check` (D40). `gate.json` (D19) привязан к свидетельствам (D34). Чекер `rules` и схема полей `fields` в продукт не вошли (D24).
 - SDK: общий golden для Java, TypeScript и Dart, допустимые значения, соглашения для дробей, времени и конкурентности и гарантии отключения записи — [sdk](sdk.md) (D20, D25, D27, D28). Общий контракт языков — `ev()`; `traced()` есть только в TypeScript (D25).
 - Граница поддерживаемого интерфейса и правила совместимости — в [usage](usage.md#поддерживаемый-интерфейс-и-совместимость).
 - Публичная команда — установленная `witnessbox` с подкомандами `gate` (включая `--check-only`), `check`, `scaffold`, `sync-pinned` и `test-checks`; проектный API типов — `witnessbox.api`, совместимый импорт — `ebt_verification.api` (D38, D47, D51).
@@ -355,3 +355,17 @@ D26 оставлял вердикт и `gate.json` в досягаемости �
 
 Миграция: `uv tool upgrade witnessbox` заменяет прежние entry points новыми; если старая версия стояла ещё и через `pipx`, вторую установку нужно удалить вручную. В проектах вызовы в `test.sh`, CI и вспомогательных скриптах заменяются по таблице.
 (2026-11-02, статус: принято; заменяет команды из D31, D44, D47 и entry point из D38.)
+
+### D52. Выпуск 0.7.0
+Поставка `0.7.0` выпущена и опубликована в PyPI: https://pypi.org/project/witnessbox/0.7.0/. В неё вошли D47 (`gate --check-only` и `test-checks`), D48 (стек `generic` и сквозные примеры в CI), D49 и D50 (документация онбординга и инструкция агенту) и D51 (одна команда `witnessbox` вместо `ebt-gate` и `ebt-check`). Это ломающий выпуск: прежние команды удалены без алиасов, переход описан в D51 и `docs/usage.md`. Тег `v0.7.0` стоит на коммите `6a768b1`, из которого собраны и проверены артефакты; в `main` он влит merge-коммитом `3af25b3` без squash, дерево которого совпадает с `6a768b1`. Эта запись добавлена следующим коммитом, потому что `docs/` входит в sdist. Перед тегом проверено на `6a768b1`:
+
+- `make release-check` — PASS: из sdist выполнены `make test example test-sdk` (76 тестов чекера, 73 теста гейта, 18 тестов actions; Java, TypeScript, Dart с `assert` и без), wheel из sdist совпал с выпускным, совместимый импорт работает, в `bin/` установленного wheel только `witnessbox`.
+- CI `test.yml` по PR — Ubuntu и macOS × Python 3.11 и 3.13, SDK, `e2e` для `ts`, `generic` и `jvm`.
+- `make test-linux` не запускался: Docker на машине выпуска недоступен; Linux покрыт CI по PR.
+
+Публикация: файлы приложены к GitHub Release `v0.7.0`, workflow `publish.yml` с `index=pypi` сверил их SHA-256 с `release.json` и загрузил через Trusted Publishing; пробный выпуск в TestPyPI пропущен, как в D42 и D46. SHA-256 файлов на PyPI совпали с выпускными; установка из PyPI (`uvx --from witnessbox==0.7.0`) даёт версию `0.7.0` и выпускные отпечатки, `witnessbox scaffold` создаёт заготовку.
+
+Выпускные значения (`build/release/0.7.0/release.json`): wheel `witnessbox-0.7.0-py3-none-any.whl` — SHA-256 `ae2fbb7ff74ca2bfde62c3bdda29d91bf5725012b31bf012c90bcf582b2a8033`, sdist `witnessbox-0.7.0.tar.gz` — `35a530583aed00538d2705013a7869c541cbe6bdfa997a788bcf979bd2bf2c06`, `gate_sha256` — `47ee99d886124669a62b7397122559b6b9213f99656eb21e2a436d45d613233b`, `checker_sha256` — `c50ab33597591f5a78f14e27b1aa722b42637bf6633d30612559b3977551ba44`. С этими значениями вызывающий сверяет `witnessbox --installation` (D26), а `actions/setup` — автоматически (D45).
+
+Шаблоны `docs/ci.md` переведены на версию `0.7.0` и на SHA коммита тега `6a768b100e1660cd1d983bbb35f492f418878fbd`. В отличие от `0.6.0`, код `actions/` с приёмки D45 изменился: проверки и вызовы `ebt-gate`/`ebt-check` заменены на `witnessbox` (D51). Эти шаги покрыты `tests/actions`, но живая приёмка двух стадий на отдельном репозитории для `0.7.0` не повторялась.
+(2026-11-02, статус: принято.)
