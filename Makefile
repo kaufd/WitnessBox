@@ -66,8 +66,8 @@ example:
 	  test $$rc -eq 1
 	@echo "→ examples/basic/report.md"
 
-# Сквозной путь: заготовка → --sync-pinned → PASS → дефект → FAIL checker_failed.
-# Нужны установленный ebt-gate, bun (ts/generic) и gradle с JDK 17 (jvm); сеть.
+# Сквозной путь: заготовка → sync-pinned → PASS → дефект → FAIL checker_failed.
+# Нужна установленная команда witnessbox, bun (ts/generic) и gradle с JDK 17 (jvm); сеть.
 e2e:
 	examples/e2e/run.sh $(STACK) $(E2E_EXAMPLE)
 

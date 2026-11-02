@@ -1,12 +1,12 @@
 #!/bin/bash
-# Сквозной пример EBT: заготовка → --sync-pinned → PASS → дефект → FAIL checker_failed.
+# Сквозной пример EBT: заготовка → sync-pinned → PASS → дефект → FAIL checker_failed.
 #
 #   examples/e2e/run.sh <ts|jvm|generic> <example-dir>
 #
 # Собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
-# установленный ebt-gate дважды. Каталог результатов печатается при отказе и
-# удаляется при успехе. Коды: 0 — оба ожидания выполнены; 1 — ожидание не
-# выполнено; 2 — ошибка окружения (нет git, ebt-gate, bun, gradle, python3).
+# установленную команду witnessbox gate дважды. Каталог результатов печатается
+# при отказе и удаляется при успехе. Коды: 0 — оба ожидания выполнены; 1 — ожидание
+# не выполнено; 2 — ошибка окружения (нет git, witnessbox, bun, gradle, python3).
 set -uo pipefail
 
 GRADLE_VERSION=9.8.2
@@ -48,26 +48,12 @@ need() {
   }
 }
 need git "нужен git"
-need ebt-gate "установите witnessbox (uv tool install dist/witnessbox-*.whl)"
+need witnessbox "установите witnessbox (uv tool install dist/witnessbox-*.whl)"
 need python3 "нужен python3 для разбора gate.json"
 case $stack in
   ts|generic) need bun "примеру TypeScript нужен Bun" ;;
   jvm) need gradle "нужен Gradle для генерации wrapper"; need java "нужен JDK 17" ;;
 esac
-
-# Старая установка уводит неизвестный флаг в gate.sh: его usage не называет флаг.
-check_only_available() {
-  case "$(ebt-gate --check-only 2>&1)" in
-    *"--check-only"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
-test_checks_available() {
-  case "$(ebt-gate --test-checks a b 2>&1)" in
-    *"--test-checks"*) return 0 ;;
-    *) return 1 ;;
-  esac
-}
 
 root=$(mktemp -d "${TMPDIR:-/tmp}/witnessbox-e2e-${stack}.XXXXXX") || {
   echo "e2e: не удалось создать временный каталог" >&2
@@ -93,9 +79,9 @@ node_modules/
 .gradle/
 EOF
 
-(cd "$work" && ebt-gate --scaffold "$stack" ebt) >"$logs/scaffold.log" 2>&1 || {
+(cd "$work" && witnessbox scaffold "$stack" ebt) >"$logs/scaffold.log" 2>&1 || {
   cat "$logs/scaffold.log" >&2
-  echo "e2e: --scaffold $stack упал" >&2
+  echo "e2e: scaffold $stack упал" >&2
   exit 2
 }
 cp -R "$example/ebt/." "$work/ebt/" || {
@@ -113,9 +99,9 @@ if [ "$stack" = jvm ]; then
   }
 fi
 
-(cd "$work" && ebt-gate --sync-pinned ebt) >"$logs/sync-pinned.log" 2>&1 || {
+(cd "$work" && witnessbox sync-pinned ebt) >"$logs/sync-pinned.log" 2>&1 || {
   cat "$logs/sync-pinned.log" >&2
-  echo "e2e: --sync-pinned не прошёл" >&2
+  echo "e2e: sync-pinned не прошёл" >&2
   exit 1
 }
 
@@ -126,24 +112,16 @@ git -C "$work" add -A || exit 2
 git -C "$work" commit -qm "e2e: заготовка, SDK и пример" || exit 2
 base=$(git -C "$work" rev-parse HEAD) || exit 2
 
-if test_checks_available; then
-  (cd "$work" && ebt-gate --test-checks ebt) >"$logs/test-checks.log" 2>&1 || {
-    cat "$logs/test-checks.log" >&2
-    echo "e2e: --test-checks не прошёл" >&2
-    exit 1
-  }
-else
-  echo "e2e: --test-checks недоступен в установленной поставке — пропущено" >&2
-fi
-if check_only_available; then
-  (cd "$work" && BASE="$base" ebt-gate --check-only ebt .) >"$logs/check-only.log" 2>&1 || {
-    cat "$logs/check-only.log" >&2
-    echo "e2e: --check-only нашёл проблему" >&2
-    exit 1
-  }
-else
-  echo "e2e: --check-only недоступен в установленной поставке — пропущено" >&2
-fi
+(cd "$work" && witnessbox test-checks ebt) >"$logs/test-checks.log" 2>&1 || {
+  cat "$logs/test-checks.log" >&2
+  echo "e2e: test-checks не прошёл" >&2
+  exit 1
+}
+(cd "$work" && BASE="$base" witnessbox gate --check-only ebt .) >"$logs/check-only.log" 2>&1 || {
+  cat "$logs/check-only.log" >&2
+  echo "e2e: gate --check-only нашёл проблему" >&2
+  exit 1
+}
 
 # generic запускает тот же TS-пример: команда тестов задаётся переменной.
 if [ "$stack" = generic ]; then
@@ -154,7 +132,7 @@ unset EBT_RUNNER EBT_TESTS EBT_CHECK EBT_INV
 run_gate() {
   run_dir=$1
   log=$2
-  (cd "$work" && BASE="$base" ebt-gate ebt . "$run_dir") >"$log" 2>&1
+  (cd "$work" && BASE="$base" witnessbox gate ebt . "$run_dir") >"$log" 2>&1
 }
 
 if ! run_gate "$logs/run1" "$logs/run1.log"; then
@@ -196,5 +174,5 @@ if "protected_paths_changed" in reasons:
     sys.exit(f"e2e: дефект задел защищённые пути: {reasons}")
 PY
 
-echo "e2e $stack: заготовка → --sync-pinned → PASS → дефект → FAIL (checker_failed)"
+echo "e2e $stack: заготовка → sync-pinned → PASS → дефект → FAIL (checker_failed)"
 exit 0
