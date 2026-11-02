@@ -27,8 +27,7 @@ Source = "https://github.com/kaufd/WitnessBox"
 Issues = "https://github.com/kaufd/WitnessBox/issues"
 
 [project.scripts]
-ebt-gate = "witnessbox.cli:main"
-ebt-check = "witnessbox.checker.ebt_check:main"
+witnessbox = "witnessbox.cli:main"
 
 [tool.setuptools]
 package-dir = {"" = "src"}

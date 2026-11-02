@@ -1,5 +1,5 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для TypeScript/Vite/Vitest (ebt-gate --scaffold ts).
+# test.sh заготовки ebt/ для TypeScript/Vite/Vitest (witnessbox scaffold ts).
 #
 # Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
 # каталог результатов прогона. Аргументы — слова из EBT_TESTS (фильтр vitest).
@@ -11,7 +11,7 @@
 # скрипт; без node_modules vitest упадёт, и код вернётся ниже.
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через ebt-gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
 
 command -v bunx >/dev/null 2>&1 || { echo "test.sh: не найден bunx; нужен Bun" >&2; exit 2; }
 

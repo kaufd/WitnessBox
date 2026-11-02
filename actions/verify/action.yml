@@ -52,8 +52,8 @@ runs:
       shell: bash
       run: |
         set -euo pipefail
-        if ! command -v ebt-gate >/dev/null 2>&1; then
-          echo "EBT_VERIFY_ERROR=ebt-gate не найден на PATH: сначала выполните actions/setup" >> "$GITHUB_ENV"
+        if ! command -v witnessbox >/dev/null 2>&1; then
+          echo "EBT_VERIFY_ERROR=witnessbox не найден на PATH: сначала выполните actions/setup" >> "$GITHUB_ENV"
           exit 1
         fi
 
@@ -114,7 +114,7 @@ runs:
         mkdir -p "$run"
         set +e
         BASE="$BASE" EBT_RUNNER=test.sh EBT_CHECK= EBT_REPLAY_DIR="$EBT_REPLAY_DIR" \
-          ebt-gate "$RUNNER_TEMP/ebt" "$GITHUB_WORKSPACE/clone" "$run"
+          witnessbox gate "$RUNNER_TEMP/ebt" "$GITHUB_WORKSPACE/clone" "$run"
         rc=$?
         set -e
         echo "EBT_VERIFY_RC=$rc" >> "$GITHUB_ENV"

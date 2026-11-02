@@ -1,5 +1,5 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для любого инструмента тестов (ebt-gate --scaffold generic).
+# test.sh заготовки ebt/ для любого инструмента тестов (witnessbox scaffold generic).
 #
 # Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
 # каталог результатов прогона. Аргументы — слова из EBT_TESTS; они передаются
@@ -21,7 +21,7 @@
 # набор кодов в EBT_TEST_FAIL_CODES (docs/scaffold.md).
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через ebt-gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
 
 [ -n "${EBT_TEST_CMD:-}" ] || {
   echo "test.sh: задайте EBT_TEST_CMD — команду тестов проекта (docs/scaffold.md, стек generic)" >&2

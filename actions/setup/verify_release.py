@@ -2,7 +2,7 @@
 """Сверка установки witnessbox с выпуском.
 
 `wheel` проверяет release.json (result PASS, версия, SHA-256 wheel) и сам файл wheel.
-`installation` сверяет JSON `ebt-gate --installation` с `release["installation"]`.
+`installation` сверяет JSON `witnessbox --installation` с `release["installation"]`.
 
 Код 0 — совпало, 1 — расхождение или непригодный вход. Скрипт использует только stdlib
 и запускается до установки, поэтому он не импортирует witnessbox.

@@ -1,5 +1,5 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для Java/Kotlin на Gradle (ebt-gate --scaffold jvm).
+# test.sh заготовки ebt/ для Java/Kotlin на Gradle (witnessbox scaffold jvm).
 #
 # Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
 # каталог результатов прогона. Аргументы — слова из EBT_TESTS; каждое становится
@@ -15,7 +15,7 @@
 # может быть app/build/ebt — тогда задайте EBT_EVIDENCE_DIR.
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через ebt-gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
 
 task=${EBT_GRADLE_TASK:-test}
 results=${EBT_GRADLE_RESULTS:-build/test-results/test}

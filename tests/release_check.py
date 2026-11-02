@@ -73,7 +73,7 @@ def main() -> int:
     venv = out / "venv"
     run([uv, "venv", "--python", sys.executable, venv])
     run([uv, "pip", "install", "--python", venv / "bin/python", "--no-index", wheel])
-    installation = json.loads(subprocess.check_output([str(venv / "bin/ebt-gate"), "--installation"], env=ENV))
+    installation = json.loads(subprocess.check_output([str(venv / "bin/witnessbox"), "--installation"], env=ENV))
     identity = subprocess.run(
         [str(venv / "bin/python"), "-I", "-c",
          "from witnessbox.api import Verdict; "

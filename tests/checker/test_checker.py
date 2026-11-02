@@ -593,7 +593,7 @@ class Packaging(unittest.TestCase):
                            capture_output=True, text=True,
                            env={**__import__("os").environ, "PYTHONPATH": str(SRC)})
         self.assertEqual(p.returncode, 0)
-        self.assertEqual(p.stdout.strip(), f"ebt-check {ec.__version__}")
+        self.assertEqual(p.stdout.strip(), f"witnessbox check {ec.__version__}")
 
 
 

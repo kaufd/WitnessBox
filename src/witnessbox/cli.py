@@ -1,4 +1,4 @@
-"""Публичный вход гейта; все runtime-пути принадлежат этой установке."""
+"""Публичный вход команды witnessbox; все runtime-пути принадлежат этой установке."""
 
 import hashlib
 import json
@@ -136,7 +136,7 @@ def _copy_scaffold(sources, target):
 
 def scaffold(argv):
     """Заготовка ebt/: шаблоны spec, checks.py, test.sh выбранного стека и pinned.txt."""
-    usage = "usage: ebt-gate --scaffold <dart|ts|jvm|generic> [<ebt-dir>]"
+    usage = "usage: witnessbox scaffold <dart|ts|jvm|generic> [<ebt-dir>]"
     if len(argv) not in (1, 2) or argv[0] not in SCAFFOLD_STACKS:
         print(usage, file=sys.stderr)
         return 2
@@ -149,12 +149,12 @@ def scaffold(argv):
 
     missing = [str(path) for path in sources.values() if not path.is_file()]
     if missing:
-        print("ebt-gate --scaffold: в поставке нет файлов шаблона: " + ", ".join(missing), file=sys.stderr)
+        print("witnessbox scaffold: в поставке нет файлов шаблона: " + ", ".join(missing), file=sys.stderr)
         return 2
     # Утверждённую спецификацию и чужие файлы заготовка не перезаписывает (D4).
     existing = target.exists() or target.is_symlink()
     if existing and (target.is_symlink() or not target.is_dir() or any(target.iterdir())):
-        print(f"ebt-gate --scaffold: {target} уже существует и не пуст; файлы не перезаписаны", file=sys.stderr)
+        print(f"witnessbox scaffold: {target} уже существует и не пуст; файлы не перезаписаны", file=sys.stderr)
         return 2
     # Нормализуем до создания временного каталога: `--scaffold ts .` — это текущий
     # каталог, а не временный каталог внутри него.
@@ -165,7 +165,7 @@ def scaffold(argv):
         try:
             _copy_scaffold(sources, target)
         except OSError as error:
-            print(f"ebt-gate --scaffold: не удалось создать {target}: {error}", file=sys.stderr)
+            print(f"witnessbox scaffold: не удалось создать {target}: {error}", file=sys.stderr)
             return 2
     else:
         temp = None
@@ -178,16 +178,16 @@ def scaffold(argv):
         except OSError as error:
             if temp is not None:
                 shutil.rmtree(temp, ignore_errors=True)
-            print(f"ebt-gate --scaffold: не удалось создать {target}: {error}", file=sys.stderr)
+            print(f"witnessbox scaffold: не удалось создать {target}: {error}", file=sys.stderr)
             return 2
 
     print(f"Создана заготовка ebt/ ({stack}) в {target}:")
     for name in sources:
         print(f"  {name}")
     print("Дальше: замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием,")
-    print("прогоните тесты чекера: ebt-gate --test-checks ebt,")
-    print("скопируйте SDK и помощников: ebt-gate --sync-pinned ebt,")
-    print("проверьте подключение: ebt-gate --check-only ebt .,")
+    print("прогоните тесты чекера: witnessbox test-checks ebt,")
+    print("скопируйте SDK и помощников: witnessbox sync-pinned ebt,")
+    print("проверьте подключение: witnessbox gate --check-only ebt .,")
     print("напишите тесты свидетельств в build/ebt/ и запустите гейт.")
     print("Подробности — в README.md каталога.")
     return 0
@@ -304,13 +304,13 @@ def read_pinned(ebt: Path, root: Path, gate_rules: bool = False) -> tuple[list[P
 
 def sync_pinned(argv):
     """Скопировать в проект оригиналы из pinned.txt; kit: — ресурсы этой поставки."""
-    usage = "usage: ebt-gate --sync-pinned <ebt-dir> [<project-root>]"
+    usage = "usage: witnessbox sync-pinned <ebt-dir> [<project-root>]"
     if len(argv) not in (1, 2):
         print(usage, file=sys.stderr)
         return 2
 
     def fail(message):
-        print(f"ebt-gate --sync-pinned: {message}", file=sys.stderr)
+        print(f"witnessbox sync-pinned: {message}", file=sys.stderr)
         return 2
 
     ebt = Path(argv[0]).expanduser().resolve()
@@ -344,7 +344,7 @@ def check_only(argv):
     импортируется так же, как в чекере (это доверенный проектный код, docs/extensions.md).
     Коды: 0 — проблем нет, 1 — проблемы (гейт на этом входе не даст PASS), 2 — ошибка вызова.
     """
-    usage = "usage: ebt-gate --check-only <ebt-dir> <clone>"
+    usage = "usage: witnessbox gate --check-only <ebt-dir> <clone>"
     if len(argv) != 2:
         print(usage, file=sys.stderr)
         return 2
@@ -352,7 +352,7 @@ def check_only(argv):
     clone = Path(argv[1]).expanduser().resolve()
     for path, label in ((ebt, "проверки"), (clone, "клона")):
         if not path.is_dir():
-            print(f"ebt-gate --check-only: нет каталога {label} {path}", file=sys.stderr)
+            print(f"witnessbox gate --check-only: нет каталога {label} {path}", file=sys.stderr)
             return 2
 
     # Импорт проектного checks.py не должен оставлять __pycache__ в каталоге проверки:
@@ -583,13 +583,13 @@ def check_only(argv):
 
 def test_checks(argv):
     """Запустить test_*.py каталога проверки интерпретатором этой поставки."""
-    usage = "usage: ebt-gate --test-checks [<ebt-dir>]"
+    usage = "usage: witnessbox test-checks [<ebt-dir>]"
     if len(argv) > 1:
         print(usage, file=sys.stderr)
         return 2
     ebt = Path(argv[0] if argv else "ebt").expanduser().resolve()
     if not ebt.is_dir():
-        print(f"ebt-gate --test-checks: нет каталога {ebt}", file=sys.stderr)
+        print(f"witnessbox test-checks: нет каталога {ebt}", file=sys.stderr)
         return 2
     command = [sys.executable, "-I", "-B", "-m", "unittest", "discover",
                "-s", str(ebt), "-t", str(ebt), "-p", "test_*.py", "-v"]
@@ -599,25 +599,46 @@ def test_checks(argv):
     output = p.stdout + p.stderr
     match = re.search(r"^Ran (\d+) tests?\b", output, re.MULTILINE)
     if match is None or int(match.group(1)) == 0:
-        print("ebt-gate --test-checks: тестов чекера не найдено — нулевой прогон не считается успехом",
+        print("witnessbox test-checks: тестов чекера не найдено — нулевой прогон не считается успехом",
               file=sys.stderr)
         return 1
     return p.returncode
 
 
+USAGE = """usage: witnessbox <команда> [<аргументы>]
+
+  gate <ebt-dir> <clone> <run-dir>              гейт: тесты проекта и пересчёт свидетельств
+  gate --check-only <ebt-dir> <clone>           проверка подключения без запуска тестов
+  check --spec <spec.toml> --evidence <jsonl>…  чекер (witnessbox check -h)
+  scaffold <dart|ts|jvm|generic> [<ebt-dir>]    заготовка ebt/
+  sync-pinned <ebt-dir> [<project-root>]        копии из pinned.txt
+  test-checks [<ebt-dir>]                       тесты чекеров проекта
+  --version | --installation"""
+
+COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": test_checks}
+
+
 def main():
-    if sys.argv[1:2] == ["--scaffold"]:
-        return scaffold(sys.argv[2:])
-    if sys.argv[1:2] == ["--sync-pinned"]:
-        return sync_pinned(sys.argv[2:])
-    if sys.argv[1:2] == ["--check-only"]:
-        return check_only(sys.argv[2:])
-    if sys.argv[1:2] == ["--test-checks"]:
-        return test_checks(sys.argv[2:])
+    command, argv = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else (None, [])
+    if command in ("-h", "--help"):
+        print(USAGE)
+        return 0
+    if command in COMMANDS:
+        return COMMANDS[command](argv)
+    if command == "check":
+        from witnessbox.checker.cli import main as check
+        return check(argv)
+    if command == "gate" and argv[:1] == ["--check-only"]:
+        return check_only(argv[1:])
+    if command != "gate" and not (command in ("--version", "--installation") and not argv):
+        if command is not None:
+            print(f"witnessbox: неизвестная команда {command}", file=sys.stderr)
+        print(USAGE, file=sys.stderr)
+        return 2
     try:
         info = installation()
     except RuntimeError as error:
-        print(f"ebt-gate: {error}", file=sys.stderr)
+        print(f"witnessbox: {error}", file=sys.stderr)
         return 2
     if sys.argv[1:] == ["--version"]:
         print(f"witnessbox {info['version']}")
@@ -626,7 +647,7 @@ def main():
         print(json.dumps(info, ensure_ascii=False, indent=2))
         return 0
     env = os.environ | {"EBT_VERIFICATION_PYTHON": sys.executable}
-    os.execve("/bin/bash", ["bash", str(Path(info["package"]) / "gate.sh"), *sys.argv[1:]], env)
+    os.execve("/bin/bash", ["bash", str(Path(info["package"]) / "gate.sh"), *argv], env)
 
 
 if __name__ == "__main__":
