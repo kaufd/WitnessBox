@@ -620,17 +620,22 @@ COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": tes
 
 def main():
     command, argv = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else (None, [])
-    if command in ("-h", "--help"):
+    if command == "check":
+        # Справку и разбор аргументов чекера ведёт его argparse.
+        from witnessbox.checker.cli import main as check
+        return check(argv)
+    if command in ("-h", "--help") or (command in (*COMMANDS, "gate") and argv[:1] in (["-h"], ["--help"])):
         print(USAGE)
         return 0
     if command in COMMANDS:
         return COMMANDS[command](argv)
-    if command == "check":
-        from witnessbox.checker.cli import main as check
-        return check(argv)
     if command == "gate" and argv[:1] == ["--check-only"]:
         return check_only(argv[1:])
-    if command != "gate" and not (command in ("--version", "--installation") and not argv):
+    if command in ("--version", "--installation"):
+        if argv:
+            print(f"usage: witnessbox {command}", file=sys.stderr)
+            return 2
+    elif command != "gate":
         if command is not None:
             print(f"witnessbox: неизвестная команда {command}", file=sys.stderr)
         print(USAGE, file=sys.stderr)
@@ -640,10 +645,10 @@ def main():
     except RuntimeError as error:
         print(f"witnessbox: {error}", file=sys.stderr)
         return 2
-    if sys.argv[1:] == ["--version"]:
+    if command == "--version":
         print(f"witnessbox {info['version']}")
         return 0
-    if sys.argv[1:] == ["--installation"]:
+    if command == "--installation":
         print(json.dumps(info, ensure_ascii=False, indent=2))
         return 0
     env = os.environ | {"EBT_VERIFICATION_PYTHON": sys.executable}

@@ -551,38 +551,53 @@ class Gate(unittest.TestCase):
         for name in ("ebt-gate", "ebt-check"):
             self.assertFalse((self.bin / name).exists(), name)
 
+    def witnessbox(self, *args: str) -> subprocess.CompletedProcess:
+        return subprocess.run([str(self.bin / "witnessbox"), *args], capture_output=True, text=True,
+                              env={**os.environ, "PYTHONPATH": ""})
+
     def test_usage_without_command(self):
-        env = {**os.environ, "PYTHONPATH": ""}
-        p = subprocess.run([str(self.bin / "witnessbox")], capture_output=True, text=True, env=env)
+        p = self.witnessbox()
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("usage: witnessbox <команда>", p.stderr)
 
     def test_help_lists_commands(self):
-        env = {**os.environ, "PYTHONPATH": ""}
-        p = subprocess.run([str(self.bin / "witnessbox"), "--help"], capture_output=True, text=True, env=env)
+        p = self.witnessbox("--help")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         for command in ("gate", "--check-only", "check", "scaffold", "sync-pinned", "test-checks"):
             self.assertIn(command, p.stdout)
 
+    def test_subcommand_help_prints_usage(self):
+        for command in ("gate", "scaffold", "sync-pinned", "test-checks"):
+            for flag in ("-h", "--help"):
+                with self.subTest(command=command, flag=flag):
+                    p = self.witnessbox(command, flag)
+                    self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+                    self.assertIn(f"  {command} ", p.stdout)
+                    self.assertEqual(p.stderr, "")
+
     def test_unknown_command_and_old_flags(self):
-        env = {**os.environ, "PYTHONPATH": ""}
         for arg in ("frobnicate", "--scaffold", "--check-only"):
             with self.subTest(arg=arg):
-                p = subprocess.run([str(self.bin / "witnessbox"), arg, "ts"],
-                                   capture_output=True, text=True, env=env)
+                p = self.witnessbox(arg, "ts")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 self.assertIn(f"witnessbox: неизвестная команда {arg}", p.stderr)
                 self.assertIn("usage: witnessbox <команда>", p.stderr)
 
+    def test_version_and_installation_take_no_arguments(self):
+        for flag in ("--version", "--installation"):
+            with self.subTest(flag=flag):
+                p = self.witnessbox(flag, "extra")
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                self.assertIn(f"usage: witnessbox {flag}", p.stderr)
+                self.assertNotIn("неизвестная команда", p.stderr)
+
     def test_gate_without_args_names_command(self):
-        env = {**os.environ, "PYTHONPATH": ""}
-        p = subprocess.run([str(self.bin / "witnessbox"), "gate"], capture_output=True, text=True, env=env)
+        p = self.witnessbox("gate")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("usage: witnessbox gate <ebt-dir> <clone> <run-dir>", p.stderr)
 
     def test_check_bad_args_uses_prog(self):
-        env = {**os.environ, "PYTHONPATH": ""}
-        p = subprocess.run([str(self.bin / "witnessbox"), "check"], capture_output=True, text=True, env=env)
+        p = self.witnessbox("check")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("usage: witnessbox check", p.stderr)
 
