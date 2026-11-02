@@ -180,6 +180,8 @@ class Gate(unittest.TestCase):
         shutil.rmtree(self.clone)
         self.clone.mkdir()
         subprocess.run(["git", "-C", str(self.clone), "init", "-q"], check=True)
+        # Неотслеживаемый файл, как в свежем проекте: причина — отсутствие коммитов, а не грязное дерево.
+        (self.clone / ".gitignore").write_text("build/\n")
         return {}
 
     def problem_cases(self):
@@ -1238,6 +1240,14 @@ exit "${FAKE_RC:-0}"
                 self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
                 self.assertIn(f"проблема {check}:", p.stdout)
                 self.assertNotIn("Traceback", p.stderr)
+
+    def test_no_commits_is_named_before_dirty_tree(self):
+        for name, run in (("check-only", self.check_only), ("gate", lambda env: self.gate(self.write_to('"$OUT_DIR"'), env))):
+            with self.subTest(name=name):
+                self.new_project()
+                p = run(self.case_no_commits())
+                self.assertIn("в репозитории нет коммитов", p.stdout + p.stderr)
+                self.assertNotIn("не чистое", p.stdout + p.stderr)
 
     def test_check_only_problems_are_not_gate_pass(self):
         """Каждая проблема --check-only на том же входе даёт гейту не-PASS (граница D47)."""

@@ -84,6 +84,11 @@ select_runner() {
 
 preflight_git() {
   cd "$clone" || fail "не удалось открыть клон $clone"
+  # До status: в репозитории без коммитов все файлы неотслеживаемые, и «грязное дерево» скрыло бы причину.
+  if ! head=$(git rev-parse -q --verify HEAD); then
+    git rev-parse --git-dir >/dev/null 2>&1 && fail "в репозитории нет коммитов — гейт проверяет только закоммиченное"
+    fail "git rev-parse HEAD упал"
+  fi
   status=$(git status --porcelain) || fail "git status упал: чистота клона не проверена"
   if [ -n "$status" ]; then
     echo "$status" >&2
@@ -96,7 +101,6 @@ preflight_git() {
     echo "$hidden" >&2
     fail "в клоне есть skip-worktree/assume-unchanged — тесты могут идти по незакоммиченному коду"
   fi
-  head=$(git rev-parse --verify HEAD) || fail "git rev-parse HEAD упал"
   protected=""
   if [ -n "${BASE:-}" ]; then
     git rev-parse -q --verify "$BASE^{commit}" >/dev/null || fail "BASE=$BASE: такого коммита нет"
