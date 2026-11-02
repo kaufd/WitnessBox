@@ -1,18 +1,18 @@
 #!/bin/bash
-# ebt-gate <ebt-dir> <clone> <run-dir>; публичный вход — cli.py этой поставки.
+# witnessbox gate <ebt-dir> <clone> <run-dir>; публичный вход — cli.py этой поставки.
 # test.sh получает пустой абсолютный OUT_DIR; прежние build/ebt/*.jsonl — через мост.
 # Коды: 0 PASS, 1 FAIL, 2 ERROR; тот же итог — в <run-dir>/gate.json (формат 1).
 # BASE, EBT_TESTS, EBT_INV, EBT_CHECK сохранены.
 set -uo pipefail
 
-[ $# -eq 3 ] || { echo "usage: $0 <ebt-dir> <clone> <run-dir>" >&2; exit 2; }
+[ $# -eq 3 ] || { echo "usage: witnessbox gate <ebt-dir> <clone> <run-dir>" >&2; exit 2; }
 mkdir -p "$3" && run=$(cd "$3" && pwd) || exit 2
 # Итог прошлой попытки в той же папке не должен пережить ранний выход этой.
 out="$run/out"
 rm -rf "$out" "$run/inputs" && rm -f "$run"/{gate.md,gate.json,report.md,report.json,evidence.jsonl,test.log,prepare.log,ebt-check.err,installation.json} \
   || { echo "не удалось очистить итоги прошлой попытки в $run" >&2; exit 2; }
 py=${EBT_VERIFICATION_PYTHON:-}
-[ -n "$py" ] || { echo "запускайте установленную команду ebt-gate" >&2; exit 2; }
+[ -n "$py" ] || { echo "запускайте установленную команду witnessbox gate" >&2; exit 2; }
 
 # gate.json пишется при любом итоге, как только известен каталог результатов.
 summary() {
@@ -54,7 +54,7 @@ if [ -n "${EBT_CHECK:-}" ]; then
 else
   checker=("$py" -I -m witnessbox.checker.ebt_check)
   checker_command=$check
-  version=$("${checker[@]}" --version) || fail "ebt-check --version упал"
+  version=$("${checker[@]}" --version) || fail "witnessbox check --version упал"
   checker_hash=$("$py" -I -c 'from witnessbox.cli import installation; print(installation()["checker_sha256"])') \
     || fail "не удалось определить sha256 чекера"
   checker_name="$version; $check; sha256 $checker_hash"
@@ -120,7 +120,7 @@ preflight_git() {
 }
 
 stash_changes() {
-  git -C "$clone" stash push -q -m "ebt-gate: изменения за прогон $head" >/dev/null 2>&1
+  git -C "$clone" stash push -q -m "witnessbox gate: изменения за прогон $head" >/dev/null 2>&1
 }
 cleanup_exit() {
   exit_rc=$?

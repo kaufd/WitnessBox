@@ -9,17 +9,25 @@ make test        # source checker, установленный wheel-гейт, з
 make test-actions  # только скрипты actions/setup и actions/verify
 make test-sdk    # Java, TypeScript и Dart SDK
 make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
+make e2e STACK=ts|jvm|generic  # сквозной пример: заготовка → PASS → дефект → FAIL
 make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере
 make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
 ```
 
-Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13) и `make test-sdk` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+`make test` и `make example` работают без сети и без Bun/Gradle. `make e2e`
+собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
+установленную команду `witnessbox gate` дважды и проверяет `checker_failed`; нужна `witnessbox` из
+wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`) и сеть для
+зависимостей. Сгенерированные Gradle wrapper и `node_modules` в репозиторий не
+коммитятся.
+
+Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13), `make test-sdk` и `make e2e` для `ts`, `generic` и `jvm` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
 
 Standalone artifacts собираются и проверяются отдельно:
 
 ```bash
 uv build
-uv tool install --force dist/witnessbox-0.6.0-py3-none-any.whl
+uv tool install --force dist/witnessbox-0.7.0-py3-none-any.whl
 ```
 
 Интеграционные тесты гейта устанавливают wheel во временное изолированное окружение; они проверяют поставку без editable install и без `PYTHONPATH`. Source-checker tests используют `PYTHONPATH=src` локально как тесты дерева разработки. Этот приём не нужен проектным расширениям: установленные чекеры импортируют типы через `witnessbox.api`.
@@ -37,8 +45,8 @@ uv tool install --force dist/witnessbox-0.6.0-py3-none-any.whl
 1. Поднять `version` в `pyproject.toml`, закоммитить, выполнить `make release-check` — итог PASS в `build/release/<версия>/release.json`.
 2. Поставить тег на этот коммит и отправить его: `git tag -a v<версия> -m ...`, `git push origin v<версия>`.
 3. Создать prerelease с проверенными файлами: `gh release create v<версия> --prerelease build/release/<версия>/dist/* build/release/<версия>/release.json`.
-4. Необязательно, пробный выпуск (нужен pending publisher на test.pypi.org с окружением `testpypi`): `gh workflow run publish.yml -f tag=v<версия> -f index=testpypi`, затем установка в чистое окружение — `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<версия> ebt-gate --installation` и `ebt-gate --scaffold` во временный каталог.
-5. Выпуск: `gh workflow run publish.yml -f tag=v<версия> -f index=pypi`; SHA-256 файлов на PyPI сверить с `release.json`, проверить `uvx --from witnessbox==<версия> ebt-gate --installation` и `--scaffold`, затем `gh release edit v<версия> --prerelease=false --latest`.
+4. Необязательно, пробный выпуск (нужен pending publisher на test.pypi.org с окружением `testpypi`): `gh workflow run publish.yml -f tag=v<версия> -f index=testpypi`, затем установка в чистое окружение — `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<версия> witnessbox --installation` и `witnessbox scaffold` во временный каталог.
+5. Выпуск: `gh workflow run publish.yml -f tag=v<версия> -f index=pypi`; SHA-256 файлов на PyPI сверить с `release.json`, проверить `uvx --from witnessbox==<версия> witnessbox --installation` и `--scaffold`, затем `gh release edit v<версия> --prerelease=false --latest`.
 6. Следующим коммитом — запись о выпуске с SHA-256 в журнале решений.
 
 Повторно загрузить файл с той же версией PyPI не даёт, поэтому ошибка после шага 5 исправляется только новой версией.

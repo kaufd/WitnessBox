@@ -1,0 +1,11 @@
+{
+  "name": "witnessbox-e2e-ts",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "vitest run"
+  },
+  "devDependencies": {
+    "vitest": "5.0.5"
+  }
+}

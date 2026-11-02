@@ -3,12 +3,12 @@
 Команда установленной поставки создаёт каталог проверки EBT из шаблонов:
 
 ```bash
-ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
+witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
 ```
 
 `<каталог>` по умолчанию — `ebt` в текущем каталоге. Команда отказывается писать в
 существующий непустой каталог: утверждённую `spec.toml` она не перезапишет. Стеков
-три, они различаются `test.sh` и строкой `pinned.txt`; `spec.toml`, `checks.py` и
+четыре, они различаются `test.sh` и строкой `pinned.txt`; `spec.toml`, `checks.py` и
 `test_checks.py` у всех одинаковые.
 
 | Стек | Проект | `test.sh` по умолчанию | SDK |
@@ -16,6 +16,9 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 | `dart` | Dart/Flutter | `flutter test --no-pub test/ebt` | `lib/ebt/ebt.dart` |
 | `ts` | TypeScript/Vite/Vitest | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
+| `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
+
+Подробнее — в документации Witnessbox: [быстрый старт](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) проводит от заготовки до первого PASS на примере, [руководство по спецификации](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) объясняет, как писать `spec.toml`, чекер и тесты свидетельств, включая уровень наблюдения `<INV>-OBS`. Если подключение выполняет агент-кодировщик, дайте ему [инструкцию для агента](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md). Этот файл — справка по заготовке, договор `test.sh` описан ниже.
 
 ## Что создаётся
 
@@ -24,13 +27,14 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
   утверждает человек (D4); агент, который пишет код приложения, её не меняет.
 - `checks.py` — пример независимого проектного чекера `example_rule` и реестр
   `CHECKERS`. Замените правило вместе со спецификацией.
-- `test_checks.py` — тесты примера чекера. Запуск из каталога `ebt/`
-  интерпретатором установленной поставки (системный `python3` пакет не видит):
+- `test_checks.py` — тесты примера чекера. Запуск из корня проекта командой
+  поставки (она сама берёт интерпретатор установки):
 
   ```bash
-  python=$(ebt-gate --installation | python3 -c 'import json, sys; print(json.load(sys.stdin)["python"])')
-  "$python" -m unittest discover -s . -p 'test_checks.py'
+  witnessbox test-checks ebt
   ```
+
+  Нулевой прогон — код `1`, а не успех.
 - `test.sh` — запуск тестов выбранного стека по договору гейта и сбор свидетельств
   в `OUT_DIR`. Исполняемый файл.
 - `pinned.txt` — закрепление копии SDK (и, при необходимости, помощников
@@ -45,8 +49,8 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 2. **Реализуйте чекер.** `checks.py` пересчитывает результат по `witness` и не
    импортирует приложение или SDK. Ошибка формы — `WitnessError`, нарушение —
    `Verdict(ok=False, ...)`. Добавьте случаи в `test_checks.py` и запустите
-   `ebt-check --self-test`.
-3. **Скопируйте SDK.** Из корня проекта выполните `ebt-gate --sync-pinned ebt`
+   `witnessbox check --self-test`.
+3. **Скопируйте SDK.** Из корня проекта выполните `witnessbox sync-pinned ebt`
    (подставьте своё имя каталога, если он другой): команда разбирает `pinned.txt`
    и копирует `kit:lib/ebt/...` из ресурсов установленной поставки в проект. Копия
    должна совпадать байт в байт; иначе гейт даст `pinned_drift`. После обновления
@@ -60,7 +64,7 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
    установленными. `prepare.sh` и `test.sh` исполняются с правами гейта, `OUT_DIR`
    не песочница.
 6. **Запустите гейт:**
-   `BASE=<база> EBT_INV=<инварианты задачи> ebt-gate <каталог ebt> <клон> <итог>`.
+   `BASE=<база> EBT_INV=<инварианты задачи> witnessbox gate <каталог ebt> <клон> <итог>`.
    Пока свидетельств нет, гейт закончится ERROR — это не PASS, а отсутствие проверки.
    Закоммитьте `ebt/` в репозиторий проекта до задачи: с `BASE` изменение `ebt/`
    в ветке задачи гейт считает нарушением защищённых путей.
@@ -78,8 +82,9 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
   проверить чекером.
 
 Шаблоны рассчитаны на macOS `/bin/bash` 3.2: без `${var,,}`, пустых массивов под
-`set -u` и Bash 4. Для другого стека (Maven, pnpm, чистый `dart test`) замените
-команду и способ сбора свидетельств, сохранив договор.
+`set -u` и Bash 4. Для другого инструмента берите стек `generic`: он запускает
+`EBT_TEST_CMD`, собирает свидетельства из `EBT_EVIDENCE_DIR` и различает коды
+`EBT_TEST_FAIL_CODES`, сохраняя договор гейта.
 
 ## `pinned.txt`
 

@@ -1,4 +1,4 @@
-"""Совместимое имя модуля CLI ebt-check."""
+"""Совместимое имя модуля чекера для `import ebt_check`."""
 import sys
 from witnessbox.checker import ebt_check as _impl
 

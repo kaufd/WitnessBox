@@ -45,7 +45,8 @@ def render_md(r: Report, spec: dict, limit: int, allow_uncovered: bool) -> str:
         order = {k: i for i, k in enumerate(CRITICAL)}
         for f in sorted(crit, key=lambda f: (order[f.kind], f.line))[:limit]:
             L.append(f"### {TITLES[f.kind]} — `{f.inv or '?'}`")
-            L.append(f"- Где: строка {f.line}, scope `{f.scope or '-'}`, seq {f.seq}")
+            where = f"строка {f.line}" if f.line else "spec.toml (чекер не зарегистрирован)"
+            L.append(f"- Где: {where}, scope `{f.scope or '-'}`, seq {f.seq}")
             inv = spec["inv"].get(f.inv or "")
             if inv:
                 req_text = " ".join(spec["req"][inv["req"]].get("text", "").split())

@@ -3,7 +3,7 @@
 Установленная поставка умеет создать каталог проверки нового проекта:
 
 ```bash
-ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
+witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
 ```
 
 `<каталог>` по умолчанию — `ebt` в текущем каталоге; `.` заполняет текущий
@@ -11,13 +11,16 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 писать поверх утверждённой `spec.toml` и возвращает код `2`. Шаблоны входят в wheel и sdist (`witnessbox/resources/scaffold/`);
 исходники репозитория после установки не нужны.
 
-Стеков три; они различаются `test.sh` и строкой `pinned.txt`:
+Стеков четыре; они различаются `test.sh` и строкой `pinned.txt`:
 
 | Стек | Проект | `test.sh` по умолчанию | SDK |
 |---|---|---|---|
 | `dart` | Dart/Flutter | `flutter test --no-pub test/ebt` | `lib/ebt/ebt.dart` |
 | `ts` | TypeScript/Vite/Vitest | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
+| `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
+
+Путь от пустой заготовки до первого PASS на готовом TypeScript-примере — [быстрый старт](quickstart.md); как превратить требование в `spec.toml`, чекер и тесты свидетельств — [руководство по спецификации](authoring.md). Подключение через агента-кодировщика — [инструкция для агента](agent.md).
 
 ## Что создаётся
 
@@ -42,17 +45,16 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
    `partitions` — реальные классы входов из требования, а не перечень тестов.
 2. **Реализовать чекер.** `checks.py` пересчитывает результат по `witness` и
    возвращает `Verdict`; некорректная форма свидетельства — `WitnessError`.
-   Проверка чувствительности — `ebt-check --self-test`. Тесты чекера из корня
-   проекта запускайте интерпретатором поставки: пакет из `uv tool install` не виден
-   системному `python3`.
+   Проверка чувствительности — `witnessbox check --self-test`. Тесты чекера запускает
+   команда поставки из корня проекта: пакет из `uv tool install` не виден системному
+   `python3`.
 
    ```bash
-   python=$(ebt-gate --installation | python3 -c 'import json, sys; print(json.load(sys.stdin)["python"])')
-   "$python" -m unittest discover -s ebt -p 'test_checks.py'
+   witnessbox test-checks ebt
    ```
 
-   Системный `python3` в этой команде только читает JSON из `--installation`.
-3. **Скопировать SDK.** Из корня проекта выполните `ebt-gate --sync-pinned ebt`
+   Нулевой прогон (в каталоге нет `test_*.py`) — код `1`, а не успех.
+3. **Скопировать SDK.** Из корня проекта выполните `witnessbox sync-pinned ebt`
    (подставьте имя каталога, если он другой): команда разбирает `pinned.txt` так же,
    как гейт, берёт `kit:`-файлы из ресурсов установленной поставки и копирует
    оригиналы в проект. Копия должна совпадать байт в байт, иначе гейт даст
@@ -65,7 +67,13 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
    `flutter pub get`, `bun install --frozen-lockfile` или ничего для Gradle.
    Гейт запускает `prepare.sh` до `test.sh`; шаблон `test.sh` предполагает
    зависимости уже установленными.
-6. **Запустить гейт** с `BASE` и `EBT_INV` задачи. Пока свидетельств нет, гейт
+6. **Проверить подключение.** Из корня проекта выполните
+   `witnessbox gate --check-only ebt .`: команда проверяет `spec.toml`, `checks.py` и
+   регистрацию чекеров, `known.toml`, `baseline.jsonl`, выбор runner, `pinned.txt`,
+   чистоту клона и скрытые правки, а при `BASE` — защищённые пути. Тесты она не
+   запускает; код `0` — проблем нет. Это подсказка, а не вердикт: вердикт выносит
+   гейт.
+7. **Запустить гейт** с `BASE` и `EBT_INV` задачи. Пока свидетельств нет, гейт
    завершается кодом `2` (ERROR) — это отсутствие проверки, а не PASS. Каталог
    `ebt/` коммитится в репозиторий проекта до задачи: с `BASE` изменение `ebt/`
    в ветке задачи гейт считает нарушением защищённых путей.
@@ -83,11 +91,42 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 - `test.sh` исполняется с правами гейта; `OUT_DIR` — не песочница.
 
 Шаблоны рассчитаны на macOS `/bin/bash` 3.2: без `${var,,}`, пустых массивов под
-`set -u` и конструкций Bash 4. Для другого инструмента (Maven, pnpm, чистый
-`dart test`, Android-модуль) меняются команда, путь свидетельств и разбор кодов
-выхода; договор гейта сохраняется. Для Android в `jvm`-шаблоне задайте
+`set -u` и конструкций Bash 4. Для Android в `jvm`-шаблоне задайте
 `EBT_GRADLE_TASK=:app:testDebugUnitTest`, `EBT_GRADLE_RESULTS=app/build/test-results/testDebugUnitTest`
-и `EBT_EVIDENCE_DIR=app/build/ebt`.
+и `EBT_EVIDENCE_DIR=app/build/ebt`. Инструмент вне `dart`, `ts` и `jvm`
+подключается стеком `generic` — см. ниже.
+
+## Стек `generic`
+
+`generic` не выбирает инструмент: `test.sh` запускает команду из `EBT_TEST_CMD` и
+копирует свидетельства из `EBT_EVIDENCE_DIR` (по умолчанию `build/ebt`). Слова
+`EBT_TESTS` передаются команде отдельными аргументами, без `eval`. Код `0` — тесты
+прошли; код из `EBT_TEST_FAIL_CODES` (по умолчанию `1`) — тесты выполнились и упали;
+остальные коды — ошибка исполнения.
+
+| Инструмент | Переменные | Строка `pinned.txt` |
+|---|---|---|
+| npm + Jest | `EBT_TEST_CMD="npx jest --testPathPattern ebt"` | `kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts` |
+| pnpm + Vitest | `EBT_TEST_CMD="pnpm exec vitest run .ebt.test"` | `kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts` |
+| Maven | `EBT_TEST_CMD="mvn -q test -Dtest='*EbtTest'"`, `EBT_EVIDENCE_DIR=target/ebt` | `kit:lib/ebt/Ebt.java  src/test/java/ebt/Ebt.java` |
+| `dart test` | `EBT_TEST_CMD="dart test test/ebt"` | `kit:lib/ebt/ebt.dart  lib/ebt/ebt.dart` |
+
+`EBT_TEST_CMD` — простая команда: она исполняется как `bash -c`, а слова `EBT_TESTS`
+дописываются в её конец отдельными аргументами. Хвостовые переводы строк и пробелы
+отбрасываются. Несколько команд, конвейер, комментарий или собственный `"$@"`
+оформляйте отдельным скриптом: `EBT_TEST_CMD` вызывает его, а скрипт сам разбирает
+аргументы.
+
+TypeScript SDK включает запись по `import.meta.env.MODE === 'test'`. Jest этого
+значения не задаёт, а без `import.meta.env` модуль не импортируется: с Jest нужен
+Vite/Vitest или своя подстановка `MODE=test` в конфигурации Jest — см. [SDK](sdk.md).
+
+Maven возвращает код `1` и на упавшие тесты, и на сломанную сборку, поэтому
+`EBT_TEST_FAIL_CODES` их не различает. Для точности, как в `jvm/test.sh`,
+разбирайте `target/surefire-reports/*.xml` в своём `test.sh`.
+
+Рецепта для pytest нет: Python SDK не поставляется. Подключение Python-проекта
+ждёт решения о Python SDK (план `2026-11-02-sdk-conformance.md`).
 
 ## `pinned.txt`
 

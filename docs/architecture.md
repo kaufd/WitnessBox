@@ -1,10 +1,10 @@
 # Архитектура
 
-Поставка устанавливает два entry point из `pyproject.toml`: `ebt-gate` ведёт в `witnessbox.cli:main`, а `ebt-check` — в `witnessbox.checker.ebt_check:main`. Runtime находится в `src/witnessbox/`; пакет `src/ebt_verification/` — только совместимый реэкспорт `witnessbox.api` для существующих проектных чекеров.
+Поставка устанавливает один entry point из `pyproject.toml`: `witnessbox` ведёт в `witnessbox.cli:main`. `main()` разбирает первую позицию argv и вызывает `scaffold`, `sync_pinned`, `check_only` или `test_checks`, передаёт остаток в `witnessbox.checker.cli.main` для подкоманды `check` либо исполняет упакованный `gate.sh` для `gate`; импорт чекера происходит лениво, только в ветке `check`. Runtime находится в `src/witnessbox/`; пакет `src/ebt_verification/` — только совместимый реэкспорт `witnessbox.api` для существующих проектных чекеров.
 
 ## Схема проверки
 
-![Схема проверки: checkout, test.sh, ebt-check, итог PASS, FAIL или ERROR](verification-flow.svg)
+![Схема проверки: checkout, test.sh, witnessbox check, итог PASS, FAIL или ERROR](verification-flow.svg)
 
 FAIL получает прогон, в котором выполнено хотя бы одно из условий.
 
@@ -12,12 +12,14 @@ FAIL получает прогон, в котором выполнено хот�
 |---|---|
 | Пересчёт нашёл нарушение или не подтвердил заявленное кодом | `FALSE_PROOF` (код заявил ok), `CONFIRMED_VIOLATION`, `CHECKER_DISAGREES` |
 | Свидетельство нельзя проверить | `WITNESS_INCOMPLETE`, `WITNESS_MALFORMED`, `MALFORMED_LINE` |
-| Запись не соответствует spec или чекер не отработал | `UNKNOWN_INV`, `REQ_MISMATCH`, `NO_CHECKER`, `CHECKER_ERROR` |
+| Запись не соответствует spec, чекер не отработал или в scope нет реализации | `UNKNOWN_INV`, `REQ_MISMATCH`, `NO_CHECKER`, `CHECKER_ERROR` |
 | Записи потеряны или их нет | `LOG_GAP`, пустой лог |
 | Дыра покрытия (с учётом `EBT_INV`) | REQ без INV, INV без записей, непокрытый класс входов, пропавшая из baseline пара «сценарий / инвариант» |
 | Чекер не чувствителен к порче поля | `weak_required` из self-test |
 | Тесты упали | `test.sh` вернул 1 |
 | Изменены проверочные пути или копии | `ebt/` или `tool/ebt_check/` изменены относительно `BASE`; копия из `pinned.txt` отличается или отсутствует |
+
+Незарегистрированный чекер инварианта в scope — находка `NO_CHECKER` (FAIL), даже если записей нет; вне scope он не валит прогон, пока нет записи с этим инвариантом. `--check-only` сообщает о нём только для инвариантов в scope, поэтому его проблема по-прежнему означает не-PASS гейта.
 
 Находки, совпавшие с `known.toml`, не валят прогон. Изменённые `data` и число записей относительно baseline показываются в отчёте для просмотра, но вердикт не меняют.
 
@@ -35,7 +37,7 @@ Checker в `checker/` читает спецификацию и свидетел�
 
 Java, Dart и TypeScript SDK поставляются как ресурсы пакета в `resources/lib/ebt/`. Формат, допустимые значения и гарантии отключения записи описаны в [sdk](sdk.md). Их тесты лежат в `tests/sdk/`. Установка не требует Python-зависимостей помимо стандартной библиотеки. Сборка, standalone wheel-проверка и SDK-команды описаны в [development](development.md).
 
-Шаблоны нового проекта лежат в `resources/scaffold/`: `spec.toml`, пример `checks.py` и `test_checks.py`, а также `test.sh` и `pinned.txt` для Dart, TypeScript и JVM. `ebt-gate --scaffold` копирует их в новый `ebt/`, не перезаписывая непустой каталог. Шаблоны — данные, а не код проверки: их правка не входит в `gate_sha256`. Инструкция — [заготовка](scaffold.md).
+Шаблоны нового проекта лежат в `resources/scaffold/`: `spec.toml`, пример `checks.py` и `test_checks.py`, а также `test.sh` и `pinned.txt` для Dart, TypeScript и JVM. `witnessbox scaffold` копирует их в новый `ebt/`, не перезаписывая непустой каталог. Шаблоны — данные, а не код проверки: их правка не входит в `gate_sha256`. Инструкция — [заготовка](scaffold.md).
 
 ## Границы
 

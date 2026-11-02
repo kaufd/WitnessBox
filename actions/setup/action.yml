@@ -8,7 +8,7 @@ inputs:
 
 outputs:
   installation:
-    description: Путь к JSON, который вывела команда ebt-gate --installation
+    description: Путь к JSON, который вывела команда witnessbox --installation
     value: ${{ steps.install.outputs.installation }}
 
 runs:
@@ -86,9 +86,9 @@ runs:
         tool_bin="$(uv tool dir --bin)"
         echo "$tool_bin" >> "$GITHUB_PATH"
         export PATH="$tool_bin:$PATH"
-        ebt-gate --version >/dev/null
-        ebt-check --version >/dev/null
-        ebt-gate --installation > "$RUNNER_TEMP/witnessbox/installation.json"
+        witnessbox --version >/dev/null
+        witnessbox check --version >/dev/null
+        witnessbox --installation > "$RUNNER_TEMP/witnessbox/installation.json"
         python -I "$GITHUB_ACTION_PATH/verify_release.py" installation \
           "$RUNNER_TEMP/witnessbox/release.json" "$RUNNER_TEMP/witnessbox/installation.json"
         echo "installation=$RUNNER_TEMP/witnessbox/installation.json" >> "$GITHUB_OUTPUT"

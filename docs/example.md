@@ -77,7 +77,7 @@ afterAll(() => writeFileSync(`${process.env.OUT_DIR}/cart.jsonl`, Ebt.toJsonl())
 Гейт запускает тесты через проектный `test.sh` и передаёт ему пустой каталог `OUT_DIR` для свидетельств:
 
 ```bash
-ebt-gate project/ebt clean-checkout results/
+witnessbox gate project/ebt clean-checkout results/
 ```
 
 Перед запуском гейт проверяет checkout: тестируется только закоммиченный код, а файлы проверки (`ebt/`, закреплённые копии SDK) не изменены в ветке.
@@ -95,7 +95,7 @@ ebt-gate project/ebt clean-checkout results/
 
 ## Шаг 4. Чекер пересчитывает
 
-`ebt-check` читает `spec.toml`, находит чекер `cart_total` и пересчитывает по `data`, не глядя на код приложения:
+`witnessbox check` читает `spec.toml`, находит чекер `cart_total` и пересчитывает по `data`, не глядя на код приложения:
 
 ```
 subtotal = 333 × 3          = 999   ✓ совпало

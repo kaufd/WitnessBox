@@ -47,8 +47,9 @@ __version__ = "0.1.0"
 
 
 def main(argv: list[str] | None = None) -> int:
-    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    p.add_argument("--version", action="version", version=f"ebt-check {__version__}")
+    p = argparse.ArgumentParser(prog="witnessbox check", description=__doc__,
+                                formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--version", action="version", version=f"witnessbox check {__version__}")
     p.add_argument("--spec", required=True, type=Path)
     p.add_argument("--evidence", required=True, type=Path, nargs="+",
                    help="лог(и) JSONL; несколько файлов — несколько прогонов, seq в каждом с начала")

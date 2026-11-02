@@ -17,17 +17,17 @@ uv tool update-shell
 
 ```bash
 uv build
-uv tool install dist/witnessbox-0.6.0-py3-none-any.whl
+uv tool install dist/witnessbox-0.7.0-py3-none-any.whl
 uv tool update-shell
 ```
 
 `uv build` без `--wheel` сначала собирает sdist, а wheel — уже из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в поставку может попасть прежний runtime. Если `build/` уже есть от прошлых сборок, перед такой проверкой его достаточно удалить. Из тега без клона: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.6.0`.
 
-Поставка добавляет команды `ebt-gate` и `ebt-check`; отдельной команды `witnessbox` нет, а исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.6.0-py3-none-any.whl`. `ebt-gate --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
+Поставка добавляет одну команду `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`; исходники репозитория после установки не нужны. Собранный wheel можно передать на целевую машину и поставить тем же `uv tool install dist/witnessbox-0.7.0-py3-none-any.whl`. `witnessbox --installation` показывает дистрибутив, версию, пути установки и SHA-256 кода гейта и чекера, а также путь к ресурсам SDK. Для запусков калибровки выполните проектный replay после обновления.
 
 ## Переход со старого дистрибутива
 
-До `0.4.0` дистрибутив назывался `ebt-verification`; с `0.4.0` он называется `witnessbox`, а с `0.5.0` пакет тоже называется `witnessbox`. Оба дистрибутива предоставляют команды `ebt-gate` и `ebt-check` и содержат файл `ebt_verification/api.py`, поэтому в одном окружении они не уживаются. Сначала удаляется старый, затем ставится новый:
+До `0.4.0` дистрибутив назывался `ebt-verification`; с `0.4.0` он называется `witnessbox`, а с `0.5.0` пакет тоже называется `witnessbox`. До `0.7.0` поставка давала команды `ebt-gate` и `ebt-check`; в `0.7.0` они удалены без алиасов, осталась одна команда `witnessbox` (D51). Оба дистрибутива содержат файл `ebt_verification/api.py`, поэтому в одном окружении они не уживаются. Сначала удаляется старый, затем ставится новый:
 
 ```bash
 uv tool uninstall ebt-verification   # если старая поставка ещё стоит
@@ -37,19 +37,21 @@ uv tool update-shell
 
 Для установки в venv вместо `uv tool` — `pip uninstall ebt-verification`, затем `pip install witnessbox`. Порядок важен: `uv tool install` отказывается ставить команду, которая уже принадлежит другому инструменту, а `pip uninstall ebt-verification` после установки `witnessbox` удалил бы общий файл `ebt_verification/api.py` и сломал совместимый импорт. Совмещать дистрибутивы в одном окружении нельзя.
 
-Что менять в проекте не нужно: команды и их аргументы, каталоги `ebt/` и `build/ebt/`, переменные `EBT_*`, имена SDK (`Ebt`, `ev()`, `traced()`), `spec.toml`, `pinned.txt` с префиксом `kit:`, форматы свидетельств и JSON-отчётов. Байты SDK не изменились, поэтому закреплённые копии не дают `pinned_drift`. Проектные чекеры с прежним импортом `from ebt_verification.api import ...` или `from checkers import ...` продолжают работать; новый код импортирует `from witnessbox.api import ...`. Импорт внутренних модулей (`ebt_verification.checker.checkers`, `ebt_verification.checker.ebt_check`, `ebt_verification.cli`) не сохраняется: это не поддерживаемый интерфейс, после 0.5.0 те же модули — `witnessbox.checker.*` и `witnessbox.cli`, и такой `checks.py` нужно поправить один раз. Для обновления установленной версии — `uv tool install --force <источник>`.
+При обновлении с `0.6.0` команда `uv tool upgrade witnessbox` заменяет прежние команды новыми. Если старая версия стояла ещё и через `pipx`, вторую установку нужно удалить вручную (`pipx uninstall witnessbox`): иначе её прежние команды останутся на `PATH`.
+
+Что менять в проекте при переходе с `0.6.0`: вызовы команд в `test.sh`, CI и вспомогательных скриптах — по таблице D51. Не меняются каталоги `ebt/` и `build/ebt/`, переменные `EBT_*`, имена SDK (`Ebt`, `ev()`, `traced()`), `spec.toml`, `pinned.txt` с префиксом `kit:`, форматы свидетельств и JSON-отчётов. Байты SDK не изменились, поэтому закреплённые копии не дают `pinned_drift`. Проектные чекеры с прежним импортом `from ebt_verification.api import ...` или `from checkers import ...` продолжают работать; новый код импортирует `from witnessbox.api import ...`. Импорт внутренних модулей (`ebt_verification.checker.checkers`, `ebt_verification.checker.ebt_check`, `ebt_verification.cli`) не сохраняется: это не поддерживаемый интерфейс, после 0.5.0 те же модули — `witnessbox.checker.*` и `witnessbox.cli`, и такой `checks.py` нужно поправить один раз. Для обновления установленной версии — `uv tool install --force <источник>`.
 
 ## Заготовка для нового проекта
 
 Установленная поставка создаёт каталог проверки из шаблонов:
 
 ```bash
-ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
+witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
 ```
 
-`<каталог>` по умолчанию — `ebt` в текущем каталоге; `.` заполняет текущий пустой каталог. Существующий непустой каталог команда не перезаписывает. Стек выбирает `test.sh` и `pinned.txt`, спецификация и пример чекера общие. Файлы, договор `test.sh`, `pinned.txt` и порядок действий — в [заготовке](scaffold.md). Шаблонная `spec.toml` — пример, а не утверждённая спецификация: требование утверждает человек (D4).
+`<каталог>` по умолчанию — `ebt` в текущем каталоге; `.` заполняет текущий пустой каталог. Существующий непустой каталог команда не перезаписывает. Стек выбирает `test.sh` и `pinned.txt`; `generic` запускает команду из `EBT_TEST_CMD`, спецификация и пример чекера общие. Файлы, договор `test.sh`, `pinned.txt` и порядок действий — в [заготовке](scaffold.md). Путь до первого PASS — [быстрый старт](quickstart.md), написание спецификации — [руководство](authoring.md). Шаблонная `spec.toml` — пример, а не утверждённая спецификация: требование утверждает человек (D4).
 
-Файлы, закреплённые в `pinned.txt`, копирует в проект команда `ebt-gate --sync-pinned <каталог ebt>`, запущенная из корня проекта; она разбирает `pinned.txt` так же, как гейт, и не пишет за пределы проекта (D44).
+Файлы, закреплённые в `pinned.txt`, копирует в проект команда `witnessbox sync-pinned <каталог ebt>`, запущенная из корня проекта; она разбирает `pinned.txt` так же, как гейт, и не пишет за пределы проекта (D44).
 
 ## Запуск гейта и чекера
 
@@ -58,10 +60,10 @@ ebt-gate --scaffold <dart|ts|jvm> [<каталог>]
 Гейт принимает каталог проверки, чистый checkout проекта и каталог результатов:
 
 ```bash
-ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
+witnessbox gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 ```
 
-Опциональные переменные `BASE`, `EBT_INV` и `EBT_TESTS` задают базовый commit, выбранные инварианты и фильтр тестов. Для перепроверки готовых свидетельств используйте `ebt-check --spec ... --checkers ... --evidence ...`; полная форма приведена в `--help`.
+Опциональные переменные `BASE`, `EBT_INV` и `EBT_TESTS` задают базовый commit, выбранные инварианты и фильтр тестов. Для перепроверки готовых свидетельств используйте `witnessbox check --spec ... --checkers ... --evidence ...`; полная форма приведена в `--help`.
 
 В GitHub Actions гейт можно запускать двухстадийно: недоверенные тесты на `pull_request` и доверенная перепроверка на `workflow_run` с подписанным `gate.json` и статусом `witnessbox/gate` — [CI-режим](ci.md) (D45).
 
@@ -83,6 +85,36 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 Наличие исполняемого `test.sh` включает строгий интерфейс; `EBT_RUNNER=test.sh` задаёт его явно, `EBT_RUNNER=flutter` — явный запуск Flutter, только когда `test.sh` нет. Если `EBT_RUNNER` не задан и `test.sh` отсутствует, сохраняется режим совместимости с `flutter test --no-pub ${EBT_TESTS:-test/ebt}` и предупреждением. `prepare.sh`, если он задан, подготавливает зависимости чистого checkout. `test.sh` исполняется с правами гейта, а `OUT_DIR` не является песочницей. Чекер читает копию `spec.toml`, `checks.py`, `known.toml` и `baseline.jsonl`, снятую в `inputs/` каталога результатов до `prepare.sh`; если оригиналы или код поставки изменились за прогон, итог — ERROR. От намеренного обхода это не защищает ([решения](decisions.md), D26).
 
+## Проверка подключения и тесты чекера
+
+До полного прогона ошибки подключения находит команда, запущенная из корня проекта:
+
+```bash
+witnessbox gate --check-only ebt .
+```
+
+Она проверяет `spec.toml`, загрузку `checks.py` и регистрацию всех чекеров
+спецификации, `known.toml`, `baseline.jsonl`, выбор runner, `pinned.txt`, чистоту
+клона и скрытые правки (`skip-worktree`/`assume-unchanged`), а при `BASE` —
+изменения защищённых путей. `prepare.sh` и `test.sh` не исполняются, файлы не
+меняются; `checks.py` импортируется так же, как в чекере. При заданном `EBT_CHECK`
+`--check-only` не разбирает `spec.toml`, `checks.py`, `known.toml` и `baseline.jsonl`
+локально: их понимание принадлежит внешнему чекеру. Проверяются наличие `EBT_CHECK`,
+runner, `pinned.txt`, клон и `BASE`. Коды: `0` — проблем нет,
+`1` — найдены проблемы, `2` — ошибка вызова. Это подсказка, а не вердикт:
+гарантировано только, что каждая найденная проблема даст гейту на том же входе
+не-PASS; тесты и свидетельства команда не проверяет. Без `BASE` вывод прямо
+говорит, что защищённые пути не проверялись.
+
+Тесты проектного чекера запускаются интерпретатором поставки:
+
+```bash
+witnessbox test-checks ebt
+```
+
+`<ebt-dir>` по умолчанию — `ebt`. Нулевой прогон (в каталоге нет `test_*.py`) —
+код `1`, а не успех.
+
 ## Импорты в проектных чекерах
 
 Установленные проектные чекеры импортируют публичные типы из `witnessbox.api`; `PYTHONPATH` и editable install не требуются. Совместимый `ebt_verification.api` переэкспортирует те же объекты и не содержит второй реализации, а `from checkers import ...` остаётся историческим импортом. Тесты разработчика могут отдельно импортировать исходники из дерева разработки.
@@ -93,10 +125,10 @@ ebt-gate /path/to/project/ebt /path/to/clean-checkout /path/to/results
 
 | Поддерживаемый интерфейс | Внутренняя реализация |
 |---|---|
-| команды `ebt-gate`, `ebt-gate --sync-pinned`, `ebt-check`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
+| подкоманды `witnessbox gate` (включая `--check-only`), `witnessbox check`, `witnessbox scaffold`, `witnessbox sync-pinned`, `witnessbox test-checks`, `witnessbox --version`, `witnessbox --installation`, их аргументы и коды выхода | организация Python-модулей пакета; внутренние `ebt_verification.checker.*`/`ebt_verification.cli` не реэкспортируются |
 | `witnessbox.api`, совместимый `ebt_verification.api` и `from checkers import ...` | функции `checker/engine.py` и `checker/input.py` |
 | формат свидетельств JSONL, `report.json` и `gate.json` | устройство реестра чекеров |
 | договор `test.sh`/`prepare.sh`, `OUT_DIR`, переменные `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | bash-функции гейта |
-| SDK из поля `resources` команды `ebt-gate --installation`, их формат и допустимые значения ([sdk](sdk.md)) | физическое расположение исходников |
+| SDK из поля `resources` команды `witnessbox --installation`, их формат и допустимые значения ([sdk](sdk.md)) | физическое расположение исходников |
 
 `gate.md` и `report.md` предназначены человеку; их текст не разбирается программно. Новые поля JSON и новые значения `reasons` — совместимое изменение, потребитель игнорирует незнакомое. Удаление или переименование поля, изменение смысла кода выхода или договора `test.sh` несовместимы: до версии 1.0 они поднимают minor-версию, записываются в [решения](decisions.md) и меняют `format` затронутого JSON. Добавление публичного импорта `witnessbox.api` при сохранении прежнего `ebt_verification.api` — совместимое изменение, поэтому версия `0.5.0`, а не patch. Исправления без изменения интерфейса поднимают patch-версию. Границы закреплены тестами установленного wheel в `tests/gate/test_gate.py`.

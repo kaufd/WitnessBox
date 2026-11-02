@@ -1,6 +1,6 @@
 # SDK записи свидетельств
 
-Java, TypeScript и Dart SDK пишут строки JSONL одного формата: `{"seq","scope"?,"req","inv","ok","data"}`. Путь к исходникам даёт поле `resources` команды `ebt-gate --installation`, внутри `lib/ebt/`. SDK только записывают свидетельства; правило проверяет чекер.
+Java, TypeScript и Dart SDK пишут строки JSONL одного формата: `{"seq","scope"?,"req","inv","ok","data"}`. Путь к исходникам даёт поле `resources` команды `witnessbox --installation`, внутри `lib/ebt/`. SDK только записывают свидетельства; правило проверяет чекер.
 
 ## Общий формат
 

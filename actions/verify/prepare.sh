@@ -31,7 +31,7 @@ script_dir=$(CDPATH= cd -- "$(dirname -- "$0")" && pwd) || fail "не найде
 
 rm -rf "$target" || fail "не удалось очистить $target"
 mkdir -p "$target" || fail "не удалось создать $target"
-# target-dir — сам каталог проверки (ebt/), а не его родитель: ebt-gate получает его же.
+# target-dir — сам каталог проверки (ebt/), а не его родитель: witnessbox gate получает его же.
 if ! git -C "$clone" archive "$base" ebt | tar -x -C "$target" --strip-components=1; then
   rm -rf "$target"
   fail "не удалось извлечь ebt/ из BASE $base"

@@ -119,7 +119,7 @@ class InstalledRelease(unittest.TestCase):
     def test_installation_of_real_wheel_matches_release_check(self):
         env = {**os.environ, "PYTHONPATH": ""}
         installation = json.loads(subprocess.check_output(
-            [str(self.bin / "ebt-gate"), "--installation"], text=True, env=env))
+            [str(self.bin / "witnessbox"), "--installation"], text=True, env=env))
         release = {
             "version": VERSION,
             "result": "PASS",

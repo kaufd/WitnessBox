@@ -1,7 +1,7 @@
-# Закреплённые копии заготовки ebt/ для Dart/Flutter (ebt-gate --scaffold dart).
+# Закреплённые копии заготовки ebt/ для Dart/Flutter (witnessbox scaffold dart).
 #
 # Формат строки: <оригинал>  <путь в клоне продукта>.
-#   * kit:<путь> — файл из ресурсов установленной поставки (ebt-gate --installation,
+#   * kit:<путь> — файл из ресурсов установленной поставки (witnessbox --installation,
 #     поле resources); так закрепляются SDK и помощники наблюдения;
 #   * путь без kit: — файл рядом с ebt/ (например, obs/session.dart);
 #   * абсолютный путь — внешний файл.

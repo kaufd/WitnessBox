@@ -1,5 +1,5 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для Dart/Flutter (ebt-gate --scaffold dart).
+# test.sh заготовки ebt/ для Dart/Flutter (witnessbox scaffold dart).
 #
 # Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
 # каталог результатов прогона. Аргументы — слова из EBT_TESTS (фильтр тестов).
@@ -11,7 +11,7 @@
 # «нет свидетельств» — это ожидаемое состояние заготовки, а не PASS.
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через ebt-gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
 
 command -v flutter >/dev/null 2>&1 || { echo "test.sh: не найден flutter; нужен Flutter SDK" >&2; exit 2; }
 

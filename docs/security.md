@@ -17,7 +17,7 @@
 | Входы проверки изменены во время прогона | снимок `inputs/`, ERROR `gate_error` | [D26](decisions.md) |
 | Код гейта или чекера изменён во время прогона | сверка `--installation`, ERROR | [D26](decisions.md) |
 | Свидетельств нет | ERROR | [docs/usage.md](usage.md) |
-| Свидетельства подменены после вердикта | `evidence` в `gate.json`, перепроверка `ebt-check` | [D34](decisions.md) |
+| Свидетельства подменены после вердикта | `evidence` в `gate.json`, перепроверка `witnessbox check` | [D34](decisions.md) |
 | Вердикт или `gate.json` изменены кодом проекта (CI-режим) | перепроверка в `workflow_run`, `gate.json` подписан аттестацией | [test_verify.py](../tests/actions/test_verify.py), [D45](decisions.md) |
 | Spec изменена в PR (CI-режим) | `ebt/` и `checks.py` из `BASE`; `protected_paths_changed` | [test_prepare_uses_base_spec_and_drops_prepare](../tests/actions/test_verify.py), [D45](decisions.md) |
 | Ветка PR правит `ebt-verify.yml` | GitHub берёт workflow из основной ветки; PR-версия не исполняется | [D45](decisions.md) |

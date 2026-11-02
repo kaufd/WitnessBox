@@ -96,7 +96,7 @@ class Verify(unittest.TestCase):
     def gate(self, base: str, artifact: Path, target: Path) -> subprocess.CompletedProcess:
         run = self.root / "run"
         return subprocess.run(
-            [str(self.bin / "ebt-gate"), str(target), str(self.clone), str(run)],
+            [str(self.bin / "witnessbox"), "gate", str(target), str(self.clone), str(run)],
             capture_output=True, text=True,
             env={**self.env(), "BASE": base, "EBT_RUNNER": "test.sh",
                  "EBT_REPLAY_DIR": str(artifact), "EBT_TESTS": "", "EBT_CHECK": ""})
@@ -117,6 +117,14 @@ class Verify(unittest.TestCase):
         environment = {k: v for k, v in os.environ.items() if k not in ("PYTHONPATH", "PYTHONHOME")}
         environment["PYTHONPATH"] = ""
         return environment
+
+    # ── action.yml ────────────────────────────────────────────────────────
+
+    def test_action_requires_witnessbox_from_setup(self):
+        text = (KIT / "actions" / "verify" / "action.yml").read_text(encoding="utf-8")
+        self.assertIn("command -v witnessbox", text)
+        self.assertIn("witnessbox не найден на PATH: сначала выполните actions/setup", text)
+        self.assertNotIn("command -v ebt-gate", text)
 
     # ── prepare.sh ────────────────────────────────────────────────────────
 
