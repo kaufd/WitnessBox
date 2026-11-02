@@ -49,7 +49,10 @@ class Gate(unittest.TestCase):
         self.ebt.mkdir()
         (self.ebt / "spec.toml").write_text(SPEC, encoding="utf-8")
         (self.clone / ".gitignore").write_text("build/\n")
-        git = ["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t"]
+        # commit запускает `git maintenance run --auto --detach` в фоне: его maintenance.lock
+        # гоняется с rmtree клона в случаях problem_cases и роняет тест (macOS CI).
+        git = ["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
+               "-c", "maintenance.auto=false"]
         subprocess.run([*git, "init", "-q"], check=True)
         subprocess.run([*git, "add", "."], check=True)
         subprocess.run([*git, "commit", "-qm", "init"], check=True)
