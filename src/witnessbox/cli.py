@@ -184,11 +184,13 @@ def scaffold(argv):
     print(f"Создана заготовка ebt/ ({stack}) в {target}:")
     for name in sources:
         print(f"  {name}")
-    print("Дальше: замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием,")
-    print("прогоните тесты чекера: witnessbox test-checks ebt,")
-    print("скопируйте SDK и помощников: witnessbox sync-pinned ebt,")
-    print("проверьте подключение: witnessbox gate --check-only ebt .,")
-    print("напишите тесты свидетельств в build/ebt/ и запустите гейт.")
+    print("Дальше:")
+    print("  замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием (для пробы можно оставить);")
+    print("  прогоните тесты чекера: witnessbox test-checks ebt;")
+    print("  скопируйте SDK и помощников: witnessbox sync-pinned ebt;")
+    print("  напишите тест свидетельств (он пишет build/ebt/*.jsonl) и, если нужно, ebt/prepare.sh;")
+    print("  закоммитьте проект и проверьте подключение: witnessbox gate --check-only ebt .;")
+    print("  запустите гейт: witnessbox gate ebt . <каталог итога>.")
     print("Подробности — в README.md каталога.")
     return 0
 
@@ -516,38 +518,36 @@ def check_only(argv):
                 else:
                     ok("pinned")
 
-    # 7. clone: чистое дерево и отсутствие скрытых правок — как в preflight_git.
-    try:
+    # 7. clone: есть коммит, чистое дерево и нет скрытых правок — как в preflight_git.
+    # HEAD до status: без коммитов все файлы неотслеживаемые, и «грязное дерево» скрыло бы причину.
+    def clone_problem() -> str | None:
+        head = git("rev-parse", "-q", "--verify", "HEAD")
+        if head.returncode:
+            if git("rev-parse", "--git-dir").returncode == 0:
+                return "в репозитории нет коммитов — гейт проверяет только закоммиченное"
+            return "git rev-parse HEAD упал: " + head.stderr.strip()
         status = git("status", "--porcelain")
-    except OSError as error:
-        problem("clone", f"git status упал: {error}")
-    else:
         if status.returncode:
-            problem("clone", f"git status упал: {status.stderr.strip() or status.stdout.strip()}")
-        elif status.stdout.strip():
-            problem("clone", "дерево клона не чистое: " + status.stdout.splitlines()[0])
-        else:
-            try:
-                tracked = git("ls-files", "-v")
-            except OSError as error:
-                problem("clone", f"git ls-files упал: {error}")
-            else:
-                hidden = [line for line in tracked.stdout.splitlines()
-                          if len(line) > 1 and line[1] == " " and (line[0] in "S" or line[0].islower())]
-                if tracked.returncode:
-                    problem("clone", f"git ls-files упал: {tracked.stderr.strip() or tracked.stdout.strip()}")
-                elif hidden:
-                    problem("clone", "в клоне есть skip-worktree/assume-unchanged: " + hidden[0])
-                else:
-                    try:
-                        head = git("rev-parse", "-q", "--verify", "HEAD")
-                    except OSError as error:
-                        problem("clone", f"git rev-parse HEAD упал: {error}")
-                    else:
-                        if head.returncode:
-                            problem("clone", "git rev-parse HEAD упал: " + (head.stderr.strip() or "нет коммитов"))
-                        else:
-                            ok("clone")
+            return f"git status упал: {status.stderr.strip() or status.stdout.strip()}"
+        if status.stdout.strip():
+            return "дерево клона не чистое: " + status.stdout.splitlines()[0]
+        tracked = git("ls-files", "-v")
+        if tracked.returncode:
+            return f"git ls-files упал: {tracked.stderr.strip() or tracked.stdout.strip()}"
+        hidden = [line for line in tracked.stdout.splitlines()
+                  if len(line) > 1 and line[1] == " " and (line[0] in "S" or line[0].islower())]
+        if hidden:
+            return "в клоне есть skip-worktree/assume-unchanged: " + hidden[0]
+        return None
+
+    try:
+        message = clone_problem()
+    except OSError as error:
+        message = f"git упал: {error}"
+    if message:
+        problem("clone", message)
+    else:
+        ok("clone")
 
     # 8. base: без BASE защищённые пути не проверяются, и вывод говорит об этом явно.
     base = os.environ.get("BASE", "")
