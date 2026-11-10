@@ -1,10 +1,12 @@
 # Архитектура
 
+[English](architecture.md) · **Русский**
+
 Поставка устанавливает один entry point из `pyproject.toml`: `witnessbox` ведёт в `witnessbox.cli:main`. `main()` разбирает первую позицию argv и вызывает `scaffold`, `sync_pinned`, `check_only` или `test_checks`, передаёт остаток в `witnessbox.checker.cli.main` для подкоманды `check` либо исполняет упакованный `gate.sh` для `gate`; импорт чекера происходит лениво, только в ветке `check`. Runtime находится в `src/witnessbox/`; пакет `src/ebt_verification/` — только совместимый реэкспорт `witnessbox.api` для существующих проектных чекеров.
 
 ## Схема проверки
 
-![Схема проверки: checkout, test.sh, witnessbox check, итог PASS, FAIL или ERROR](verification-flow.svg)
+![Схема проверки: checkout, test.sh, witnessbox check, итог PASS, FAIL или ERROR](verification-flow.ru.svg)
 
 FAIL получает прогон, в котором выполнено хотя бы одно из условий.
 
@@ -33,11 +35,11 @@ Checker в `checker/` читает спецификацию и свидетел�
 
 ## Расширения и ресурсы
 
-`api.py` задаёт типы публичного API расширений; `ebt_verification/api.py` переэкспортирует их без второй реализации и входит в `checker_sha256` вместе с кодом чекера: проектный чекер исполняет совместимый импорт. Стандартные правила и движок находятся в `checker/checkers.py` и `checker/engine.py`; проверка входов и отчёты разделены между `input.py` и `rendering.py`. Практический контракт расширений описан в [extensions](extensions.md).
+`api.py` задаёт типы публичного API расширений; `ebt_verification/api.py` переэкспортирует их без второй реализации и входит в `checker_sha256` вместе с кодом чекера: проектный чекер исполняет совместимый импорт. Стандартные правила и движок находятся в `checker/checkers.py` и `checker/engine.py`; проверка входов и отчёты разделены между `input.py` и `rendering.py`. Практический контракт расширений описан в [extensions](extensions.ru.md).
 
-Java, Dart и TypeScript SDK поставляются как ресурсы пакета в `resources/lib/ebt/`. Формат, допустимые значения и гарантии отключения записи описаны в [sdk](sdk.md). Их тесты лежат в `tests/sdk/`. Установка не требует Python-зависимостей помимо стандартной библиотеки. Сборка, standalone wheel-проверка и SDK-команды описаны в [development](development.md).
+Java, Dart и TypeScript SDK поставляются как ресурсы пакета в `resources/lib/ebt/`. Формат, допустимые значения и гарантии отключения записи описаны в [sdk](sdk.ru.md). Их тесты лежат в `tests/sdk/`. Установка не требует Python-зависимостей помимо стандартной библиотеки. Сборка, standalone wheel-проверка и SDK-команды описаны в [development](development.ru.md).
 
-Шаблоны нового проекта лежат в `resources/scaffold/`: `spec.toml`, пример `checks.py` и `test_checks.py`, а также `test.sh` и `pinned.txt` для Dart, TypeScript и JVM. `witnessbox scaffold` копирует их в новый `ebt/`, не перезаписывая непустой каталог. Шаблоны — данные, а не код проверки: их правка не входит в `gate_sha256`. Инструкция — [заготовка](scaffold.md).
+Шаблоны нового проекта лежат в `resources/scaffold/`: `spec.toml`, пример `checks.py` и `test_checks.py`, а также `test.sh` и `pinned.txt` для Dart, TypeScript и JVM. `witnessbox scaffold` копирует их в новый `ebt/`, не перезаписывая непустой каталог. Шаблоны — данные, а не код проверки: их правка не входит в `gate_sha256`. Инструкция — [заготовка](scaffold.ru.md).
 
 ## Границы
 

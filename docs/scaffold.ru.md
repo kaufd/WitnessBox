@@ -1,5 +1,7 @@
 # Заготовка `ebt/` для нового проекта
 
+[English](scaffold.md) · **Русский**
+
 Установленная поставка умеет создать каталог проверки нового проекта:
 
 ```bash
@@ -20,7 +22,7 @@ witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
 | `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
 | `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
 
-Путь от пустой заготовки до первого PASS на готовом TypeScript-примере — [быстрый старт](quickstart.md); как превратить требование в `spec.toml`, чекер и тесты свидетельств — [руководство по спецификации](authoring.md). Подключение через агента-кодировщика — [инструкция для агента](agent.md).
+Путь от пустой заготовки до первого PASS на готовом TypeScript-примере — [быстрый старт](quickstart.ru.md); как превратить требование в `spec.toml`, чекер и тесты свидетельств — [руководство по спецификации](authoring.ru.md). Подключение через агента-кодировщика — [инструкция для агента](agent.ru.md).
 
 ## Что создаётся
 
@@ -62,7 +64,7 @@ witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
    копии. Абсолютные пути назначения и выход за корень проекта (в том числе через
    `..` или symlink) команда отвергает.
 4. **Написать тесты свидетельств.** Они водят реальный код по классам входов и
-   пишут JSONL в `build/ebt/<feature>.jsonl` (формат — [SDK](sdk.md)).
+   пишут JSONL в `build/ebt/<feature>.jsonl` (формат — [SDK](sdk.ru.md)).
 5. **Добавить `prepare.sh`, если нужны зависимости.** Для чистого клона это
    `flutter pub get`, `bun install --frozen-lockfile` или ничего для Gradle.
    Гейт запускает `prepare.sh` до `test.sh`; шаблон `test.sh` предполагает
@@ -119,7 +121,7 @@ witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
 
 TypeScript SDK включает запись по `import.meta.env.MODE === 'test'`. Jest этого
 значения не задаёт, а без `import.meta.env` модуль не импортируется: с Jest нужен
-Vite/Vitest или своя подстановка `MODE=test` в конфигурации Jest — см. [SDK](sdk.md).
+Vite/Vitest или своя подстановка `MODE=test` в конфигурации Jest — см. [SDK](sdk.ru.md).
 
 Maven возвращает код `1` и на упавшие тесты, и на сломанную сборку, поэтому
 `EBT_TEST_FAIL_CODES` их не различает. Для точности, как в `jvm/test.sh`,
