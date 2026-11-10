@@ -8,6 +8,7 @@
 make test        # source checker, установленный wheel-гейт, заготовка ebt/ и скрипты actions
 make test-actions  # только скрипты actions/setup и actions/verify
 make test-sdk    # Java, TypeScript и Dart SDK
+make format-dart  # dart format не меняет ebt.dart (входит в test-sdk)
 make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
 make e2e STACK=ts|jvm|generic  # сквозной пример: заготовка → PASS → дефект → FAIL
 make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере

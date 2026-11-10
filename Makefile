@@ -7,7 +7,7 @@ LINUX_IMAGE ?= ghcr.io/astral-sh/uv:python3.12-bookworm
 STACK ?= ts
 E2E_EXAMPLE = $(if $(filter generic,$(STACK)),examples/e2e/ts,examples/e2e/$(STACK))
 
-.PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart test-sdk example e2e check baseline clean
+.PHONY: help test test-linux release-check test-checker test-gate test-actions test-ts test-java test-dart format-dart test-sdk example e2e check baseline clean
 
 help:
 	@echo "make test         — тесты исходного чекера, установленного гейта и actions"
@@ -19,7 +19,8 @@ help:
 	@echo "make test-ts      — тесты канонического TypeScript SDK (нужен bun)"
 	@echo "make test-java    — тесты канонического Java SDK (нужен JDK 17+)"
 	@echo "make test-dart    — тесты канонического Dart SDK с assert и без (нужен dart)"
-	@echo "make test-sdk     — все SDK тесты"
+	@echo "make format-dart  — dart format не меняет ebt.dart: стиль 3.6 и текущий, ширина 80/100/120"
+	@echo "make test-sdk     — все SDK тесты и format-dart"
 	@echo "make example      — пересобрать examples/basic/ и отчёт (ожидаемо находит ошибки)"
 	@echo "make e2e STACK=ts|jvm|generic — сквозной пример: заготовка → PASS → дефект → FAIL (нужны bun/gradle)"
 	@echo "make check        — проверить $(EVIDENCE) по $(SPEC) с baseline $(BASELINE)"
@@ -55,7 +56,19 @@ test-java:
 test-dart:
 	dart run --enable-asserts tests/sdk/dart/ebt_test.dart && dart run tests/sdk/dart/ebt_test.dart
 
-test-sdk: test-java test-ts test-dart
+# ebt.dart копируется в проекты байт в байт (pinned.txt), а их CI может гонять dart format.
+# Файл не меняется ни коротким стилем (3.6), ни tall-стилем текущего Dart при ширине 80–120.
+# Вторая проверка — без `// dart format off`: перенос в коде виден, даже когда страховка его скрывает.
+DART_SDK := src/witnessbox/resources/lib/ebt/ebt.dart
+format-dart:
+	@set -e; for v in 3.6 latest; do for w in 80 100 120; do \
+	  echo "dart format --language-version $$v --line-length $$w"; \
+	  dart format -o none --set-exit-if-changed --language-version $$v --line-length $$w $(DART_SDK); \
+	  grep -vx '// dart format off' $(DART_SDK) | dart format -o none --set-exit-if-changed \
+	    --language-version $$v --line-length $$w --stdin-name ebt.dart; \
+	done; done
+
+test-sdk: test-java test-ts test-dart format-dart
 
 # Пример специально содержит дефекты, поэтому код выхода 1 здесь — норма.
 example:

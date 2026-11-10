@@ -1,7 +1,13 @@
 // SPDX-License-Identifier: MIT
+// dart format off
 // lib/ebt/ebt.dart
 //
-// EBT: запись доказательств по цепочке «требование ⇒ инвариант ⇒ доказательство».
+// EBT: запись доказательств по цепочке
+// «требование ⇒ инвариант ⇒ доказательство».
+//
+// Файл закреплён в pinned.txt байт в байт. Каждый оператор занимает одну
+// строку короче 80 символов, поэтому dart format любого стиля при ширине
+// 80–120 его не меняет; `dart format off` — страховка для tall-стиля.
 //
 // Вызывать ТОЛЬКО внутри assert. В release и profile сборке assert не
 // исполняется: ни вызов, ни вычисление аргументов не происходят. Удаляются ли
@@ -19,15 +25,13 @@ import 'dart:collection';
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+/// Поля свидетельства: аргумент `data` в [ev].
+typedef EbtData = Map<String, Object?>;
+
 /// Записать доказательство. Всегда возвращает true, поэтому assert сам
 /// не падает; падение при нарушении — только в режиме [Ebt.strict].
-bool ev(
-  String inv, {
-  required String req,
-  required bool ok,
-  Map<String, Object?> data = const {},
-}) {
-  Ebt._record(inv, req, ok, data);
+bool ev(String inv, {required String req, required bool ok, EbtData? data}) {
+  Ebt._record(inv, req, ok, data ?? const {});
   return true;
 }
 
@@ -59,43 +63,36 @@ class Ebt {
   /// Кольцевой буфер, чтобы долгие сессии не съели память.
   static int maxRecords = 50000;
 
-  static void _record(
-    String inv,
-    String req,
-    bool ok,
-    Map<String, Object?> data,
-  ) {
+  static void _record(String inv, String req, bool ok, EbtData data) {
     // До ++_seq: отклонённая запись не меняет ни seq, ни лог.
     _check(data, 'data');
-    // Без времени и случайных значений: лог должен сравниваться между прогонами.
-    final rec = <String, Object?>{
-      'seq': ++_seq,
-      if (scope != null) 'scope': scope,
-      'req': req,
-      'inv': inv,
-      'ok': ok,
-      'data': data,
-    };
+    // Без времени и случайных значений: лог сравнивается между прогонами.
+    final rec = <String, Object?>{'seq': ++_seq};
+    if (scope != null) rec['scope'] = scope;
+    rec['req'] = req;
+    rec['inv'] = inv;
+    rec['ok'] = ok;
+    rec['data'] = data;
     final line = _encode(rec);
     if (_records.length >= maxRecords) _records.removeFirst();
     _records.add(line);
 
-    if (toDevTools) {
-      developer.log(
-        line,
-        name: ok ? 'EBT' : 'EBT!',
-        level: ok ? 800 : 1000,
-      );
-    }
+    final name = ok ? 'EBT' : 'EBT!';
+    final level = ok ? 800 : 1000;
+    if (toDevTools) developer.log(line, name: name, level: level);
     if (strict && !ok) throw EbtViolation(_decode(line));
   }
 
   /// Копии записей: их изменение не трогает лог.
-  static List<Map<String, Object?>> get records =>
-      List.unmodifiable(_records.map(_decode));
+  static List<Map<String, Object?>> get records {
+    final copies = _records.map(_decode);
+    return List.unmodifiable(copies);
+  }
 
-  static List<Map<String, Object?>> get violations =>
-      _records.map(_decode).where((r) => r['ok'] == false).toList();
+  static List<Map<String, Object?>> get violations {
+    final all = _records.map(_decode);
+    return all.where((r) => r['ok'] == false).toList();
+  }
 
   static void reset() {
     _records.clear();
@@ -108,8 +105,10 @@ class Ebt {
 
   static String _encode(Object? o) => jsonEncode(o);
 
-  static Map<String, Object?> _decode(String line) =>
-      jsonDecode(line) as Map<String, Object?>;
+  static Map<String, Object?> _decode(String line) {
+    final rec = jsonDecode(line);
+    return rec as Map<String, Object?>;
+  }
 
   // double отклоняется и при целом значении: 1.0 на VM не int. На web int и
   // double — одно JS-число, там 1.0 is int и запишется как 1.
@@ -130,7 +129,9 @@ class Ebt {
       }
       return;
     }
-    throw ArgumentError('$path: нельзя записать точно значение типа '
-        '${v.runtimeType} — передайте int, String, bool, List или Map');
+    final type = v.runtimeType;
+    final what = 'нельзя записать точно значение типа $type';
+    const hint = 'передайте int, String, bool, List или Map';
+    throw ArgumentError('$path: $what — $hint');
   }
 }
