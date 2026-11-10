@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "witnessbox"
 version = "0.7.0"
-# Продуктовое описание для метаданных пакета: постановка задачи задаёт его на английском.
+# Product description for the package metadata, written in English.
 description = "Independent verification of agent-written code through test evidence."
 readme = "README.md"
 requires-python = ">=3.11"
@@ -52,8 +52,8 @@ witnessbox = ["gate.sh", "runners/*.sh"]
 ]
 
 [tool.setuptools.exclude-package-data]
-# Тестовые модули runtime не поставляются. Заготовка — данные, а не runtime:
-# её test_checks.py должен попасть в wheel, поэтому исключение задано по пакетам,
-# а не шаблоном "*".
+# Test modules of the runtime are not shipped. The scaffold is data, not runtime:
+# its test_checks.py must get into the wheel, so the exclusion is given by packages,
+# not by the "*" pattern.
 witnessbox = ["test_*.py"]
 "witnessbox.checker" = ["test_*.py"]

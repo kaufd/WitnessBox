@@ -1,27 +1,27 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для Java/Kotlin на Gradle (witnessbox scaffold jvm).
+# test.sh of the ebt/ scaffold for Java/Kotlin on Gradle (witnessbox scaffold jvm).
 #
-# Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
-# каталог результатов прогона. Аргументы — слова из EBT_TESTS; каждое становится
-# отдельным фильтром Gradle --tests. Коды: 0 — тесты прошли, 1 — тесты выполнились
-# и упали, 2 — ошибка исполнения. Свидетельства собираются в OUT_DIR при любом исходе.
+# Gate contract: the working directory is the root of a clean clone; OUT_DIR is an empty absolute
+# directory of run results. Arguments are the words from EBT_TESTS; each becomes
+# a separate Gradle --tests filter. Codes: 0 tests passed, 1 tests ran
+# and failed, 2 execution error. Evidence is collected in OUT_DIR for any outcome.
 #
-# Настройки проекта — переменными окружения (значения по умолчанию — для JVM-модуля):
-#   EBT_GRADLE_TASK     задача тестов; Android: :app:testDebugUnitTest
-#   EBT_GRADLE_RESULTS  каталог XML-отчётов; Android: app/build/test-results/testDebugUnitTest
-#   EBT_EVIDENCE_DIR    каталог JSONL от тестов; Android: app/build/ebt
-#   EBT_TESTS           фильтры классов; по умолчанию *EbtTest
-# Тесты пишут JSONL в build/ebt/<feature>.jsonl (см. docs/sdk.md); для Android это
-# может быть app/build/ebt — тогда задайте EBT_EVIDENCE_DIR.
+# Project settings are environment variables (the defaults are for a JVM module):
+#   EBT_GRADLE_TASK     test task; Android: :app:testDebugUnitTest
+#   EBT_GRADLE_RESULTS  XML report directory; Android: app/build/test-results/testDebugUnitTest
+#   EBT_EVIDENCE_DIR    directory of JSONL from the tests; Android: app/build/ebt
+#   EBT_TESTS           class filters; *EbtTest by default
+# The tests write JSONL to build/ebt/<feature>.jsonl (see docs/sdk.md); for Android this
+# may be app/build/ebt, in which case set EBT_EVIDENCE_DIR.
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: OUT_DIR is required (run through witnessbox gate)" >&2; exit 2; }
 
 task=${EBT_GRADLE_TASK:-test}
 results=${EBT_GRADLE_RESULTS:-build/test-results/test}
 evidence_dir=${EBT_EVIDENCE_DIR:-build/ebt}
 
-[ -x ./gradlew ] || { echo "test.sh: нет исполняемого ./gradlew в корне клона" >&2; exit 2; }
+[ -x ./gradlew ] || { echo "test.sh: no executable ./gradlew in the clone root" >&2; exit 2; }
 
 filters=("$@")
 if [ ${#filters[@]} -eq 0 ]; then
@@ -32,7 +32,7 @@ for pattern in "${filters[@]}"; do
   gradle_args+=(--tests "$pattern")
 done
 
-# Свидетельства и отчёты прошлого прогона не должны пережить текущий.
+# Evidence and reports from the previous run must not survive the current one.
 rm -rf "$evidence_dir" "$results" || exit 2
 log=$(mktemp) || exit 2
 trap 'rm -f "$log"' EXIT
@@ -40,7 +40,7 @@ trap 'rm -f "$log"' EXIT
 ./gradlew -q "$task" "${gradle_args[@]}" --rerun 2>&1 | tee "$log"
 rc=${PIPESTATUS[0]}
 
-# Свидетельства копируются при любом исходе: красный прогон тоже проверяется чекером.
+# Evidence is copied for any outcome: a red run is also checked by the checker.
 mkdir -p "$OUT_DIR" || exit 2
 shopt -s nullglob
 evidence=("$evidence_dir"/*.jsonl)
@@ -49,12 +49,12 @@ if [ ${#evidence[@]} -gt 0 ]; then
 fi
 
 [ "$rc" -eq 0 ] && exit 0
-# Gradle возвращает 1 и на упавшие тесты, и на сломанную сборку. Код 1 — только если
-# единственная причина отказа — «There were failing tests» и в свежих XML есть провалы;
-# всё остальное, включая неоднозначный вывод, — 2 («проверки не было»).
+# Gradle returns 1 both for failed tests and for a broken build. Code 1 only if
+# the only failure cause is "There were failing tests" and the fresh XML has failures;
+# everything else, including ambiguous output, is 2 ("no check was run").
 #
-# Проверка наличия XML обязательна: при nullglob без совпадений grep остался бы без
-# имён файлов и читал stdin, то есть мог зависнуть вместо кода 2.
+# Checking that the XML exists is mandatory: with nullglob and no matches grep would have no
+# file names and would read stdin, i.e. could hang instead of returning code 2.
 reports=("$results"/TEST-*.xml)
 if [ ${#reports[@]} -eq 0 ]; then
   exit 2

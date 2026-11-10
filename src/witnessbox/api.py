@@ -1,7 +1,7 @@
-"""Публичный контракт независимых проектных чекеров EBT.
+"""Public contract of independent EBT project checkers.
 
-Проектные расширения импортируют типы отсюда; прежний импорт из ``checkers``
-возвращает те же объекты.
+Project extensions import the types from here; the legacy import from ``checkers``
+returns the same objects.
 """
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ class Verdict:
 
 
 class WitnessError(Exception):
-    """Свидетельство есть, но оно некорректно по форме (типы, структура)."""
+    """The evidence exists but is malformed (types, structure)."""
 
 
 CheckFn = Callable[[dict, dict], Verdict]

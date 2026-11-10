@@ -1,4 +1,4 @@
-"""Совместимое имя модуля чекера для `import ebt_check`."""
+"""Compatibility checker module name for `import ebt_check`."""
 import sys
 from witnessbox.checker import ebt_check as _impl
 

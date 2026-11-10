@@ -1,7 +1,7 @@
 // test_driver/integration_test.dart
 //
-// Забирает лог доказательств с устройства/эмулятора и кладёт его в файл.
-// Запуск:
+// Collects the proof log from the device/emulator and puts it into a file.
+// Run:
 //   flutter drive \
 //     --driver=test_driver/integration_test.dart \
 //     --target=integration_test/checkout_ebt_test.dart

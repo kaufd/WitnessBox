@@ -1,18 +1,18 @@
-# Закреплённые копии заготовки ebt/ для Java/Kotlin (witnessbox scaffold jvm).
+# Pinned copies of the ebt/ scaffold for Java/Kotlin (witnessbox scaffold jvm).
 #
-# Формат строки: <оригинал>  <путь в клоне продукта>.
-#   * kit:<путь> — файл из ресурсов установленной поставки (witnessbox --installation,
-#     поле resources); так закрепляются SDK и помощники наблюдения;
-#   * путь без kit: — файл рядом с ebt/ (например, obs/Sweep.java);
-#   * абсолютный путь — внешний файл.
-# Копия должна совпадать с оригиналом байт в байт. Отличие или отсутствие файла —
-# причина pinned_drift и FAIL гейта, а не предупреждение.
+# Line format: <original>  <path in the product clone>.
+#   * kit:<path> — a file from the resources of the installed distribution (witnessbox --installation,
+#     resources field); this is how the SDK and observation helpers are pinned;
+#   * a path without kit: — a file next to ebt/ (for example, obs/Sweep.java);
+#   * absolute path — an external file.
+# The copy must match the original byte for byte. A difference or a missing file is
+# a pinned_drift reason and a gate FAIL, not a warning.
 #
-# Ebt.java кладут только в тестовый набор исходников: в основной набор он не должен
-# попадать, иначе вызовы ev() останутся в приложении (docs/sdk.md). Для Android
-# путь назначения — app/src/test/java/ebt/Ebt.java.
+# Ebt.java goes only into the test source set: it must not end up in the main set,
+# otherwise ev() calls remain in the application (docs/sdk.md). For Android
+# the destination path is app/src/test/java/ebt/Ebt.java.
 kit:lib/ebt/Ebt.java  src/test/java/ebt/Ebt.java
 
-# Помощники уровня наблюдения (D29) закрепляются так же; раскомментируйте и укажите
-# реальные пути, когда они появятся:
+# Observation-level helpers (D29) are pinned the same way; uncomment and give
+# the real paths when they appear:
 # obs/<Feature>.java  src/test/java/ebt/<Feature>.java

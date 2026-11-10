@@ -1,45 +1,45 @@
 // SPDX-License-Identifier: MIT
 // lib/ebt/ebt.ts
 //
-// EBT: запись доказательств по цепочке «требование ⇒ инвариант ⇒ доказательство».
-// Копируется в приложение без изменений (гейт сверяет копию с оригиналом, pinned.txt).
+// EBT: recording proofs along the chain "requirement ⇒ invariant ⇒ proof".
+// Copied into the application unchanged (the gate compares the copy with the original, pinned.txt).
 //
-// Записи идут только в тестах (Vite/Vitest: import.meta.env.MODE === 'test'). При другом MODE
-// ev() сразу возвращается, а traced() отдаёт исходную функцию; что сборщик удалит из бандла,
-// SDK не гарантирует. Без import.meta.env (не Vite) модуль падает при импорте.
+// Records are made only in tests (Vite/Vitest: import.meta.env.MODE === 'test'). With any other MODE
+// ev() returns immediately and traced() returns the original function; what the bundler removes from the bundle
+// the SDK does not guarantee. Without import.meta.env (not Vite) the module fails on import.
 //
-// Допустимые значения data — docs/sdk.md: null, boolean, строка, безопасное целое, массив
-// и простой объект из них. Остальное — TypeError с путём поля; запись в лог не попадает.
+// Valid data values (docs/sdk.md): null, boolean, string, safe integer, array
+// and a plain object of those. Anything else is a TypeError with the field path; the record is not logged.
 //
-// Логика в чистой функции — обёртка при объявлении, запись на каждый вызов:
+// Logic in a pure function: wrap at the declaration, a record on every call:
 //
 //   export const cartTotal = traced('INV-CART-3', 'REQ-CART-1', (input: CartInput) => …);
 //
-// Поля свидетельства по умолчанию — поля первого аргумента плюс `result`; другой вид —
-// через witness. Иначе — запись в точке, где инвариант должен выполняться:
+// Evidence fields by default are the fields of the first argument plus `result`; another shape
+// goes through witness. Otherwise, a record at the point where the invariant must hold:
 //
 //   ev('INV-CART-3', 'REQ-CART-1', result >= 0, () => ({ subtotal, off, result }));
 //
-// В тесте: Ebt.scope = '<сценарий>'; в afterAll — запись Ebt.toJsonl() в build/ebt/<feature>.jsonl.
+// In a test: Ebt.scope = '<scope>'; in afterAll, write Ebt.toJsonl() to build/ebt/<feature>.jsonl.
 
 const ON = import.meta.env.MODE === 'test';
 
 type Data = Record<string, unknown>;
 
-// Запись хранится строкой JSON, снятой в момент вызова: поздняя правка data не меняет доказательство.
+// A record is stored as a JSON string taken at call time: a later edit of data does not change the proof.
 const records: string[] = [];
 let seq = 0;
 
-// JSON.stringify молча исказил бы такие значения: NaN → null, поле undefined пропадает,
-// Date → строка, Map → {}, дробь и небезопасное целое теряют точность при чтении.
+// JSON.stringify would silently distort such values: NaN → null, an undefined field disappears,
+// Date → string, Map → {}, a fraction and an unsafe integer lose precision on reading.
 function checkValue(v: unknown, path: string): void {
   if (v === null || typeof v === 'string' || typeof v === 'boolean') return;
   if (typeof v === 'number') {
     if (Number.isSafeInteger(v)) return;
-    throw new TypeError(`${path}: нельзя записать точно число ${v} — передайте безопасное целое`);
+    throw new TypeError(`${path}: cannot record number ${v} exactly; pass a safe integer`);
   }
   if (Array.isArray(v)) {
-    // По индексу, а не forEach: дыра в массиве — undefined, а не пропуск.
+    // By index, not forEach: a hole in an array is undefined, not a skip.
     for (let i = 0; i < v.length; i++) checkValue(v[i], `${path}[${i}]`);
     return;
   }
@@ -50,18 +50,18 @@ function checkValue(v: unknown, path: string): void {
       return;
     }
   }
-  throw new TypeError(`${path}: нельзя записать точно значение ${Object.prototype.toString.call(v)}`
-    + ' — передайте целое, строку, boolean, null, массив или простой объект');
+  throw new TypeError(`${path}: cannot record value ${Object.prototype.toString.call(v)} exactly`
+    + ' — pass an integer, string, boolean, null, array or plain object');
 }
 
 function record(inv: string, req: string, ok: boolean, data: Data, scope = Ebt.scope): void {
   checkValue(data, 'data');
-  // Без времени и случайных значений: лог должен сравниваться между прогонами.
+  // No time or random values: the log must be comparable between runs.
   records.push(JSON.stringify({ seq: ++seq, ...(scope ? { scope } : {}), req, inv, ok, data }));
 }
 
-// Вход снимается при вызове: к исполнению Promise аргументы могли измениться.
-// Аргумент, который не клонируется (функция), — как есть.
+// The input is snapshotted at call time: the arguments may change by the time a Promise settles.
+// An argument that cannot be cloned (a function) is kept as is.
 function snapshot<A extends unknown[]>(args: A): A {
   try {
     return structuredClone(args);
@@ -70,18 +70,18 @@ function snapshot<A extends unknown[]>(args: A): A {
   }
 }
 
-/** Записать доказательство. `ok` — заявление кода; чекер его не учитывает. */
+/** Record a proof. `ok` is a claim by the code; the checker ignores it. */
 export function ev(inv: string, req: string, ok: boolean, data: Data | (() => Data)): void {
   if (!ON) return;
   record(inv, req, ok, typeof data === 'function' ? data() : data);
 }
 
 /**
- * Обернуть чистую функцию: каждый вызов в тестах записывает вход и результат.
- * Запись — после результата; у Promise — после его исполнения, отклонённый не записывается,
- * а вход и scope — снятые в момент вызова. Ошибка записи видна вызывающему: синхронный вызов
- * бросает её, а у Promise возвращается производный Promise, который ею отклоняется.
- * Своего заявления у обёртки нет, поэтому ok всегда true: решает чекер.
+ * Wrap a pure function: every call in tests records the input and the result.
+ * The record is made after the result; for a Promise after it settles, a rejected one is not recorded,
+ * and the input and scope are those taken at call time. A recording error is visible to the caller: a synchronous call
+ * throws it, and for a Promise a derived Promise is returned that rejects with it.
+ * The wrapper makes no claim of its own, so ok is always true: the checker decides.
  */
 export function traced<A extends unknown[], R>(
   inv: string,
@@ -106,15 +106,15 @@ export function traced<A extends unknown[], R>(
 }
 
 export const Ebt = {
-  /** Текущий сценарий: имя теста или группы случаев. */
+  /** Current scope: a name of a test or a group of cases. */
   scope: undefined as string | undefined,
 
-  /** Лог в формате JSON Lines — для чекера и диффа между прогонами. */
+  /** Log in JSON Lines format, for the checker and diffs between runs. */
   toJsonl(): string {
     return records.join('\n');
   },
 
-  /** Копии записей: их изменение не трогает лог. */
+  /** Copies of the records: changing them does not touch the log. */
   records(): Data[] {
     return records.map((line) => JSON.parse(line) as Data);
   },

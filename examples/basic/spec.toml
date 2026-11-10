@@ -1,31 +1,31 @@
-# ebt/spec.toml — реестр требований и инвариантов (уровень 2 EBT).
+# ebt/spec.toml: registry of requirements and invariants (EBT level 2).
 #
-# Это СПЕЦИФИКАЦИЯ, а не код. Её пишут из требований до реализации
-# (аналитик / QA / второй агент), и её утверждает человек.
-# Агент, который пишет код приложения, этот файл НЕ меняет:
-# защитите путь через CODEOWNERS (см. README).
+# This is a SPEC, not code. It is written from the requirements before implementation
+# (an analyst / QA / a second agent), and a human approves it.
+# The agent that writes the application code does NOT change this file:
+# protect the path through CODEOWNERS (see README).
 #
-# Каждый инвариант задаёт:
-#   req         — какое требование он формализует;
-#   statement   — формулировка для человека и ИИ-ревьюера;
-#   checker     — независимый чекер в src/witnessbox/checker/checkers.py;
-#   witness     — поля, без которых свидетельство нельзя перепроверить;
-#   partitions  — классы входов, каждый из которых должен встретиться
-#                 в прогоне (иначе инвариант «не доказан» на этом классе).
+# Each invariant defines:
+#   req         — which requirement it formalizes;
+#   statement   — wording for a human and an AI reviewer;
+#   checker     — an independent checker in src/witnessbox/checker/checkers.py;
+#   witness     — fields without which the evidence cannot be re-verified;
+#   partitions  — input partitions, each of which must occur
+#                 in the run (otherwise the invariant is "not proven" on that partition).
 
 [meta]
 version = "2026-10-28"
 
-# ── Корзина ───────────────────────────────────────────────────────────
+# ── Cart ───────────────────────────────────────────────────────────
 
 [req.REQ-CART-1]
-text = """Итог корзины = сумма (цена × количество) по позициям минус скидка. \
-Деньги — целые копейки. Процентная скидка округляется вниз до копейки. \
-Фиксированная скидка не больше суммы позиций. Итог не бывает отрицательным."""
+text = """Cart total = sum of (price × quantity) over the lines minus the discount. \
+Money is whole minor units. A percent discount is rounded down to the minor unit. \
+A fixed discount is not greater than the sum of the lines. The total is never negative."""
 
 [inv.INV-CART-3]
 req = "REQ-CART-1"
-statement = "result == subtotal − off, где subtotal = Σ price·qty, off считается по правилу скидки из REQ-CART-1"
+statement = "result == subtotal − off, where subtotal = Σ price·qty, off is computed by the discount rule from REQ-CART-1"
 checker = "cart_total"
 witness = ["lines", "discount", "subtotal", "off", "result"]
 partitions = [
@@ -37,18 +37,18 @@ partitions = [
   "fixed_exceeds_subtotal",
 ]
 
-# ── Оформление заказа: машина состояний ───────────────────────────────
+# ── Checkout: state machine ───────────────────────────────
 
 [req.REQ-CHECKOUT-2]
-text = """Оплатить можно только подтверждённую корзину. После начала оплаты \
-корзину нельзя редактировать. Неуспешная оплата возвращает к подтверждённой корзине."""
+text = """Only a confirmed cart can be paid for. After payment starts \
+the cart cannot be edited. A failed payment returns to the confirmed cart."""
 
 [inv.SM-CHECKOUT]
 req = "REQ-CHECKOUT-2"
-statement = "Каждый переход (from, event, to) есть в таблице переходов; все переходы таблицы встречаются в прогоне"
+statement = "Every transition (from, event, to) is in the transition table; all table transitions occur in the run"
 checker = "transition"
 witness = ["from", "event", "to"]
-# Классы покрытия выводятся автоматически: по одному на каждый переход.
+# Coverage partitions are derived automatically: one per transition.
 transitions = [
   ["cart",      "confirm", "confirmed"],
   ["confirmed", "edit",    "cart"],
@@ -57,16 +57,16 @@ transitions = [
   ["paying",    "failed",  "confirmed"],
 ]
 
-# ── Офлайн-синхронизация ──────────────────────────────────────────────
+# ── Offline sync ──────────────────────────────────────────────
 
 [req.REQ-SYNC-1]
-text = """При слиянии локальных и серверных записей по id побеждает большая версия, \
-при равных версиях — серверная. Удалённые записи (tombstone) в результат не попадают. \
-Дублей по id в результате нет."""
+text = """When merging local and server records by id, the greater version wins, \
+on equal versions the server one. Deleted records (tombstones) do not get into the result. \
+There are no duplicate ids in the result."""
 
 [inv.INV-SYNC-1]
 req = "REQ-SYNC-1"
-statement = "out совпадает с результатом слияния local и remote по правилу REQ-SYNC-1"
+statement = "out matches the result of merging local and remote by the rule REQ-SYNC-1"
 checker = "sync_merge"
 witness = ["local", "remote", "out"]
 partitions = [
@@ -78,7 +78,7 @@ partitions = [
   "tombstone",
 ]
 
-# ── Требование без инвариантов (для демонстрации отчёта покрытия) ─────
+# ── A requirement without invariants (to demonstrate the coverage report) ─────
 
 [req.REQ-PROFILE-1]
-text = "Имя пользователя в профиле обрезается до 64 символов без разрыва суррогатных пар."
+text = "The user name in the profile is truncated to 64 characters without splitting surrogate pairs."

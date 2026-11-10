@@ -1,4 +1,4 @@
-"""Сборка поставки и установка wheel для интеграционных тестов гейта."""
+"""Building the distribution and installing the wheel for the gate integration tests."""
 import os
 from pathlib import Path
 import shutil
@@ -10,10 +10,10 @@ KIT = Path(__file__).resolve().parents[1]
 
 
 def install_verification():
-    """sdist → wheel из sdist → установка в чистый venv.
+    """sdist → wheel from the sdist → installation into a clean venv.
 
-    `uv build` без флагов собирает sdist, а wheel — уже из него, поэтому устаревший
-    build/lib рабочего дерева в поставку не попадает. Возвращает (временный каталог,
+    `uv build` without flags builds the sdist, and the wheel from it, so a stale
+    build/lib of the working tree does not get into the distribution. Returns (temp directory,
     bin venv, wheel, sdist).
     """
     tmp = tempfile.TemporaryDirectory(prefix="witnessbox-installed-test-")
@@ -22,7 +22,7 @@ def install_verification():
     uv = shutil.which("uv")
     if not uv:
         tmp.cleanup()
-        raise RuntimeError("Для проверки установки нужен uv (сборка wheel и изолированный venv)")
+        raise RuntimeError("uv is required to check the installation (wheel build and an isolated venv)")
     dist = root / "dist"
     commands = [
         [uv, "build", str(KIT), "--out-dir", str(dist)],

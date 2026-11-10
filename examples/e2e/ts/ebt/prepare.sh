@@ -1,5 +1,5 @@
 #!/bin/bash
-# Пример: зависимости для test.sh заготовки ts ставит Bun.
+# Example: Bun installs the dependencies for the ts scaffold test.sh.
 set -euo pipefail
 
 bun install --frozen-lockfile

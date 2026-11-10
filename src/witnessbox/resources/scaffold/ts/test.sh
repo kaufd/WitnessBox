@@ -1,26 +1,26 @@
 #!/bin/bash
-# test.sh заготовки ebt/ для TypeScript/Vite/Vitest (witnessbox scaffold ts).
+# test.sh of the ebt/ scaffold for TypeScript/Vite/Vitest (witnessbox scaffold ts).
 #
-# Договор гейта: рабочая папка — корень чистого клона; OUT_DIR — пустой абсолютный
-# каталог результатов прогона. Аргументы — слова из EBT_TESTS (фильтр vitest).
-# Коды: 0 — тесты прошли, 1 — тесты выполнились и упали, 2 — ошибка исполнения.
-# Свидетельства собираются в OUT_DIR/*.jsonl при любом исходе тестов.
+# Gate contract: the working directory is the root of a clean clone; OUT_DIR is an empty absolute
+# directory of run results. Arguments are the words from EBT_TESTS (a vitest filter).
+# Codes: 0 tests passed, 1 tests ran and failed, 2 execution error.
+# Evidence is collected in OUT_DIR/*.jsonl for any test outcome.
 #
-# Тесты пишут JSONL в build/ebt/<feature>.jsonl (см. docs/sdk.md), поэтому скрипт
-# копирует их в OUT_DIR. Зависимости готовит prepare.sh (bun install), а не этот
-# скрипт; без node_modules vitest упадёт, и код вернётся ниже.
+# The tests write JSONL to build/ebt/<feature>.jsonl (see docs/sdk.md), so the script
+# copies them to OUT_DIR. Dependencies are prepared by prepare.sh (bun install), not this
+# script; without node_modules vitest will fail, and the code is returned below.
 set -uo pipefail
 
-[ -n "${OUT_DIR:-}" ] || { echo "test.sh: нужен OUT_DIR (запуск через witnessbox gate)" >&2; exit 2; }
+[ -n "${OUT_DIR:-}" ] || { echo "test.sh: OUT_DIR is required (run through witnessbox gate)" >&2; exit 2; }
 
-command -v bunx >/dev/null 2>&1 || { echo "test.sh: не найден bunx; нужен Bun" >&2; exit 2; }
+command -v bunx >/dev/null 2>&1 || { echo "test.sh: bunx not found; Bun is required" >&2; exit 2; }
 
-# Свидетельства прошлого прогона не должны пережить текущий, даже если тесты упали.
+# Evidence from the previous run must not survive the current one, even if the tests failed.
 rm -rf build/ebt || exit 2
 
 tests=("$@")
 if [ ${#tests[@]} -eq 0 ]; then
-  # По умолчанию — только тесты свидетельств (*.ebt.test.ts): остальной набор гейту не нужен.
+  # By default only the evidence tests (*.ebt.test.ts): the gate does not need the rest of the suite.
   tests=(.ebt.test)
 fi
 
@@ -35,7 +35,7 @@ if [ ${#evidence[@]} -gt 0 ]; then
 fi
 
 [ "$rc" -eq 0 ] && exit 0
-# Vitest возвращает 1 и на упавшие тесты, и на часть ошибок загрузки конфигурации.
-# Если проект различает их иначе, уточните здесь: 2 означает «проверки не было».
+# Vitest returns 1 both for failed tests and for some configuration loading errors.
+# If the project distinguishes them differently, refine here: 2 means "no check was run".
 [ "$rc" -eq 1 ] && exit 1
 exit 2

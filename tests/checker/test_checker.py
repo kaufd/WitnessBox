@@ -1,4 +1,4 @@
-"""Тесты самого чекера: проверяющий тоже должен быть проверен.
+"""Tests of the checker itself: the verifier must be verified too.
 
   python -m unittest discover -s tests
 """
@@ -120,7 +120,7 @@ class Classification(unittest.TestCase):
         self.assertEqual(self.kinds(r), [ec.CHECKER_DISAGREES, ec.CONFIRMED_VIOLATION])
 
     def test_ok_field_is_ignored_for_verdict(self):
-        # Свидетельство корректно — поле ok не может «сломать» вердикт чекера в пользу кода.
+        # The evidence is valid: the ok field cannot "break" the checker verdict in favor of the code.
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))])
         self.assertEqual(r.findings, [])
 
@@ -139,7 +139,7 @@ class Classification(unittest.TestCase):
         w = {"from": "cart", "event": "confirm", "to": "confirmed"}
         recs = [rec(s, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, w) for s in (1, 2, 3, 4)]
         numbered = list(enumerate(recs, start=1))
-        # Второй файл начинается с seq=4: его начало срезано, хоть склейка и выглядит непрерывной.
+        # The second file starts with seq=4: its beginning was cut off, even though the concatenation looks continuous.
         r = ec.build_report(self.spec, self.sha, numbered, [], None, 50, False, file_starts={1, 4})
         self.assertEqual(self.kinds(r), [ec.LOG_GAP])
         r = ec.build_report(self.spec, self.sha, numbered, [], None, 50, False, file_starts={1})
@@ -172,18 +172,18 @@ class Classification(unittest.TestCase):
                 (2, rec(1, "INV-CART-3", "REQ-CART-1", True, w, scope="u"))]
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, w)], baseline=base)
         self.assertEqual(r.baseline["vanished"], ["u / INV-CART-3"])
-        # Остальное покрытие полное — красным отчёт делает только исчезнувший сценарий.
+        # The rest of the coverage is complete: only the disappeared scope makes the report red.
         full = ec.Report(records=1, baseline=r.baseline)
         self.assertTrue(full.has_coverage_gaps)
         self.assertFalse(ec.Report(records=1, baseline={**r.baseline, "vanished": []}).has_coverage_gaps)
-        # Вне --scope исчезновение чужого инварианта не валит (D13), в scope — валит.
+        # Outside --scope the disappearance of another invariant does not fail (D13), inside scope it does.
         self.assertFalse(ec.Report(records=1, baseline=r.baseline, coverage_scope=["SM-CHECKOUT"]).has_coverage_gaps)
         self.assertTrue(ec.Report(records=1, baseline=r.baseline, coverage_scope=["INV-CART-3"]).has_coverage_gaps)
 
     def test_self_test_finds_ignored_field(self):
         original = checkers.CHECKERS["transition"]
 
-        def lazy(w, inv):  # «чекер», который не смотрит на поле to
+        def lazy(w, inv):  # a "checker" that does not look at the to field
             match = [t[2] for t in inv["transitions"] if t[0] == w["from"] and t[1] == w["event"]]
             return original({**w, "to": match[0] if match else w["to"]}, inv)
 
@@ -192,10 +192,10 @@ class Classification(unittest.TestCase):
             w = {"from": "cart", "event": "confirm", "to": "confirmed"}
             r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, w)], self_test=True)
             self.assertEqual(r.self_test["SM-CHECKOUT"]["weak_fields"], ["to"])
-            # Слабый чекер валит проверку, даже если остальное в порядке (D15)…
+            # A weak checker fails the check even if everything else is fine (D15)…
             self.assertEqual(r.weak_required, {"SM-CHECKOUT": ["to"]})
             self.assertTrue(r.failed(allow_uncovered=True))
-            # …если владелец не пометил поле как не влияющее на вердикт.
+            # …unless the owner marked the field as not affecting the verdict.
             self.spec["inv"]["SM-CHECKOUT"]["not_in_verdict"] = ["to"]
             r = self.report([rec(1, "SM-CHECKOUT", "REQ-CHECKOUT-2", True, w)], self_test=True)
             self.assertEqual(r.weak_required, {})
@@ -204,9 +204,9 @@ class Classification(unittest.TestCase):
 
     def test_self_test_finds_checker_reading_only_first_list_element(self):
         original = checkers.CHECKERS["cart_total"]
-        w = cart([(333, 3), (100, 2)], "percent", 15)  # помощник cart() из того же файла
+        w = cart([(333, 3), (100, 2)], "percent", 15)  # the cart() helper from the same file
 
-        def first_only(m, inv):  # хвост списка всегда берётся из неиспорченного образца
+        def first_only(m, inv):  # the list tail is always taken from the uncorrupted sample
             return original({**m, "lines": m["lines"][:1] + w["lines"][1:]}, inv)
 
         ec.CHECKERS["cart_total"] = first_only
@@ -226,9 +226,9 @@ class Classification(unittest.TestCase):
         original = checkers.CHECKERS["transition"]
         states = {"cart", "confirmed"}
 
-        def shape_only(w, inv):  # проверяет, что to — известное состояние, но не сверяет переход
+        def shape_only(w, inv):  # checks that to is a known state but does not check the transition
             if w["to"] not in states:
-                raise checkers.WitnessError("to: неизвестное состояние")
+                raise checkers.WitnessError("to: unknown state")
             match = [t[2] for t in inv["transitions"] if t[0] == w["from"] and t[1] == w["event"]]
             return original({**w, "to": match[0] if match else w["to"]}, inv)
 
@@ -254,8 +254,8 @@ class Classification(unittest.TestCase):
         self.assertNotIn("to", s["shape_only_paths"])
 
     def test_substitution_only_path_is_not_weak(self):
-        # fixed:0 и none:0 оба корректны; подстановка одного вместо другого не меняет
-        # вердикт. У пути discount есть только подстановки, поэтому слабым он не считается.
+        # fixed:0 and none:0 are both valid; substituting one for the other does not change
+        # the verdict. The discount path has only substitutions, so it is not considered weak.
         fixed = cart([(100, 1)], "fixed", 0)
         none = cart([(100, 1)], "none", 0)
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, fixed),
@@ -267,8 +267,8 @@ class Classification(unittest.TestCase):
         self.assertGreater(s["fields"]["discount"]["tried"], s["fields"]["discount"]["substituted"])
 
     def test_self_test_replaces_strings(self):
-        # Чекер законно читает только начало строки (как amount_unit — число и единицу
-        # в «1 day available»): порча суффиксом его не ловила, заменой — ловит (D16).
+        # A checker may legitimately read only the start of a string (like amount_unit, the number and unit
+        # in "1 day available"): a suffix corruption did not catch it, a replacement does (D16).
         original = checkers.CHECKERS["transition"]
 
         def prefix(w, inv):
@@ -296,8 +296,8 @@ class Classification(unittest.TestCase):
         self.assertFalse(any(p.startswith("[8]") for p, _ in ec._mutants(list(range(20)))))
 
     def test_string_mutation_changes_a_digit_or_the_whole_value(self):
-        # Текст с числом портится в числе: «2 employees» → «3 employees» ловит чекер,
-        # для которого слово вместо числа законно (инвариант локализации проекта).
+        # Text with a number is corrupted in the number: "2 employees" → "3 employees" is caught by a checker
+        # for which a word in place of a number is legitimate (a project localization invariant).
         self.assertEqual(ec._mutate("2 employees"), (True, "3 employees"))
         self.assertEqual(ec._mutate("9 days"), (True, "0 days"))
         self.assertEqual(ec._mutate("confirmed"), (True, "_mut"))
@@ -330,7 +330,7 @@ class Known(unittest.TestCase):
 
     def entry(self, **kw):
         e = {"inv": "INV-CART-3", "kind": ec.FALSE_PROOF, "match": {"off": 150},
-             "reason": "старый дефект", "accepted": "владелец"}
+             "reason": "old defect", "accepted": "owner"}
         e.update(kw)
         return e
 
@@ -344,7 +344,7 @@ class Known(unittest.TestCase):
     def test_only_known_is_green(self):
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, self.bad)], [self.entry()])
         self.assertFalse(r.has_critical)
-        self.assertIn("Известные находки", ec.render_md(r, self.spec, 50, True))
+        self.assertIn("Known findings", ec.render_md(r, self.spec, 50, True))
 
     def test_kind_and_type_must_match(self):
         recs = [rec(1, "INV-CART-3", "REQ-CART-1", True, self.bad)]
@@ -354,13 +354,13 @@ class Known(unittest.TestCase):
     def test_known_record_gives_no_coverage(self):
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, self.bad)], [self.entry()])
         self.assertFalse(r.has_critical)
-        self.assertIn("INV-CART-3", r.inv_never_fired)   # известное нарушение — не доказательство
+        self.assertIn("INV-CART-3", r.inv_never_fired)   # a known violation is not a proof
 
     def test_unused_entry_is_reported(self):
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))],
                         [self.entry()])
         self.assertEqual(len(r.known_unused), 1)
-        self.assertIn("можно удалить", ec.render_md(r, self.spec, 50, True))
+        self.assertIn("can be removed", ec.render_md(r, self.spec, 50, True))
 
     def test_cli_known_and_bad_known(self):
         with tempfile.TemporaryDirectory() as d:
@@ -369,17 +369,17 @@ class Known(unittest.TestCase):
             argv = ["--spec", str(SPEC), "--evidence", str(ev), "--md", str(Path(d) / "r.md"),
                     "--allow-uncovered"]
             self.assertEqual(ec.main(argv), 1)
-            good = '[[known]]\ninv = "INV-CART-3"\nkind = "FALSE_PROOF"\nreason = "старый дефект"\naccepted = "владелец"\n'
+            good = '[[known]]\ninv = "INV-CART-3"\nkind = "FALSE_PROOF"\nreason = "old defect"\naccepted = "owner"\n'
             kn.write_text(good + 'match = { off = 150 }\n')
             self.assertEqual(ec.main(argv + ["--known", str(kn)]), 0)
-            # Покрытие известная находка не даёт: со --scope этого инварианта — красный.
+            # A known finding gives no coverage: with --scope of this invariant the result is red.
             self.assertEqual(ec.main(argv[:-1] + ["--known", str(kn), "--scope", "INV-CART-3"]), 1)
             kn.write_text(good.replace('kind = "FALSE_PROOF"\n', "") + 'match = { off = 150 }\n')
-            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # без kind
+            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # without kind
             kn.write_text(good + 'match = { case = "legacy" }\n')
-            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # ключ не из witness
+            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # a key not from the witness
             kn.write_text('[[known]]\ninv = "INV-CART-3"\nkind = "FALSE_PROOF"\nmatch = {}\nreason = "x"\naccepted = "y"\n')
-            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # пустой match прятал бы всё
+            self.assertEqual(ec.main(argv + ["--known", str(kn)]), 2)  # an empty match would hide everything
 
 
 class Scope(unittest.TestCase):
@@ -392,10 +392,10 @@ class Scope(unittest.TestCase):
 
     def test_coverage_only_for_task_invariants(self):
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))], ["INV-CART-3"])
-        self.assertEqual(r.inv_never_fired, [])                   # SM-CHECKOUT, INV-SYNC-1 не требуются
+        self.assertEqual(r.inv_never_fired, [])                   # SM-CHECKOUT, INV-SYNC-1 are not required
         self.assertEqual(list(r.uncovered_partitions), ["INV-CART-3"])
         r = self.report([rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))], ["SM-CHECKOUT"])
-        self.assertEqual(r.inv_never_fired, ["SM-CHECKOUT"])      # инвариант задачи не сработал
+        self.assertEqual(r.inv_never_fired, ["SM-CHECKOUT"])      # the task invariant did not fire
 
     def test_violation_outside_scope_still_fails(self):
         bad = {"local": [["e", 5, False]], "remote": [["e", 5, True]], "out": [["e", 5]]}
@@ -413,7 +413,7 @@ class Scope(unittest.TestCase):
             ev.write_text(json.dumps(rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))) + "\n")
             argv = ["--spec", str(SPEC), "--evidence", str(ev), "--md", str(Path(d) / "r.md")]
             self.assertEqual(ec.main(argv + ["--scope", "INV-NOPE"]), 2)
-            self.assertEqual(ec.main(argv + ["--scope", "INV-CART-3"]), 1)   # классы входов CART не пройдены
+            self.assertEqual(ec.main(argv + ["--scope", "INV-CART-3"]), 1)   # the CART partitions are not covered
             self.assertEqual(ec.main(argv + ["--scope", "INV-CART-3", "--allow-uncovered"]), 0)
 
 
@@ -421,10 +421,10 @@ class ProjectCheckers(unittest.TestCase):
     PROJECT = ('from checkers import Verdict\n'
                'def even(w, inv):\n'
                '    ok = w["n"] % 2 == 0\n'
-               '    return Verdict(ok, "" if ok else f"n={w[\'n\']} нечётное", {"zero"} if w["n"] == 0 else {"other"})\n'
+               '    return Verdict(ok, "" if ok else f"n={w[\'n\']} odd", {"zero"} if w["n"] == 0 else {"other"})\n'
                'CHECKERS = {"even": even}\n'
                'DERIVED_PARTITIONS = {"even": lambda inv: ["zero", "other"]}\n')
-    SPEC = ('[req.REQ-N]\ntext = "n чётное"\n'
+    SPEC = ('[req.REQ-N]\ntext = "n is even"\n'
             '[inv.INV-N]\nreq = "REQ-N"\nchecker = "even"\nwitness = ["n"]\n')
 
     def tearDown(self):
@@ -432,7 +432,7 @@ class ProjectCheckers(unittest.TestCase):
         ec.DERIVED_PARTITIONS.pop("even", None)
 
     def run_cli(self, d, project, values):
-        # Каждый вызов — отдельный запуск: регистрация прошлого вызова не должна дать коллизию имён.
+        # Every call is a separate run: the registration of a previous call must not cause a name collision.
         ec.CHECKERS.pop("even", None)
         ec.DERIVED_PARTITIONS.pop("even", None)
         d = Path(d)
@@ -446,8 +446,8 @@ class ProjectCheckers(unittest.TestCase):
     def test_project_checker_proves_and_catches(self):
         with tempfile.TemporaryDirectory() as d:
             self.assertEqual(self.run_cli(d, self.PROJECT, [0, 2]), 0)
-            self.assertEqual(self.run_cli(d, self.PROJECT, [0, 3]), 1)   # нечётное — ложное доказательство
-            self.assertEqual(self.run_cli(d, self.PROJECT, [2]), 1)      # класс zero не пройден
+            self.assertEqual(self.run_cli(d, self.PROJECT, [0, 3]), 1)   # odd is a false proof
+            self.assertEqual(self.run_cli(d, self.PROJECT, [2]), 1)      # the zero partition is not covered
 
     def test_project_checker_name_collision_is_error(self):
         original = ec.CHECKERS["cart_total"]
@@ -470,7 +470,7 @@ class ProjectCheckers(unittest.TestCase):
 
     def test_bad_checkers_file_is_launch_error(self):
         with tempfile.TemporaryDirectory() as d:
-            self.assertEqual(self.run_cli(d, "x = 1\n", [0]), 2)              # нет CHECKERS
+            self.assertEqual(self.run_cli(d, "x = 1\n", [0]), 2)              # no CHECKERS
             self.assertEqual(self.run_cli(d, "import no_such_module\n", [0]), 2)
 
 
@@ -480,14 +480,14 @@ class Cli(unittest.TestCase):
             ev = Path(d) / "e.jsonl"
             ev.write_text(json.dumps(rec(1, "INV-CART-3", "REQ-CART-1", True, cart([(1, 1)], "none", 0))) + "\n")
             argv = ["--spec", str(SPEC), "--evidence", str(ev), "--md", str(Path(d) / "r.md")]
-            self.assertEqual(ec.main(argv), 1)                         # дыры в покрытии
+            self.assertEqual(ec.main(argv), 1)                         # coverage gaps
             self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 0)
             ev.write_text("{not json\n")
-            self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 1)  # битая строка
+            self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 1)  # a broken line
             self.assertEqual(ec.main(["--spec", "/nope.toml", "--evidence", str(ev)]), 2)
 
     def test_unregistered_checker_in_scope_is_finding_without_records(self):
-        """NO_CHECKER по записи не поймал бы инвариант задачи, у которого записей нет."""
+        """NO_CHECKER by a record would not catch a task invariant that has no records."""
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             spec = d / "spec.toml"
@@ -500,11 +500,11 @@ class Cli(unittest.TestCase):
             argv = ["--spec", str(spec), "--evidence", str(ev), "--md", str(d / "r.md"),
                     "--scope", "INV-OUT"]
             self.assertEqual(ec.main(argv), 1)
-            # --allow-uncovered скрывает дыру покрытия, но не отсутствие чекера.
+            # --allow-uncovered hides a coverage gap but not a missing checker.
             self.assertEqual(ec.main(argv + ["--allow-uncovered"]), 1)
 
     def test_unregistered_checker_out_of_scope_does_not_fail(self):
-        """Утверждённая spec может опережать код: вне задачи чекер ещё не написан."""
+        """An approved spec may run ahead of the code: outside the task the checker is not written yet."""
         with tempfile.TemporaryDirectory() as d:
             d = Path(d)
             spec = d / "spec.toml"
@@ -525,10 +525,10 @@ class Cli(unittest.TestCase):
                                       "inv": ["INV-CART-3"]}) + "\n")
             md = Path(d) / "r.md"
             self.assertEqual(ec.main(["--spec", str(SPEC), "--evidence", str(ev), "--md", str(md)]), 1)
-            self.assertIn("должен быть строкой", md.read_text())
+            self.assertIn("must be a string", md.read_text())
 
     def test_deeply_nested_line_is_malformed(self):
-        # На Python 3.11 json.loads бросает RecursionError; это битая строка, а не падение.
+        # On Python 3.11 json.loads raises RecursionError; this is a broken line, not a crash.
         with tempfile.TemporaryDirectory() as d:
             ev, md, out = Path(d) / "e.jsonl", Path(d) / "r.md", Path(d) / "r.json"
             ev.write_text("[" * 5000 + "]" * 5000 + "\n")
@@ -555,7 +555,7 @@ class Cli(unittest.TestCase):
             md = Path(d) / "r.md"
             argv = ["--spec", str(SPEC), "--evidence", str(ev), "--md", str(md), "--allow-uncovered"]
             self.assertEqual(ec.main(argv), 1)
-            self.assertIn("нет ни одной записи", md.read_text())
+            self.assertIn("has no records", md.read_text())
 
     def test_spec_without_invariants_is_launch_error(self):
         with tempfile.TemporaryDirectory() as d:
@@ -575,7 +575,7 @@ class Cli(unittest.TestCase):
 
 
 class FormatFixture(unittest.TestCase):
-    """fixtures/record.jsonl — запись в формате, который пишут SDK (ebt.ts, Ebt.java): чекер её принимает."""
+    """fixtures/record.jsonl is a record in the format the SDKs write (ebt.ts, Ebt.java): the checker accepts it."""
 
     def test_format_fixture_is_valid_record(self):
         records, bad = ec.load_jsonl(KIT / "src/witnessbox/checker/fixtures/record.jsonl")
@@ -587,7 +587,7 @@ class FormatFixture(unittest.TestCase):
 
 class Packaging(unittest.TestCase):
     def test_checker_version_remains_public(self):
-        # Версия поставки теперь независима от версии контракта CLI-чекера.
+        # The distribution version is now independent of the CLI checker contract version.
         import subprocess
         p = subprocess.run([sys.executable, "-m", "witnessbox.checker.ebt_check", "--version"],
                            capture_output=True, text=True,
@@ -669,7 +669,7 @@ class InputBoundaries(unittest.TestCase):
             try:
                 self.assertEqual(ec.main(["--spec", str(d / "spec.toml"), "--checkers", str(d / "checks.py"),
                                           "--evidence", str(d / "e.jsonl"), "--md", str(d / "r.md")]), 0)
-                self.assertIn("Спецификация `7`", (d / "r.md").read_text())
+                self.assertIn("Spec `7`", (d / "r.md").read_text())
             finally:
                 ec.CHECKERS.pop("boundary_check", None)
 
@@ -844,7 +844,7 @@ class CheckerReturnBoundary(unittest.TestCase):
         self.assertIs(ec.DERIVED_PARTITIONS, engine.DERIVED_PARTITIONS)
 
     def test_legacy_ebt_verification_api_reexports_witnessbox_objects(self):
-        """Совместимый импорт возвращает те же объекты и не заводит вторую реализацию."""
+        """The compatible import returns the same objects and does not introduce a second implementation."""
         from ebt_verification import api as compat
         from witnessbox import api
         for name in ("Verdict", "WitnessError", "CheckFn", "PartitionsFn"):
@@ -874,7 +874,7 @@ class OutputBoundaries(unittest.TestCase):
 
 
 class HostileEvidence(unittest.TestCase):
-    """Испорченные свидетельства не роняют разбор, классификацию и отчёт."""
+    """Corrupted evidence does not crash parsing, classification or the report."""
 
     VALUES = (None, True, 0, -1, 2**63, 10**400, 1.5, float("nan"), float("inf"),
               "", "x" * 5000, [], {}, [[[]]], {"a": {}})
@@ -882,7 +882,7 @@ class HostileEvidence(unittest.TestCase):
 
     @classmethod
     def _slots(cls, value):
-        """Все поля словарей и элементы списков на любой глубине: что можно испортить."""
+        """All dict fields and list elements at any depth: what can be corrupted."""
         slots = []
         if isinstance(value, dict):
             for key, item in value.items():

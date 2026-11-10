@@ -1,7 +1,7 @@
 // integration_test/checkout_ebt_test.dart
 //
-// Пример сценария: UI-шаги прогоняют приложение, а логика под ними
-// оставляет доказательства. В конце каждого теста лог уходит на хост.
+// Example scenario: the UI steps drive the application while the logic under them
+// leaves proofs. At the end of each test the log goes to the host.
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
@@ -21,17 +21,17 @@ void main() {
       if (dump.isNotEmpty) dump.writeln();
       dump.write(chunk);
     }
-    // Обновляем после каждого теста — драйвер заберёт итог в конце.
+    // Updated after each test; the driver picks up the result at the end.
     binding.reportData = {'ebt': dump.toString()};
   });
 
-  testWidgets('checkout: скидка не уводит сумму в минус', (tester) async {
+  testWidgets('checkout: the discount does not push the total below zero', (tester) async {
     Ebt.scope = 'checkout_discount';
 
     app.main();
     await tester.pumpAndSettle();
 
-    // ... шаги сценария: добавить товар, применить промокод, перейти к оплате
+    // ... scenario steps: add an item, apply a promo code, go to payment
 
     expect(
       Ebt.violations,

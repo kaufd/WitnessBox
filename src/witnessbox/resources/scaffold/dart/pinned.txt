@@ -1,16 +1,16 @@
-# Закреплённые копии заготовки ebt/ для Dart/Flutter (witnessbox scaffold dart).
+# Pinned copies of the ebt/ scaffold for Dart/Flutter (witnessbox scaffold dart).
 #
-# Формат строки: <оригинал>  <путь в клоне продукта>.
-#   * kit:<путь> — файл из ресурсов установленной поставки (witnessbox --installation,
-#     поле resources); так закрепляются SDK и помощники наблюдения;
-#   * путь без kit: — файл рядом с ebt/ (например, obs/session.dart);
-#   * абсолютный путь — внешний файл.
-# Копия должна совпадать с оригиналом байт в байт. Отличие или отсутствие файла —
-# причина pinned_drift и FAIL гейта, а не предупреждение.
+# Line format: <original>  <path in the product clone>.
+#   * kit:<path> — a file from the resources of the installed distribution (witnessbox --installation,
+#     resources field); this is how the SDK and observation helpers are pinned;
+#   * a path without kit: — a file next to ebt/ (for example, obs/session.dart);
+#   * absolute path — an external file.
+# The copy must match the original byte for byte. A difference or a missing file is
+# a pinned_drift reason and a gate FAIL, not a warning.
 #
-# Путь назначения ниже — пример: поставьте тот, куда проект кладёт SDK.
+# The destination path below is an example: use the one where the project keeps the SDK.
 kit:lib/ebt/ebt.dart  lib/ebt/ebt.dart
 
-# Помощники уровня наблюдения (D29) закрепляются так же; раскомментируйте и укажите
-# реальные пути, когда они появятся:
+# Observation-level helpers (D29) are pinned the same way; uncomment and give
+# the real paths when they appear:
 # obs/<feature>.dart  test/ebt/<feature>_obs.dart
