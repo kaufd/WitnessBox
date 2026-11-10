@@ -1,106 +1,106 @@
-# Заготовка `ebt/` для нового проекта
+# The `ebt/` scaffold for a new project
 
-Команда установленной поставки создаёт каталог проверки EBT из шаблонов:
+A command of the installed distribution creates the EBT check directory from templates:
 
 ```bash
-witnessbox scaffold <dart|ts|jvm|generic> [<каталог>]
+witnessbox scaffold <dart|ts|jvm|generic> [<directory>]
 ```
 
-`<каталог>` по умолчанию — `ebt` в текущем каталоге. Команда отказывается писать в
-существующий непустой каталог: утверждённую `spec.toml` она не перезапишет. Стеков
-четыре, они различаются `test.sh` и строкой `pinned.txt`; `spec.toml`, `checks.py` и
-`test_checks.py` у всех одинаковые.
+`<directory>` defaults to `ebt` in the current directory. The command refuses to write into an
+existing non-empty directory: it will not overwrite an approved `spec.toml`. There are
+four stacks; they differ in `test.sh` and a line of `pinned.txt`; `spec.toml`, `checks.py` and
+`test_checks.py` are the same for all of them.
 
-| Стек | Проект | `test.sh` по умолчанию | SDK |
+| Stack | Project | Default `test.sh` | SDK |
 |---|---|---|---|
 | `dart` | Dart/Flutter | `flutter test --no-pub test/ebt` | `lib/ebt/ebt.dart` |
 | `ts` | TypeScript/Vite/Vitest | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
-| `jvm` | Java/Kotlin на Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
-| `generic` | любой инструмент | `$EBT_TEST_CMD` | по языку |
+| `jvm` | Java/Kotlin on Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
+| `generic` | any tool | `$EBT_TEST_CMD` | by language |
 
-Подробнее — в документации Witnessbox: [быстрый старт](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) проводит от заготовки до первого PASS на примере, [руководство по спецификации](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) объясняет, как писать `spec.toml`, чекер и тесты свидетельств, включая уровень наблюдения `<INV>-OBS`. Если подключение выполняет агент-кодировщик, дайте ему [инструкцию для агента](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md). Этот файл — справка по заготовке, договор `test.sh` описан ниже.
+More in the Witnessbox documentation: the [quick start](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) leads from the scaffold to the first PASS on an example, and the [authoring guide](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) explains how to write `spec.toml`, the checker and the evidence tests, including the observation level `<INV>-OBS`. If a coding agent does the connecting, give it the [agent instructions](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md). This file is a reference for the scaffold; the `test.sh` contract is described below.
 
-## Что создаётся
+## What is created
 
-- `spec.toml` — **пример** требования и инварианта. Замените `REQ-EXAMPLE-1` и
-  `INV-EXAMPLE-1` утверждённым требованием. Спецификацию в подключающем проекте
-  утверждает человек (D4); агент, который пишет код приложения, её не меняет.
-- `checks.py` — пример независимого проектного чекера `example_rule` и реестр
-  `CHECKERS`. Замените правило вместе со спецификацией.
-- `test_checks.py` — тесты примера чекера. Запуск из корня проекта командой
-  поставки (она сама берёт интерпретатор установки):
+- `spec.toml` is an **example** requirement and invariant. Replace `REQ-EXAMPLE-1` and
+  `INV-EXAMPLE-1` with an approved requirement. In the connecting project a human
+  approves the spec (D4); the agent that writes the application code does not change it.
+- `checks.py` is an example independent project checker `example_rule` and the
+  `CHECKERS` registry. Replace the rule together with the spec.
+- `test_checks.py` holds the tests of the example checker. Run them from the project root with
+  the distribution command (it picks the installation's interpreter itself):
 
   ```bash
   witnessbox test-checks ebt
   ```
 
-  Нулевой прогон — код `1`, а не успех.
-- `test.sh` — запуск тестов выбранного стека по договору гейта и сбор свидетельств
-  в `OUT_DIR`. Исполняемый файл.
-- `pinned.txt` — закрепление копии SDK (и, при необходимости, помощников
-  наблюдения) с проверкой байт в байт.
-- `README.md` — этот файл.
+  A zero-test run gives code `1`, not success.
+- `test.sh` runs the tests of the chosen stack per the gate contract and collects the evidence
+  into `OUT_DIR`. It is an executable file.
+- `pinned.txt` pins the SDK copy (and, if needed, the observation helpers) with a
+  byte-for-byte check.
+- `README.md` is this file.
 
-## После создания
+## After creation
 
-1. **Утвердите требование.** Замените пример в `spec.toml` текстом из тикета или
-   решения владельца, укажите `source`. Проверьте, что `witness` — минимальный набор
-   входов и выходов, а `partitions` — реальные границы требования.
-2. **Реализуйте чекер.** `checks.py` пересчитывает результат по `witness` и не
-   импортирует приложение или SDK. Ошибка формы — `WitnessError`, нарушение —
-   `Verdict(ok=False, ...)`. Добавьте случаи в `test_checks.py` и запустите
+1. **Approve the requirement.** Replace the example in `spec.toml` with the text from a ticket or
+   an owner's decision and set `source`. Check that `witness` is the minimal set of
+   inputs and outputs, and `partitions` are the real boundaries of the requirement.
+2. **Implement the checker.** `checks.py` recomputes the result from `witness` and does not
+   import the application or the SDK. A shape error is `WitnessError`, a violation is
+   `Verdict(ok=False, ...)`. Add cases to `test_checks.py` and run
    `witnessbox check --self-test`.
-3. **Скопируйте SDK.** Из корня проекта выполните `witnessbox sync-pinned ebt`
-   (подставьте своё имя каталога, если он другой): команда разбирает `pinned.txt`
-   и копирует `kit:lib/ebt/...` из ресурсов установленной поставки в проект. Копия
-   должна совпадать байт в байт; иначе гейт даст `pinned_drift`. После обновления
-   поставки повторите ту же команду — она обновит изменившиеся копии.
-4. **Напишите тесты свидетельств.** Они водят реальный код по классам входов и
-   пишут JSONL в `build/ebt/<feature>.jsonl` (см. `docs/sdk.md`). `test.sh`
-   копирует эти файлы в `OUT_DIR`.
-5. **Подготовьте зависимости.** Для чистого клона добавьте `prepare.sh`
-   (`flutter pub get`, `bun install --frozen-lockfile` или ничего для Gradle):
-   гейт запускает его до `test.sh`, а `test.sh` предполагает зависимости
-   установленными. `prepare.sh` и `test.sh` исполняются с правами гейта, `OUT_DIR`
-   не песочница.
-6. **Запустите гейт:**
-   `BASE=<база> EBT_INV=<инварианты задачи> witnessbox gate <каталог ebt> <клон> <итог>`.
-   Пока свидетельств нет, гейт закончится ERROR — это не PASS, а отсутствие проверки.
-   Закоммитьте `ebt/` в репозиторий проекта до задачи: с `BASE` изменение `ebt/`
-   в ветке задачи гейт считает нарушением защищённых путей.
+3. **Copy the SDK.** From the project root run `witnessbox sync-pinned ebt`
+   (substitute your directory name if it differs): the command parses `pinned.txt`
+   and copies `kit:lib/ebt/...` from the resources of the installed distribution into the project. The copy
+   must match byte for byte; otherwise the gate gives `pinned_drift`. After the
+   distribution is updated, repeat the same command: it refreshes the changed copies.
+4. **Write the evidence tests.** They drive the real code across the input classes and
+   write JSONL to `build/ebt/<feature>.jsonl` (see `docs/sdk.md`). `test.sh`
+   copies these files into `OUT_DIR`.
+5. **Prepare the dependencies.** For a clean clone add `prepare.sh`
+   (`flutter pub get`, `bun install --frozen-lockfile`, or nothing for Gradle):
+   the gate runs it before `test.sh`, and `test.sh` assumes the dependencies are
+   installed. `prepare.sh` and `test.sh` run with the gate's rights, and `OUT_DIR`
+   is not a sandbox.
+6. **Run the gate:**
+   `BASE=<base> EBT_INV=<task invariants> witnessbox gate <ebt directory> <clone> <result>`.
+   While there is no evidence, the gate ends with ERROR: that is not PASS but the absence of a check.
+   Commit `ebt/` to the project repository before the task: with `BASE`, a change to `ebt/`
+   in the task branch is counted by the gate as a violation of the protected paths.
 
-## Договор `test.sh`
+## The `test.sh` contract
 
-- Рабочий каталог — корень чистого клона; гейт не копирует проект.
-- `OUT_DIR` — пустой абсолютный каталог результатов; свидетельства пишутся в
-  `OUT_DIR/*.jsonl` (разные файлы могут начинать `seq` с 1).
-- Слова `EBT_TESTS` гейт передаёт аргументами; без них шаблон запускает только
-  тесты свидетельств.
-- Код `0` — тесты прошли, `1` — тесты выполнились и упали, остальные коды — ошибка
-  исполнения. Гейт проверяет свидетельства и при коде `1`.
-- Свидетельства копируются при любом исходе тестов, иначе красный прогон нельзя
-  проверить чекером.
+- The working directory is the root of a clean clone; the gate does not copy the project.
+- `OUT_DIR` is an empty absolute results directory; evidence is written to
+  `OUT_DIR/*.jsonl` (different files may start `seq` at 1).
+- The gate passes the `EBT_TESTS` words as arguments; without them the template runs only the
+  evidence tests.
+- Code `0` means the tests passed, `1` means the tests ran and failed, other codes mean an execution
+  error. The gate checks the evidence on code `1` too.
+- Evidence is copied on any outcome of the tests, otherwise a red run cannot be
+  checked by the checker.
 
-Шаблоны рассчитаны на macOS `/bin/bash` 3.2: без `${var,,}`, пустых массивов под
-`set -u` и Bash 4. Для другого инструмента берите стек `generic`: он запускает
-`EBT_TEST_CMD`, собирает свидетельства из `EBT_EVIDENCE_DIR` и различает коды
-`EBT_TEST_FAIL_CODES`, сохраняя договор гейта.
+The templates target macOS `/bin/bash` 3.2: no `${var,,}`, no empty arrays under
+`set -u`, and no Bash 4. For another tool take the `generic` stack: it runs
+`EBT_TEST_CMD`, collects the evidence from `EBT_EVIDENCE_DIR` and tells the codes of
+`EBT_TEST_FAIL_CODES` apart, keeping the gate contract.
 
 ## `pinned.txt`
 
-Строка — `<оригинал>  <путь в клоне>`:
+A line is `<original>  <path in the clone>`:
 
-- `kit:lib/ebt/…` — файл из ресурсов установленной поставки; так закрепляется SDK;
-- `obs/<feature>…` — файл рядом с `ebt/`; так закрепляются помощники наблюдения;
-- абсолютный путь — внешний файл.
+- `kit:lib/ebt/…` is a file from the resources of the installed distribution; this is how the SDK is pinned;
+- `obs/<feature>…` is a file next to `ebt/`; this is how observation helpers are pinned;
+- an absolute path is an external file.
 
-Копия должна совпадать с оригиналом. Отличие или отсутствие файла — причина
-`pinned_drift` и FAIL гейта. Путь назначения в шаблоне — пример: поставьте тот,
-куда проект кладёт SDK.
+The copy must match the original. A difference or a missing file is the reason
+`pinned_drift` and a FAIL of the gate. The destination path in the template is an example: set the one
+where the project keeps the SDK.
 
-## Границы
+## Limits
 
-Заготовка не является утверждённой спецификацией и не доказывает поведение. Она
-не создаёт `known.toml`, `baseline.jsonl` и `prepare.sh` — они появляются по
-потребности проекта. Гейт проверяет только записанное: если решение принимается
-в коде без записи свидетельства, оно останется вне проверки.
+The scaffold is not an approved spec and does not prove behavior. It
+does not create `known.toml`, `baseline.jsonl` and `prepare.sh`: they appear as the
+project needs them. The gate checks only what was recorded: if a decision is made
+in code without recording evidence, it stays outside the check.

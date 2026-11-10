@@ -165,9 +165,9 @@ witnessbox check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 
 ## Ограничения
 
-- **PR из форка и push без PR не поддерживаются.** У `workflow_run` для них обычно нет `pull_requests[].base.sha`; вторая стадия ставит `error` с текстом «нет BASE: PR из форка или push без PR не поддерживается». Если `BASE` есть, но `head_repository` — форк, ставится `error` «PR из форка не поддерживается». Это не `success`.
-- **Нет артефакта — `error`.** Если первая стадия отменена или упала до выгрузки, вторая стадия ставит `error` «нет артефакта witnessbox-evidence», а не молчит.
-- **`ebt/` должен быть в основной ветке.** Если его там нет, вторая стадия даёт `error` «ebt/ нет в BASE — сначала влейте ebt/ в основную ветку». Проверку нельзя ввести тем же PR, который её запускает.
+- **PR из форка и push без PR не поддерживаются.** У `workflow_run` для них обычно нет `pull_requests[].base.sha`; вторая стадия ставит `error` с текстом «no BASE: a PR from a fork or a push without a PR is not supported». Если `BASE` есть, но `head_repository` — форк, ставится `error` «a PR from a fork is not supported». Это не `success`.
+- **Нет артефакта — `error`.** Если первая стадия отменена или упала до выгрузки, вторая стадия ставит `error` «no witnessbox-evidence artifact», а не молчит.
+- **`ebt/` должен быть в основной ветке.** Если его там нет, вторая стадия даёт `error` «no ebt/ in BASE: first merge ebt/ into the main branch». Проверку нельзя ввести тем же PR, который её запускает.
 - **Правка `ebt/` в PR — FAIL.** `spec.toml` и `checks.py` берутся из `BASE`; изменение `ebt/` или `tool/ebt_check/` даёт `protected_paths_changed`, а не PASS по spec ветки.
 - **Свидетельства пишет код под проверкой.** Action меняет то, кто выносит и подписывает вердикт, но не то, кто пишет свидетельства. Намеренный обход в первой стадии (фоновый процесс, `PATH`, `~/.gitconfig`) не ловится — это та же граница D26.
 - **Артефакт недоверенный.** replay копирует только обычные файлы `out/*.jsonl`; symlink, подкаталог или не-`.jsonl` не читаются, а `tests_exit_code` принимается только как целое `0` или `1`. Остальное — `error`.
@@ -191,10 +191,10 @@ witnessbox check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 
 | Сообщение | Что значит |
 |---|---|
-| `нет BASE: PR из форка или push без PR не поддерживается` | `workflow_run.pull_requests` пуст; форки в первой версии не поддержаны |
-| `PR из форка не поддерживается` | `BASE` есть, но `head_repository` не совпадает с репозиторием workflow |
-| `нет артефакта witnessbox-evidence` | первая стадия упала/отменена до upload или артефакт переименован |
-| `witnessbox не найден на PATH: сначала выполните actions/setup` | в job нет шага `actions/setup` или он упал |
-| `ebt/ нет в BASE — сначала влейте ebt/ в основную ветку` | в основной ветке ещё нет каталога проверки |
-| `symlink в свидетельствах` / `не обычный файл` / `tests_exit_code` | артефакт первой стадии повреждён или подменён |
+| `no BASE: a PR from a fork or a push without a PR is not supported` | `workflow_run.pull_requests` пуст; форки в первой версии не поддержаны |
+| `a PR from a fork is not supported` | `BASE` есть, но `head_repository` не совпадает с репозиторием workflow |
+| `no witnessbox-evidence artifact` | первая стадия упала/отменена до upload или артефакт переименован |
+| `witnessbox not found on PATH: run actions/setup first` | в job нет шага `actions/setup` или он упал |
+| `no ebt/ in BASE: first merge ebt/ into the main branch` | в основной ветке ещё нет каталога проверки |
+| `symlink in the evidence` / `not a regular file in the evidence` / `tests_exit_code` | артефакт первой стадии повреждён или подменён |
 | `gate.json` отсутствует | гейт не смог записать итог; вторая стадия ставит `error` |

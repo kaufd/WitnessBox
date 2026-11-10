@@ -98,20 +98,24 @@ witnessbox scaffold ts ebt
 `bun install` создаст `bun.lock`: его нужно закоммитить, потому что гейт ставит зависимости в чистом клоне командой `bun install --frozen-lockfile`. Заготовка печатает список созданного:
 
 ```
-Создана заготовка ebt/ (ts) в …/double-demo/ebt:
+Created ebt/ scaffold (ts) in …/double-demo/ebt:
   spec.toml
   checks.py
   test_checks.py
   README.md
   test.sh
   pinned.txt
-Дальше:
-  замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием (для пробы можно оставить);
-  прогоните тесты чекера: witnessbox test-checks ebt;
-  …
+Next:
+  replace the example REQ-EXAMPLE-1/INV-EXAMPLE-1 with an approved requirement (may stay for a trial);
+  run the checker tests: witnessbox test-checks ebt;
+  copy the SDK and helpers: witnessbox sync-pinned ebt;
+  write an evidence test (it writes build/ebt/*.jsonl) and, if needed, ebt/prepare.sh;
+  commit the project and check the setup: witnessbox gate --check-only ebt .;
+  run the gate: witnessbox gate ebt . <result dir>.
+Details are in the directory README.md.
 ```
 
-Подсказка «Дальше» — порядок для своего проекта, как в `ebt/README.md`. Учебник оставляет шаблонную спецификацию, поэтому сначала копирует SDK и пишет тест, а тесты чекера запускает перед коммитом.
+Подсказка `Next` — порядок для своего проекта, как в `ebt/README.md`. Учебник оставляет шаблонную спецификацию, поэтому сначала копирует SDK и пишет тест, а тесты чекера запускает перед коммитом.
 
 Что в ней важно сейчас:
 
@@ -128,7 +132,7 @@ witnessbox sync-pinned ebt
 ```
 
 ```
-обновлён src/lib/ebt/ebt.ts
+updated src/lib/ebt/ebt.ts
 ```
 
 Команда прочитала `ebt/pinned.txt` (строка `kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts`) и положила SDK из установленной поставки в проект. Гейт сверяет копию с оригиналом байт в байт; правка копии вручную даст `pinned_drift`.
@@ -144,7 +148,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { Ebt, ev } from "./src/lib/ebt/ebt";
 import { double } from "./src/double";
 
-// Свидетельства пишутся после всех случаев: классы покрытия — zero/positive/negative.
+// Evidence is written after all cases: partitions are zero/positive/negative.
 afterAll(() => {
   mkdirSync("build/ebt", { recursive: true });
   writeFileSync("build/ebt/double.jsonl", Ebt.toJsonl() + "\n");
@@ -227,17 +231,17 @@ BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
 ```
 
 ```
-ок spec
-ок checks
-ок known: нет known.toml
-ок baseline: нет baseline.jsonl
-ок runner
-ок pinned
-ок clone
-ок base
+ok spec
+ok checks
+ok known: no known.toml
+ok baseline: no baseline.jsonl
+ok runner
+ok pinned
+ok clone
+ok base
 ```
 
-До первого коммита та же команда нашла бы проблему: `проблема clone: в репозитории нет коммитов — гейт проверяет только закоммиченное`, код `1`; с незакоммиченными правками после него — `проблема clone: дерево клона не чистое`. Без `BASE` строка `base` будет `пропущено`: защищённые пути не проверялись. `--check-only` — подсказка, а не вердикт.
+До первого коммита та же команда нашла бы проблему: `problem clone: the repository has no commits: the gate checks only committed files`, код `1`; с незакоммиченными правками после него — `problem clone: the clone tree is not clean`. Без `BASE` строка `base` будет `skipped`: защищённые пути не проверялись. `--check-only` — подсказка, а не вердикт.
 
 ## 7. Гейт: PASS
 
@@ -248,7 +252,7 @@ echo $?
 
 Три аргумента — каталог `ebt/`, клон проекта и каталог результатов (его гейт создаёт и очищает сам; держите его вне клона). `BASE` — коммит, относительно которого гейт ищет изменения защищённых путей; здесь он совпадает с проверяемым коммитом.
 
-Код возврата `0`. Гейт печатает `gate.md` в терминал; его первая строка — `# EBT-гейт: зелёный`. Строка «Чекер» показывает версию самого чекера (`witnessbox check 0.1.0`): она ведётся отдельно от версии поставки, а поставку и чекер однозначно задают sha256. В `gate.json`:
+Код возврата `0`. Гейт печатает `gate.md` в терминал; его первая строка — `# EBT gate: green`. Строка `Checker` показывает версию самого чекера (`witnessbox check 0.1.0`): она ведётся отдельно от версии поставки, а поставку и чекер однозначно задают sha256. В `gate.json`:
 
 ```json
 {
@@ -270,11 +274,11 @@ echo $?
 {"seq":3,"scope":"negative","req":"REQ-EXAMPLE-1","inv":"INV-EXAMPLE-1","ok":true,"data":{"value":-4,"result":-8}}
 ```
 
-В `report.md` — «Итог: ✅ доказано на этом прогоне», все категории находок равны нулю, а в самопроверке чекера: «порча любого поля ловится».
+В `report.md` — «Result: ✅ proven on this run», все категории находок равны нулю, а в самопроверке чекера: «corruption of any field is caught».
 
 Что гейт сделал: поставил зависимости (`prepare.sh`), запустил `test.sh`, собрал свидетельства, пересчитал каждую запись чекером `example_rule`, проверил, что встретились все классы входов, и записал итог. PASS означает: на записанных сценариях правило выполнено. Он не означает, что код верен вне этих сценариев; границы гарантий — в [модели угроз](security.ru.md).
 
-Если свидетельств нет вовсе (например, нет файла теста), гейт даёт не PASS, а ERROR: код `2`, причина `gate_error`, в `gate.json` — `"message": "нет свидетельств …"`. Отсутствие проверки не считается успехом.
+Если свидетельств нет вовсе (например, нет файла теста), гейт даёт не PASS, а ERROR: код `2`, причина `gate_error`, в `gate.json` — `"message": "no evidence in …"`. Отсутствие проверки не считается успехом.
 
 ## 8. Внесите дефект
 
@@ -296,7 +300,7 @@ echo $?
 
 ## 9. Как читать результат
 
-`gate.md` начинается строкой `# EBT-гейт: красный`, затем идут версии, хеши и коды стадий: `Тесты test.sh: код 1 · ebt_check: код 1`. Причины — в `gate.json`:
+`gate.md` начинается строкой `# EBT gate: red`, затем идут версии, хеши и коды стадий: `test.sh tests: code 1 · ebt_check: code 1`. Причины — в `gate.json`:
 
 ```json
 { "result": "FAIL", "exit_code": 1, "reasons": ["checker_failed", "tests_failed"] }
@@ -308,24 +312,24 @@ echo $?
 Главное — `report.md`:
 
 ```
-**Итог: ❌ не доказано**
+**Result: ❌ not proven**
 
-| Подтверждённое нарушение | 2 |
-| Инварианты с непройденными классами входов | 1 |
+| Confirmed violation | 2 |
+| Invariants with uncovered partitions | 1 |
 
-### Подтверждённое нарушение — `INV-EXAMPLE-1`
-- Где: строка 2, scope `positive`, seq 2
-- Инвариант: result == value × 2
-- Код заявил ok=False; чекер: нарушение
-- Причина: result=63, по правилу value × 2 ожидалось 42
-- Свидетельство: `{"value":21,"result":63}`
+### Confirmed violation — `INV-EXAMPLE-1`
+- Where: line 2, scope `positive`, seq 2
+- Invariant: result == value × 2
+- Code claimed ok=False; checker: violation
+- Reason: result=63, by the rule value × 2 expected 42
+- Evidence: `{"value":21,"result":63}`
 …
-## Покрытие
+## Coverage
 
-- **INV-EXAMPLE-1**: не встретились классы входов: `positive`, `negative`
+- **INV-EXAMPLE-1**: partitions not encountered: `positive`, `negative`
 ```
 
-Читать его надо так: «Где» указывает строку и `scope` свидетельства, «Причина» — что пересчитал чекер, «Свидетельство» — записанные данные. Строка «код заявил ok=…» показывает, что решило приложение; чекер её не использует. Если приложение запишет `ok=true` на неверных данных, это отдельная категория — «Ложное доказательство (код: ok, чекер: нарушение)»: чекер нарушение всё равно найдёт. Нарушенное свидетельство не засчитывает класс входов: поэтому классы `positive` и `negative` числятся непройденными.
+Читать его надо так: `Where` указывает строку и `scope` свидетельства, `Reason` — что пересчитал чекер, `Evidence` — записанные данные. Строка `Code claimed ok=…` показывает, что решило приложение; чекер её не использует. Если приложение запишет `ok=true` на неверных данных, это отдельная категория — «False proof (code: ok, checker: violation)»: чекер нарушение всё равно найдёт. Нарушенное свидетельство не засчитывает класс входов: поэтому классы `positive` и `negative` числятся непройденными.
 
 Каталог результатов:
 

@@ -1,5 +1,7 @@
 # Witnessbox
 
+**English** · [Русский](https://github.com/kaufd/WitnessBox/blob/main/README.ru.md)
+
 Evidence-based testing (EBT) of application behaviour: during tests the code records which decision it made and on what data, and an independent checker re-verifies every decision against a human-approved specification. The kit consists of a run gate, a checker and SDKs for Java, Dart and TypeScript. The runtime requires Python 3.11+ and has no third-party dependencies. The gate is a bash script tested on macOS and Linux; native Windows is not supported, and running it under WSL is not covered by tests.
 
 ## Quick start
@@ -18,7 +20,7 @@ The scaffold contains an example `spec.toml`, `checks.py` and a stack-specific `
 
 `witnessbox --installation` prints the version and the SHA-256 of the gate and checker code; compare them with the release values in the [decision log](https://github.com/kaufd/WitnessBox/blob/main/docs/decisions.md). Building from source, moving from the previous distribution and migration are covered in [usage](https://github.com/kaufd/WitnessBox/blob/main/docs/usage.md).
 
-The documentation is written in Russian.
+The documentation is available in English and Russian; every page links to its translation.
 
 ## Guarantees and limits
 

@@ -112,10 +112,10 @@ off      = 999 × 15 // 100  = 149   ✗ код записал 150
 
 - `report.md` для человека:
   ```
-  ### Ложное доказательство (код: ok, чекер: нарушение) — INV-CART-3
-  - Где: строка 1, scope checkout_discount, seq 1
-  - Код заявил ok=True; чекер: нарушение
-  - Причина: off=150, по правилу скидки percent:15 должно быть 149
+  ### False proof (code: ok, checker: violation) — INV-CART-3
+  - Where: line 1, scope checkout_discount, seq 1
+  - Code claimed ok=True; checker: violation
+  - Reason: off=150, by the discount rule percent:15 it must be 149
   ```
 - `gate.json` для CI:
   ```json
