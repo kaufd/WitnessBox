@@ -1,7 +1,10 @@
-include Makefile README.md CLAUDE.md LICENSE
+include Makefile README.md README.ru.md CLAUDE.md LICENSE
 recursive-include src *.py *.sh *.jsonl *.java *.dart *.ts *.toml *.md *.txt
 recursive-include tests *.py *.java *.ts *.dart *.jsonl
 recursive-include actions *.py *.yml *.sh
 recursive-include docs *.md *.svg
+# Local working plans are not tracked in git and must not get into the sdist (D56).
+prune docs/plans
+prune docs/superpowers
 recursive-include examples *
 global-exclude .DS_Store
