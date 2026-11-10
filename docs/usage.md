@@ -19,13 +19,13 @@ From a clone of the repository, build an sdist and a wheel from it and install t
 
 ```bash
 uv build
-uv tool install dist/witnessbox-0.7.0-py3-none-any.whl
+uv tool install dist/witnessbox-0.8.0-py3-none-any.whl
 uv tool update-shell
 ```
 
-`uv build` without `--wheel` first builds the sdist, and the wheel from it. `uv build --wheel` builds directly from the working tree and reuses a stale `build/lib`: the old runtime can end up in the distribution. If `build/` is left over from earlier builds, it is enough to delete it before such a check. From a tag without a clone: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.7.0`.
+`uv build` without `--wheel` first builds the sdist, and the wheel from it. `uv build --wheel` builds directly from the working tree and reuses a stale `build/lib`: the old runtime can end up in the distribution. If `build/` is left over from earlier builds, it is enough to delete it before such a check. From a tag without a clone: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.8.0`.
 
-The distribution adds one command, `witnessbox`, with the subcommands `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks`; the repository sources are not needed after installation. A built wheel can be transferred to the target machine and installed with the same `uv tool install dist/witnessbox-0.7.0-py3-none-any.whl`. `witnessbox --installation` shows the distribution, the version, the installation paths and the SHA-256 of the gate and checker code, as well as the path to the SDK resources. For calibration runs, run the project replay after an update.
+The distribution adds one command, `witnessbox`, with the subcommands `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks`; the repository sources are not needed after installation. A built wheel can be transferred to the target machine and installed with the same `uv tool install dist/witnessbox-0.8.0-py3-none-any.whl`. `witnessbox --installation` shows the distribution, the version, the installation paths and the SHA-256 of the gate and checker code, as well as the path to the SDK resources. For calibration runs, run the project replay after an update.
 
 ## Moving from the old distribution
 
