@@ -1,6 +1,6 @@
-// Тесты ebt.dart без package:test: `make test-dart` из корня проекта —
-// golden читается по относительному пути. Запуск дважды: с --enable-asserts
-// проверяется запись, без него — что ev() внутри assert не пишет.
+// Tests of ebt.dart without package:test: `make test-dart` from the project root;
+// golden is read by a relative path. Run twice: with --enable-asserts
+// recording is checked, without it that ev() inside assert does not record.
 
 import 'dart:io';
 
@@ -12,8 +12,8 @@ void main() {
   Ebt.toDevTools = false;
   if (!assertsOn) {
     assert(ev('INV-N', req: 'REQ-N', ok: true));
-    check(Ebt.toJsonl().isEmpty, 'без assert ev() записал: ${Ebt.toJsonl()}');
-    print('ebt_test (без assert): OK');
+    check(Ebt.toJsonl().isEmpty, 'without assert ev() recorded: ${Ebt.toJsonl()}');
+    print('ebt_test (without assert): OK');
     return;
   }
   goldenScenarioMatchesOtherSdks();
@@ -23,7 +23,7 @@ void main() {
 
 enum _Color { red }
 
-/// Как unsupportedValueIsRejected в EbtTest.java: запись не попадает в лог и не сдвигает seq.
+/// As unsupportedValueIsRejected in EbtTest.java: the record does not reach the log and does not shift seq.
 void unsupportedValueIsRejected() {
   Ebt.reset();
   final bad = <Object>[1.5, 1.0, DateTime(2026), _Color.red, Object(), {1: 'x'}];
@@ -32,12 +32,12 @@ void unsupportedValueIsRejected() {
       assert(ev('INV-N', req: 'REQ-N', ok: true, data: {
         'v': [value],
       }));
-      throw StateError('принято значение ${value.runtimeType}');
+      throw StateError('value accepted: ${value.runtimeType}');
     } on ArgumentError catch (e) {
-      check('$e'.contains('data.v[0]'), 'в ошибке нет пути поля: $e');
+      check('$e'.contains('data.v[0]'), 'the error has no field path: $e');
     }
   }
-  check(Ebt.toJsonl().isEmpty, 'отклонённая запись попала в лог: ${Ebt.toJsonl()}');
+  check(Ebt.toJsonl().isEmpty, 'a rejected record reached the log: ${Ebt.toJsonl()}');
   assert(ev('INV-N', req: 'REQ-N', ok: true, data: {
     'v': null,
     'big': 9223372036854775807,
@@ -46,10 +46,10 @@ void unsupportedValueIsRejected() {
       Ebt.toJsonl() ==
           '{"seq":1,"req":"REQ-N","inv":"INV-N","ok":true,'
               '"data":{"v":null,"big":9223372036854775807}}',
-      'null и int вне безопасного диапазона JS должны записываться: ${Ebt.toJsonl()}');
+      'null and int outside the JS safe range must be recorded: ${Ebt.toJsonl()}');
 }
 
-/// Тот же сценарий, что в EbtTest.java и ebt.test.ts.
+/// The same scenario as in EbtTest.java and ebt.test.ts.
 void goldenScenarioMatchesOtherSdks() {
   Ebt.reset();
   Ebt.scope = 'golden';
@@ -67,7 +67,7 @@ void goldenScenarioMatchesOtherSdks() {
   assert(ev('INV-G', req: 'REQ-G', ok: true, data: {'n': 1}));
   final expected = File('tests/sdk/golden.jsonl').readAsStringSync();
   check('${Ebt.toJsonl()}\n' == expected,
-      'golden расходится:\n${Ebt.toJsonl()}\n$expected');
+      'golden differs:\n${Ebt.toJsonl()}\n$expected');
 }
 
 void check(bool ok, String message) {

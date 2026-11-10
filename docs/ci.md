@@ -1,29 +1,31 @@
-# Гейт в GitHub Actions
+# The gate in GitHub Actions
 
-В CI локальная модель угроз D26/D34 не работает: `test.sh` исполняется с правами гейта и может подменить вердикт, а согласованную подмену свидетельств и `gate.json` после вердикта нельзя заметить по хешу. Поэтому проверка разделена на две стадии (D45): недоверенную и доверенную.
+**English** · [Русский](ci.ru.md)
+
+In CI the local threat model D26/D34 does not hold: `test.sh` runs with the gate's rights and can forge the verdict, and a coordinated forgery of the evidence and `gate.json` after the verdict cannot be noticed by a hash. So the check is split into two stages (D45): an untrusted one and a trusted one.
 
 ```text
-pull_request ──► ebt-tests (недоверенная стадия)
-                    │  witnessbox gate как обычно
+pull_request ──► ebt-tests (untrusted stage)
+                    │  witnessbox gate as usual
                     │  artifact witnessbox-evidence: out/*.jsonl + gate.json
                     ▼
 workflow_run ◄──────┘
      │
      ▼
-ebt-verify (workflow из основной ветки)
-  checkout head_sha; ebt/ из BASE; prepare.sh удалён; test.sh → replay.sh
-  настоящий witnessbox gate; код проекта не исполняется
-  attest gate.json; gate.md в summary; commit status witnessbox/gate
+ebt-verify (workflow from the main branch)
+  checkout head_sha; ebt/ from BASE; prepare.sh removed; test.sh → replay.sh
+  the real witnessbox gate; project code is not executed
+  attest gate.json; gate.md in the summary; commit status witnessbox/gate
 ```
 
-- `ebt-tests` запускается на `pull_request` и недоверенна. Её вердикт — только сведения.
-- `ebt-verify` запускается на `workflow_run`. GitHub всегда берёт этот workflow из основной ветки, поэтому ветка задачи не может его изменить. `ebt/` и `checks.py` берутся из `BASE`, `prepare.sh` удаляется, вместо `test.sh` ставится replay-скрипт. Код проекта во второй стадии не исполняется.
-- `actions/setup` ставит witnessbox из PyPI, сверяет SHA-256 wheel и JSON `--installation` с `release.json` выпуска.
-- `actions/verify` перепроверяет свидетельства настоящей командой `witnessbox gate`, подписывает `gate.json` аттестацией GitHub и ставит commit status `witnessbox/gate`: `success` — PASS, `failure` — FAIL, `error` — ERROR или отказ до гейта.
+- `ebt-tests` runs on `pull_request` and is untrusted. Its verdict is information only.
+- `ebt-verify` runs on `workflow_run`. GitHub always takes this workflow from the main branch, so the task branch cannot change it. `ebt/` and `checks.py` are taken from `BASE`, `prepare.sh` is removed, and a replay script is put in place of `test.sh`. Project code is not executed in the second stage.
+- `actions/setup` installs witnessbox from PyPI and checks the SHA-256 of the wheel and the `--installation` JSON against the release's `release.json`.
+- `actions/verify` rechecks the evidence with the real `witnessbox gate` command, signs `gate.json` with a GitHub attestation and sets the commit status `witnessbox/gate`: `success` is PASS, `failure` is FAIL, `error` is ERROR or a refusal before the gate.
 
-Логика лежит в composite actions [setup](../actions/setup/action.yml) и [verify](../actions/verify/action.yml); их скрипты проверяются локально в [test_verify.py](../tests/actions/test_verify.py). Перед первой стадией нужен выпуск witnessbox с `release.json` в GitHub Release: в примерах ниже используется `0.7.0`.
+The logic lives in the composite actions [setup](../actions/setup/action.yml) and [verify](../actions/verify/action.yml); their scripts are tested locally in [test_verify.py](../tests/actions/test_verify.py). Before the first stage you need a witnessbox release with `release.json` in a GitHub Release: the examples below use `0.7.0`.
 
-## Шаблон `.github/workflows/ebt-tests.yml`
+## Template `.github/workflows/ebt-tests.yml`
 
 ```yaml
 name: ebt-tests
@@ -42,31 +44,31 @@ jobs:
   tests:
     runs-on: ubuntu-latest
     steps:
-      - name: Получить исходники
+      - name: Check out the sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Именно head PR, а не merge-коммит: вторая стадия чекаутит workflow_run.head_sha.
+          # The PR head, not the merge commit: the second stage checks out workflow_run.head_sha.
           ref: ${{ github.event.pull_request.head.sha }}
           fetch-depth: 0
 
-      - name: Установить witnessbox
-        # SHA коммита WitnessBox с actions/setup и actions/verify (D45).
-        # Полный SHA коммита тега выпуска; не используйте main или имя тега.
+      - name: Install witnessbox
+        # The SHA of the WitnessBox commit with actions/setup and actions/verify (D45).
+        # The full SHA of the release tag's commit; do not use main or a tag name.
         uses: kaufd/WitnessBox/actions/setup@6a768b100e1660cd1d983bbb35f492f418878fbd # v0.7.0
         with:
           version: "0.7.0"
 
-      - name: Запустить гейт
+      - name: Run the gate
         env:
           BASE: ${{ github.event.pull_request.base.sha }}
         run: |
           set +e
           witnessbox gate ebt . "$RUNNER_TEMP/run"
           rc=$?
-          echo "witnessbox gate завершился с кодом $rc; вердикт этой стадии не доверенный"
+          echo "witnessbox gate exited with code $rc; the verdict of this stage is not trusted"
           exit 0
 
-      - name: Выгрузить свидетельства и gate.json
+      - name: Upload the evidence and gate.json
         if: always()
         uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
@@ -77,9 +79,9 @@ jobs:
           if-no-files-found: error
 ```
 
-`fetch-depth: 0` нужен гейту: он сравнивает `BASE` и `HEAD` и проверяет защищённые пути `ebt/` и `tool/ebt_check`. `|| true`/`exit 0` не скрывает вердикт: `gate.json` всё равно выгружается, а вторая стадия решает заново.
+`fetch-depth: 0` is needed by the gate: it compares `BASE` and `HEAD` and checks the protected paths `ebt/` and `tool/ebt_check`. `|| true`/`exit 0` does not hide the verdict: `gate.json` is still uploaded, and the second stage decides again.
 
-## Шаблон `.github/workflows/ebt-verify.yml`
+## Template `.github/workflows/ebt-verify.yml`
 
 ```yaml
 name: ebt-verify
@@ -101,47 +103,47 @@ jobs:
       id-token: write
       attestations: write
     steps:
-      - name: Установить witnessbox
+      - name: Install witnessbox
         uses: kaufd/WitnessBox/actions/setup@6a768b100e1660cd1d983bbb35f492f418878fbd # v0.7.0
         with:
           version: "0.7.0"
 
-      - name: Перепроверить и подписать
-        # Если setup упал, verify всё равно должен поставить status error.
+      - name: Recheck and sign
+        # If setup failed, verify must still set the status to error.
         if: always()
         uses: kaufd/WitnessBox/actions/verify@6a768b100e1660cd1d983bbb35f492f418878fbd # v0.7.0
         with:
           github-token: ${{ github.token }}
 ```
 
-Оба workflow должны быть влиты в основную ветку. `workflow_run` срабатывает только для workflow-файла из основной ветки; PR, меняющий `ebt-verify.yml`, не влияет на проверку этого PR. В примерах закреплён полный 40-символьный SHA коммита тега `v0.7.0`, а не `main` и не имя тега: тег можно переставить, коммит — нет.
+Both workflows must be merged into the main branch. `workflow_run` fires only for a workflow file from the main branch; a PR that changes `ebt-verify.yml` does not affect the check of that PR. The examples pin the full 40-character SHA of the `v0.7.0` tag's commit, not `main` and not the tag name: a tag can be moved, a commit cannot.
 
-`actions/verify` требует, чтобы `actions/setup` уже выполнился в этом job: composite action не вызывает setup сам, иначе пришлось бы ссылаться на SHA того же коммита изнутри него. Если `witnessbox` нет на `PATH`, `actions/verify` ставит `error`, а не молчит.
+`actions/verify` requires that `actions/setup` has already run in this job: a composite action does not call setup itself, as it would have to reference the SHA of the same commit from inside it. If `witnessbox` is not on `PATH`, `actions/verify` sets `error` and does not stay silent.
 
-## Обязательная проверка
+## Required check
 
-1. Включите branch protection для основной ветки.
-2. Включите **Require status checks to pass before merging**.
-3. Добавьте `witnessbox/gate` в обязательные проверки. После первого запуска статус появится в списке; до этого его можно указать вручную.
-4. Не делайте вердикт `ebt-tests` условием слияния: он недоверенный. Обязательной должна быть только проверка `witnessbox/gate`.
+1. Enable branch protection for the main branch.
+2. Enable **Require status checks to pass before merging**.
+3. Add `witnessbox/gate` to the required checks. After the first run the status appears in the list; before that you can enter it by hand.
+4. Do not make the `ebt-tests` verdict a merge condition: it is untrusted. Only the `witnessbox/gate` check must be required.
 
-Статус ставится на `github.event.workflow_run.head_sha` — коммит PR, а не на merge-коммит. `pending` блокирует слияние, `failure` и `error` тоже; `success` разрешает.
+The status is set on `github.event.workflow_run.head_sha`, the PR commit, not the merge commit. `pending` blocks the merge, and so do `failure` and `error`; `success` allows it.
 
-Права job `verify` минимальны:
+The rights of the `verify` job are minimal:
 
-| Право | Зачем |
+| Right | Why |
 |---|---|
-| `contents: read` | checkout коммита PR и чтение репозитория |
-| `actions: read` | скачать `witnessbox-evidence` из запуска `ebt-tests` |
-| `statuses: write` | commit status `witnessbox/gate` |
-| `id-token: write` | OIDC-токен для аттестации |
+| `contents: read` | check out the PR commit and read the repository |
+| `actions: read` | download `witnessbox-evidence` from the `ebt-tests` run |
+| `statuses: write` | the commit status `witnessbox/gate` |
+| `id-token: write` | an OIDC token for the attestation |
 | `attestations: write` | `actions/attest-build-provenance` |
 
-Права `ebt-tests` — только `contents: read`. Токен первой стадии не даёт писать статусы и не должен давать.
+The rights of `ebt-tests` are only `contents: read`. The token of the first stage does not allow writing statuses and must not.
 
-## Проверка вердикта третьим лицом
+## Verifying the verdict by a third party
 
-Скачайте артефакт второй стадии и проверьте подпись:
+Download the artifact of the second stage and verify the signature:
 
 ```bash
 gh run download <run-id> --repo <owner>/<repo> --name witnessbox-verdict
@@ -151,48 +153,48 @@ gh attestation verify gate.json \
   --source-ref refs/heads/main
 ```
 
-`--signer-workflow` — workflow потребителя, который вызвал composite action; `--source-ref refs/heads/main` привязывает подпись к основной ветке. Для приватного репозитория аттестации требуют тарифа GitHub с поддержкой artifact attestations; без неё шаг подписи не выполнится, а `witnessbox/gate` получит `error`.
+`--signer-workflow` is the consumer's workflow that called the composite action; `--source-ref refs/heads/main` binds the signature to the main branch. For a private repository, attestations require a GitHub plan that supports artifact attestations; without one the signing step fails and `witnessbox/gate` gets `error`.
 
-При желании перепроверьте свидетельства установленным `witnessbox check`:
+If you wish, recheck the evidence with the installed `witnessbox check`:
 
 ```bash
 witnessbox check --spec ebt/spec.toml --evidence out/*.jsonl --json recheck.json
 ```
 
-Если в проекте есть `ebt/checks.py`, добавьте `--checkers ebt/checks.py`; при использовании `known.toml`, `baseline.jsonl` или `EBT_INV` добавьте соответствующие `--known`, `--baseline`, `--scope`. `gate.json` содержит `evidence` — имена и SHA-256 файлов `out/*.jsonl`, которые читал чекер; сверьте их с скачанными файлами. Согласованную подмену самих свидетельств и `gate.json` до вердикта это не ловит: свидетельства пишет код под проверкой, а `tests_exit_code` первой стадии — его заявление (D45).
+If the project has `ebt/checks.py`, add `--checkers ebt/checks.py`; if you use `known.toml`, `baseline.jsonl` or `EBT_INV`, add the matching `--known`, `--baseline`, `--scope`. `gate.json` holds `evidence`: the names and SHA-256 of the `out/*.jsonl` files the checker read; compare them with the downloaded files. This does not catch a coordinated forgery of the evidence itself and of `gate.json` before the verdict: the evidence is written by the code under test, and the first stage's `tests_exit_code` is its claim (D45).
 
-## Ограничения
+## Limitations
 
-- **PR из форка и push без PR не поддерживаются.** У `workflow_run` для них обычно нет `pull_requests[].base.sha`; вторая стадия ставит `error` с текстом «нет BASE: PR из форка или push без PR не поддерживается». Если `BASE` есть, но `head_repository` — форк, ставится `error` «PR из форка не поддерживается». Это не `success`.
-- **Нет артефакта — `error`.** Если первая стадия отменена или упала до выгрузки, вторая стадия ставит `error` «нет артефакта witnessbox-evidence», а не молчит.
-- **`ebt/` должен быть в основной ветке.** Если его там нет, вторая стадия даёт `error` «ebt/ нет в BASE — сначала влейте ebt/ в основную ветку». Проверку нельзя ввести тем же PR, который её запускает.
-- **Правка `ebt/` в PR — FAIL.** `spec.toml` и `checks.py` берутся из `BASE`; изменение `ebt/` или `tool/ebt_check/` даёт `protected_paths_changed`, а не PASS по spec ветки.
-- **Свидетельства пишет код под проверкой.** Action меняет то, кто выносит и подписывает вердикт, но не то, кто пишет свидетельства. Намеренный обход в первой стадии (фоновый процесс, `PATH`, `~/.gitconfig`) не ловится — это та же граница D26.
-- **Артефакт недоверенный.** replay копирует только обычные файлы `out/*.jsonl`; symlink, подкаталог или не-`.jsonl` не читаются, а `tests_exit_code` принимается только как целое `0` или `1`. Остальное — `error`.
-- **`workflow_run` не запускается для PR, пока `ebt-verify.yml` не в основной ветке.** Сначала влейте оба workflow.
+- **PRs from forks and pushes without a PR are not supported.** For them `workflow_run` usually has no `pull_requests[].base.sha`; the second stage sets `error` with the text "no BASE: a PR from a fork or a push without a PR is not supported". If `BASE` exists but `head_repository` is a fork, it sets `error` "a PR from a fork is not supported". This is not `success`.
+- **No artifact means `error`.** If the first stage was cancelled or failed before the upload, the second stage sets `error` "no witnessbox-evidence artifact" and does not stay silent.
+- **`ebt/` must be in the main branch.** If it is not there, the second stage gives `error` "no ebt/ in BASE: first merge ebt/ into the main branch". The check cannot be introduced by the same PR that runs it.
+- **Changing `ebt/` in a PR is FAIL.** `spec.toml` and `checks.py` are taken from `BASE`; a change to `ebt/` or `tool/ebt_check/` gives `protected_paths_changed`, not PASS by the branch's spec.
+- **The evidence is written by the code under test.** The action changes who issues and signs the verdict, but not who writes the evidence. A deliberate bypass in the first stage (a background process, `PATH`, `~/.gitconfig`) is not caught: this is the same D26 boundary.
+- **The artifact is untrusted.** The replay copies only regular files `out/*.jsonl`; a symlink, a subdirectory or a non-`.jsonl` file is not read, and `tests_exit_code` is accepted only as the integer `0` or `1`. Anything else is `error`.
+- **`workflow_run` does not fire for a PR until `ebt-verify.yml` is in the main branch.** Merge both workflows first.
 
-## Приёмка в демонстрационном репозитории
+## Acceptance in the demo repository
 
-Сквозной сценарий нельзя проверить в PR самого Witnessbox: `workflow_run` срабатывает только для workflow из основной ветки. Приёмка идёт в отдельном публичном репозитории (например, `kaufd/witnessbox-ci-demo`).
+The end-to-end scenario cannot be checked in a PR of Witnessbox itself: `workflow_run` fires only for a workflow from the main branch. Acceptance runs in a separate public repository (for example, `kaufd/witnessbox-ci-demo`).
 
-1. Создать репозиторий и влить в `main`: `witnessbox scaffold ts ebt` с утверждённой `spec.toml` из примера, оба workflow из шаблонов выше с одним и тем же SHA actions и branch protection с обязательной проверкой `witnessbox/gate`.
-2. PR с корректным изменением: `witnessbox/gate` — `success`; `gh attestation verify gate.json ...` проходит.
-3. PR, нарушающий правило: `failure`; `gate.md` в summary второй стадии.
-4. PR, меняющий `ebt/spec.toml`: `failure` с `protected_paths_changed`, даже если spec ветки делает проверку зелёной.
-5. PR, меняющий `.github/workflows/ebt-verify.yml` на `exit 0`: статус ставит версия из `main`; PR-версия workflow не исполняется.
-6. PR, где код нарушает правило, а фоновый процесс из тестового файла вне `ebt/` после гейта первой стадии переписывает её `gate.json` на `PASS`: вторая стадия — `failure` с `checker_failed` и без `protected_paths_changed`. Сценарий не должен менять `ebt/`: иначе FAIL объясняется защищёнными путями, а не перепроверкой. Вторая стадия берёт из артефакта только свидетельства и `tests_exit_code`; их подмену она не обнаружит — это ограничение D45.
-7. Ссылки на запуски и результаты записать отдельным абзацем D45 с датой.
+1. Create the repository and merge into `main`: `witnessbox scaffold ts ebt` with the approved `spec.toml` from the example, both workflows from the templates above with the same actions SHA, and branch protection with the required check `witnessbox/gate`.
+2. A PR with a correct change: `witnessbox/gate` is `success`; `gh attestation verify gate.json ...` passes.
+3. A PR that violates the rule: `failure`; `gate.md` in the summary of the second stage.
+4. A PR that changes `ebt/spec.toml`: `failure` with `protected_paths_changed`, even if the branch's spec makes the check green.
+5. A PR that changes `.github/workflows/ebt-verify.yml` to `exit 0`: the status is set by the version from `main`; the PR's version of the workflow is not executed.
+6. A PR where the code violates the rule, and a background process from a test file outside `ebt/` rewrites the first stage's `gate.json` to `PASS` after its gate: the second stage is `failure` with `checker_failed` and without `protected_paths_changed`. The scenario must not change `ebt/`: otherwise the FAIL is explained by the protected paths and not by the recheck. The second stage takes only the evidence and `tests_exit_code` from the artifact; it will not detect their forgery. This is a D45 limitation.
+7. Record the links to the runs and the results in a separate D45 paragraph with a date.
 
-Приёмка требует существующего демо-репозитория и не входит в локальные `make test`; после прогона её результаты фиксируются в журнале решений.
+Acceptance requires an existing demo repository and is not part of the local `make test`; after the run its results are recorded in the decision log.
 
-## Диагностика
+## Diagnostics
 
-| Сообщение | Что значит |
+| Message | What it means |
 |---|---|
-| `нет BASE: PR из форка или push без PR не поддерживается` | `workflow_run.pull_requests` пуст; форки в первой версии не поддержаны |
-| `PR из форка не поддерживается` | `BASE` есть, но `head_repository` не совпадает с репозиторием workflow |
-| `нет артефакта witnessbox-evidence` | первая стадия упала/отменена до upload или артефакт переименован |
-| `witnessbox не найден на PATH: сначала выполните actions/setup` | в job нет шага `actions/setup` или он упал |
-| `ebt/ нет в BASE — сначала влейте ebt/ в основную ветку` | в основной ветке ещё нет каталога проверки |
-| `symlink в свидетельствах` / `не обычный файл` / `tests_exit_code` | артефакт первой стадии повреждён или подменён |
-| `gate.json` отсутствует | гейт не смог записать итог; вторая стадия ставит `error` |
+| `no BASE: a PR from a fork or a push without a PR is not supported` | `workflow_run.pull_requests` is empty; forks are not supported in the first version |
+| `a PR from a fork is not supported` | `BASE` exists, but `head_repository` does not match the workflow's repository |
+| `no witnessbox-evidence artifact` | the first stage failed or was cancelled before the upload, or the artifact was renamed |
+| `witnessbox not found on PATH: run actions/setup first` | the job has no `actions/setup` step, or it failed |
+| `no ebt/ in BASE: first merge ebt/ into the main branch` | the main branch has no checks directory yet |
+| `symlink in the evidence` / `not a regular file in the evidence` / `tests_exit_code` | the first stage's artifact is corrupted or forged |
+| `gate.json` is missing | the gate could not write the result; the second stage sets `error` |

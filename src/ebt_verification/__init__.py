@@ -1,5 +1,5 @@
-"""Совместимый пакет старых проектных чекеров.
+"""Compatibility package for old project checkers.
 
-Реализации здесь нет: публичные типы живут в :mod:`witnessbox.api`, а этот пакет
-нужен только для прежнего импорта ``from ebt_verification.api import ...``.
+There is no implementation here: the public types live in :mod:`witnessbox.api`, and this package
+exists only for the legacy import ``from ebt_verification.api import ...``.
 """

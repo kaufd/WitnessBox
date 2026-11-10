@@ -11,7 +11,7 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-/** Три класса входов шаблонной spec: zero, positive, negative. */
+/** The three partitions of the template spec: zero, positive, negative. */
 final class DoublerEbtTest {
 
     @AfterAll

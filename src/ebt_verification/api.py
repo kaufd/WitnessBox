@@ -1,7 +1,7 @@
-"""Совместимый импорт публичных типов Witnessbox.
+"""Compatibility import of the public Witnessbox types.
 
-Прежние проектные чекеры импортируют ``Verdict`` и ``WitnessError`` отсюда;
-возвращаются те же объекты, что и из :mod:`witnessbox.api`. Второй реализации нет.
+Legacy project checkers import ``Verdict`` and ``WitnessError`` from here;
+the same objects as from :mod:`witnessbox.api` are returned. There is no second implementation.
 """
 from __future__ import annotations
 

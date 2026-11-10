@@ -1,21 +1,23 @@
-# Расширения чекера
+# Checker extensions
 
-Расширения находятся в доверенном проектном `checks.py`. Они получают данные спецификации и свидетельства; независимая реализация правила не должна импортировать приложение, его SDK или runtime-логику. Это сохраняет возможность перепроверить результат отдельно от кода, который его создал.
+**English** · [Русский](extensions.ru.md)
 
-Публичные типы импортируйте так:
+Extensions live in the trusted project `checks.py`. They receive the specification data and the evidence; an independent implementation of a rule must not import the application, its SDK or its runtime logic. This keeps the result re-checkable separately from the code that produced it.
+
+Import the public types like this:
 
 ```python
 from witnessbox.api import Verdict, WitnessError
 ```
 
-В существующих проектах допустим прежний импорт `from ebt_verification.api import Verdict, WitnessError`: он возвращает те же объекты, второй реализации нет.
+Existing projects may keep the old import `from ebt_verification.api import Verdict, WitnessError`: it returns the same objects, and there is no second implementation.
 
-Регистрация пользовательских правил выполняется через `CHECKERS`; производные разбиения объявляются через `DERIVED_PARTITIONS`. Имена не должны конфликтовать с базовыми или другими пользовательскими правилами. Сохраняйте контракт типов, описанный в `api.py`, и выдавайте `WitnessError` для некорректного свидетельства. Совместимые реэкспорты старых типов сохраняют идентичность объектов, но новые расширения должны использовать публичный модуль API.
+Custom rules are registered through `CHECKERS`; derived partitions are declared through `DERIVED_PARTITIONS`. The names must not conflict with base rules or other custom rules. Keep the type contract described in `api.py` and raise `WitnessError` for malformed evidence. The compatible re-exports of the old types preserve object identity, but new extensions must use the public API module.
 
-Чекер самостоятельно проверяет содержимое свидетельства: флаг `ok` приложения не определяет вердикт. Scope, baseline и известные находки имеют отдельный смысл и не должны превращаться в обход проверки. Для каждого расширения задайте тесты корректного свидетельства и граничных/ошибочных случаев; `--self-test` должен проверять чувствительность правила.
+The checker verifies the content of the evidence itself: the application's `ok` flag does not determine the verdict. Scope, baseline and known findings have a separate meaning and must not turn into a way around the check. For every extension, write tests for correct evidence and for boundary/error cases; `--self-test` must verify the sensitivity of the rule.
 
-`--self-test` портит каждое поле свидетельства и первые 8 элементов списков: элемент удаляется, а его содержимое портится по путям (`lines[1]`, `lines[1].qty`). Слабые места отчёт перечисляет путями, а не только именем поля. Если поле или путь законно не влияет на вердикт, владелец перечисляет его в `not_in_verdict`: имя поля покрывает все его подпути, а путь записывается с `[*]` вместо индекса (`lines[*].note`); конкретные индексы в `not_in_verdict` не поддерживаются, потому что пути нормализуются. Решение об исключении принимает человек (D4), а не автор чекера.
+`--self-test` corrupts every evidence field and the first 8 elements of lists: an element is removed, and its content is corrupted along the paths (`lines[1]`, `lines[1].qty`). The report lists weak spots as paths, not only as a field name. If a field or a path legitimately does not affect the verdict, the owner lists it in `not_in_verdict`: a field name covers all of its subpaths, and a path is written with `[*]` instead of an index (`lines[*].note`); concrete indexes in `not_in_verdict` are not supported, because paths are normalized. The decision to exclude is made by a human (D4), not by the checker author.
 
-## Границы применимости
+## Limits of applicability
 
-Проектный `checks.py` — доверенный Python-код и выполняется в процессе чекера. Это не изолированная среда. Расширение проверяет только данные, которые получает по контракту; оно не доказывает, что приложение выполнило поведение вне собранных свидетельств. Параллельные сценарии требуют корректной изоляции и порядка на стороне проекта. Изменение формата API, новый Runner API, UI или новые runtime-зависимости требуют отдельного решения. Решения и их статус собраны в [decisions](decisions.md).
+The project `checks.py` is trusted Python code and runs inside the checker process. It is not an isolated environment. An extension checks only the data it receives under the contract; it does not prove that the application performed behaviour outside the collected evidence. Parallel scenarios require proper isolation and ordering on the project side. Changing the API format, a new Runner API, a UI or new runtime dependencies require a separate decision. The decisions and their status are collected in [decisions](decisions.md).

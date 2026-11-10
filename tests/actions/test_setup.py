@@ -1,7 +1,7 @@
-"""Тесты `actions/setup/verify_release.py`: сверка wheel и `--installation` с release.json.
+"""Tests of `actions/setup/verify_release.py`: verifying the wheel and `--installation` against release.json.
 
-Скрипт запускается отдельным процессом (`python -I`), как в composite action: он живёт
-вне пакета, использует только stdlib и не должен зависеть от PYTHONPATH репозитория.
+The script runs as a separate process (`python -I`), as in the composite action: it lives
+outside the package, uses only the stdlib and must not depend on the repository PYTHONPATH.
 """
 
 import hashlib
@@ -109,7 +109,7 @@ class VerifyRelease(unittest.TestCase):
 
 
 class InstalledRelease(unittest.TestCase):
-    """Настоящий wheel: release.json собирается из `--installation` и SHA файла."""
+    """A real wheel: release.json is built from `--installation` and the file SHA."""
 
     @classmethod
     def setUpClass(cls):

@@ -4,7 +4,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { Ebt, ev } from "./src/lib/ebt/ebt";
 import { double } from "./src/double";
 
-// Свидетельства пишутся после всех случаев: классы покрытия — zero/positive/negative.
+// Evidence is written after all cases: partitions are zero/positive/negative.
 afterAll(() => {
   mkdirSync("build/ebt", { recursive: true });
   writeFileSync("build/ebt/double.jsonl", Ebt.toJsonl() + "\n");

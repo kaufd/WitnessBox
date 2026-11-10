@@ -1,8 +1,8 @@
-"""Тесты доверенной стадии: `prepare.sh` берёт `ebt/` из BASE, `replay.sh` отдаёт
-свидетельства из артефакта и является обычным `test.sh` по договору (`OUT_DIR`, коды).
+"""Tests of the trusted stage: `prepare.sh` takes `ebt/` from BASE, `replay.sh` supplies
+the evidence from the artifact and is an ordinary `test.sh` by contract (`OUT_DIR`, codes).
 
-Артефакт первой стадии — недоверенный вход: symlink, не обычный файл и неверный
-`tests_exit_code` обязаны давать код 2, а не читаться и не исполняться.
+The first-stage artifact is an untrusted input: a symlink, a non-regular file and a wrong
+`tests_exit_code` must give code 2, and must not be read or executed.
 """
 
 import json
@@ -20,7 +20,7 @@ REPLAY = KIT / "actions" / "verify" / "replay.sh"
 FIXTURE = KIT / "src/witnessbox/checker/fixtures/record.jsonl"
 
 SPEC = """[req.REQ-CART-1]
-text = "Итог корзины = сумма позиций минус скидка."
+text = "Cart total = sum of lines minus the discount."
 
 [inv.INV-CART-3]
 req = "REQ-CART-1"
@@ -45,7 +45,7 @@ class Verify(unittest.TestCase):
         (self.clone / ".gitignore").write_text("build/\n", encoding="utf-8")
         self.base = self.git_init()
 
-    # ── построение прогона ────────────────────────────────────────────────
+    # ── building the run ────────────────────────────────────────────────
 
     def git(self, *args, check=True):
         return subprocess.run(
@@ -123,7 +123,7 @@ class Verify(unittest.TestCase):
     def test_action_requires_witnessbox_from_setup(self):
         text = (KIT / "actions" / "verify" / "action.yml").read_text(encoding="utf-8")
         self.assertIn("command -v witnessbox", text)
-        self.assertIn("witnessbox не найден на PATH: сначала выполните actions/setup", text)
+        self.assertIn("witnessbox not found on PATH: run actions/setup first", text)
         self.assertNotIn("command -v ebt-gate", text)
 
     # ── prepare.sh ────────────────────────────────────────────────────────
@@ -131,8 +131,8 @@ class Verify(unittest.TestCase):
     def test_prepare_uses_base_spec_and_drops_prepare(self):
         self.write_ebt()
         base = self.commit("base ebt")
-        # Ветка задачи меняет spec и prepare.sh; вторая стадия обязана взять копию из BASE
-        # и не исполнять prepare.sh ветки.
+        # The task branch changes spec and prepare.sh; the second stage must take the copy from BASE
+        # and must not run the branch prepare.sh.
         (self.clone / "ebt" / "spec.toml").write_text("broken = [\n", encoding="utf-8")
         (self.clone / "ebt" / "prepare.sh").write_text("#!/bin/bash\ntouch branch-prepare-ran\n",
                                                        encoding="utf-8")
@@ -144,7 +144,7 @@ class Verify(unittest.TestCase):
         self.assertEqual((target / "spec.toml").read_text(encoding="utf-8"), expected_spec)
         self.assertFalse((target / "prepare.sh").exists())
         self.assertEqual((target / "test.sh").read_bytes(), REPLAY.read_bytes())
-        self.assertTrue(os.access(target / "test.sh", os.X_OK), "test.sh не исполняемый")
+        self.assertTrue(os.access(target / "test.sh", os.X_OK), "test.sh is not executable")
 
         artifact = self.artifact()
         p = self.gate(base, artifact, target)
@@ -153,10 +153,10 @@ class Verify(unittest.TestCase):
         self.assertEqual(summary["result"], "FAIL")
         self.assertIn("protected_paths_changed", summary["reasons"])
         self.assertFalse((self.clone / "branch-prepare-ran").exists(),
-                         "prepare.sh ветки не должен исполняться")
+                         "the branch prepare.sh must not run")
 
     def test_prepare_without_ebt_in_base_is_error(self):
-        # BASE без ebt/: проверку вводят тем же PR — это ERROR, а не проверка пустой ветки.
+        # BASE without ebt/: the check is introduced by the same PR; this is ERROR, not a check of an empty branch.
         base = self.git("rev-parse", "HEAD").stdout.strip()
         p = self.prepare(base)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
@@ -164,7 +164,7 @@ class Verify(unittest.TestCase):
         self.assertIn("BASE", p.stderr)
         self.assertFalse((self.root / "target").exists())
 
-    # ── replay.sh: обычный PASS/FAIL по договору test.sh ──────────────────
+    # ── replay.sh: ordinary PASS/FAIL by the test.sh contract ──────────────────
 
     def test_replay_pass_from_artifact(self):
         self.write_ebt()
@@ -191,7 +191,7 @@ class Verify(unittest.TestCase):
         self.assertEqual(summary["result"], "FAIL")
         self.assertIn("tests_failed", summary["reasons"])
 
-    # ── replay.sh: недоверенный артефакт ─────────────────────────────────
+    # ── replay.sh: untrusted artifact ─────────────────────────────────
 
     def test_replay_rejects_bad_exit_code(self):
         for value in ("0", None, True, 2, -1):

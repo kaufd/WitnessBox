@@ -1,12 +1,12 @@
-"""Проверка выпуска поставки: make release-check.
+"""Distribution release check: make release-check.
 
-1. Собирает sdist и wheel из него (не из рабочего дерева).
-2. Из извлечённого sdist запускает make test и make example (и make test-sdk, если есть
-   bun, javac и dart): sdist самодостаточен и проходит тесты.
-3. Собирает wheel из sdist и сравнивает его содержимое с выпускным.
-4. Ставит выпускной wheel в чистый venv без индекса и PYTHONPATH, сверяет дистрибутив,
-   версию и совместимый импорт установки.
-5. Пишет build/release/<version>/release.json с версией, SHA-256 артефактов и итогами.
+1. Builds the sdist and a wheel from it (not from the working tree).
+2. From the extracted sdist runs make test and make example (and make test-sdk, if
+   bun, javac and dart are present): the sdist is self-contained and passes the tests.
+3. Builds a wheel from the sdist and compares its contents with the release one.
+4. Installs the release wheel into a clean venv without an index and PYTHONPATH, checks the distribution,
+   the version and the compatible import of the installation.
+5. Writes build/release/<version>/release.json with the version, artifact SHA-256 and results.
 """
 import hashlib
 import json
@@ -31,7 +31,7 @@ def run(cmd, cwd=None):
 def single(paths):
     found = list(paths)
     if len(found) != 1:
-        raise SystemExit(f"ожидался один файл, найдено: {found}")
+        raise SystemExit(f"expected one file, found: {found}")
     return found[0]
 
 
@@ -40,24 +40,24 @@ def sha256(path: Path) -> str:
 
 
 def payload(wheel: Path) -> dict:
-    """Файлы пакета без .dist-info: метаданные сборки могут отличаться, код — нет."""
+    """Package files without .dist-info: build metadata may differ, the code may not."""
     with zipfile.ZipFile(wheel) as z:
         return {name: z.read(name) for name in z.namelist() if ".dist-info/" not in name}
 
 
 def main() -> int:
-    uv = shutil.which("uv") or sys.exit("нужен uv")
+    uv = shutil.which("uv") or sys.exit("uv is required")
     version = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
     out = ROOT / "build/release" / version
     shutil.rmtree(out, ignore_errors=True)
     out.mkdir(parents=True)
 
-    # Без --wheel uv собирает wheel из sdist: устаревший build/lib рабочего дерева в него не попадёт.
+    # Without --wheel uv builds the wheel from the sdist: a stale build/lib of the working tree will not get into it.
     run([uv, "build", "--out-dir", out / "dist", ROOT])
     wheel, sdist = single((out / "dist").glob("*.whl")), single((out / "dist").glob("*.tar.gz"))
 
     with tarfile.open(sdist) as archive:
-        # filter= появился в 3.11.4; на 3.11.0–3.11.3 распаковываем свой же sdist без него.
+        # filter= appeared in 3.11.4; on 3.11.0–3.11.3 we unpack our own sdist without it.
         if hasattr(tarfile, "data_filter"):
             archive.extractall(out / "sdist", filter="data")
         else:
@@ -81,7 +81,7 @@ def main() -> int:
          "assert Compatible is Verdict"],
         env=ENV, capture_output=True, text=True)
     if identity.returncode:
-        # Без этого при FAIL виден только флаг: причина остаётся в захваченном выводе.
+        # Without this, on FAIL only the flag is visible: the cause stays in the captured output.
         sys.stderr.write(identity.stdout + identity.stderr)
         sys.stderr.flush()
 
@@ -94,13 +94,13 @@ def main() -> int:
         "sdist": {"file": sdist.name, "sha256": sha256(sdist)},
         "installation": {k: installation[k] for k in ("distribution", "version", "gate_sha256", "checker_sha256")},
         "compat_import": identity.returncode == 0,
-        "sdist_tests": "make test example" + (" test-sdk" if sdk else "; test-sdk пропущен: нет bun или javac"),
+        "sdist_tests": "make test example" + (" test-sdk" if sdk else "; test-sdk skipped: no bun or javac"),
         "sdist_wheel_payload_identical": payload_identical,
     }
     if identity.returncode:
         release["compat_import_error"] = (identity.stdout + identity.stderr).strip() or f"exit {identity.returncode}"
     (out / "release.json").write_text(json.dumps(release, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
-    print(f"wheel из sdist совпал с выпускным: {payload_identical}")
+    print(f"wheel from the sdist matched the release one: {payload_identical}")
     print(f"\nrelease-check {version}: {release['result']} → {out / 'release.json'}")
     print(f"wheel {release['wheel']['sha256']}\nsdist {release['sdist']['sha256']}")
     return 0 if ok else 1

@@ -1,77 +1,77 @@
-# EBT: отчёт независимой проверки
+# EBT: independent verification report
 
-**Итог: ❌ не доказано**
+**Result: ❌ not proven**
 
-Спецификация `2026-10-28` (sha 4b64bde93d21) · записей: 13 · сценариев: 2
+Spec `2026-10-28` (sha 357df9c6b7aa) · records: 13 · scopes: 2
 
-| Категория | Кол-во |
+| Category | Count |
 |---|---|
-| Ложное доказательство (код: ok, чекер: нарушение) | 2 |
-| Подтверждённое нарушение | 0 |
-| Код сообщил о нарушении, чекер не согласен | 0 |
-| Неполное свидетельство | 1 |
-| Некорректное свидетельство | 0 |
-| Инвариант не зарегистрирован | 1 |
-| Не то требование | 0 |
-| Нет чекера | 0 |
-| Ошибка в чекере | 0 |
-| Потерянные записи | 0 |
-| Битая строка лога | 0 |
-| Требования без инвариантов | 1 |
-| Инварианты без записей | 0 |
-| Инварианты с непройденными классами входов | 3 |
+| False proof (code: ok, checker: violation) | 2 |
+| Confirmed violation | 0 |
+| Code reported a violation, checker disagrees | 0 |
+| Incomplete evidence | 1 |
+| Malformed evidence | 0 |
+| Invariant not registered | 1 |
+| Wrong requirement | 0 |
+| No checker | 0 |
+| Checker error | 0 |
+| Lost records | 0 |
+| Broken log line | 0 |
+| Requirements without invariants | 1 |
+| Invariants without records | 0 |
+| Invariants with uncovered partitions | 3 |
 
-## Критичные находки
+## Critical findings
 
-### Ложное доказательство (код: ok, чекер: нарушение) — `INV-CART-3`
-- Где: строка 3, scope `checkout_discount`, seq 3
-- Требование REQ-CART-1: Итог корзины = сумма (цена × количество) по позициям минус скидка. Деньги — целые копейки. Процентная скидка округляется вниз до копейки. Фиксированная скидка не больше суммы позиций. Итог не бывает отрицательным.
-- Инвариант: result == subtotal − off, где subtotal = Σ price·qty, off считается по правилу скидки из REQ-CART-1
-- Код заявил ok=True; чекер: нарушение
-- Причина: off=150, по правилу скидки percent:15 должно быть 149
-- Свидетельство: `{"lines":[[333,3]],"discount":{"type":"percent","value":15},"subtotal":999,"off":150,"result":849}`
+### False proof (code: ok, checker: violation) — `INV-CART-3`
+- Where: line 3, scope `checkout_discount`, seq 3
+- Requirement REQ-CART-1: Cart total = sum of (price × quantity) over the lines minus the discount. Money is whole minor units. A percent discount is rounded down to the minor unit. A fixed discount is not greater than the sum of the lines. The total is never negative.
+- Invariant: result == subtotal − off, where subtotal = Σ price·qty, off is computed by the discount rule from REQ-CART-1
+- Code claimed ok=True; checker: violation
+- Reason: off=150, by the discount rule percent:15 it must be 149
+- Evidence: `{"lines":[[333,3]],"discount":{"type":"percent","value":15},"subtotal":999,"off":150,"result":849}`
 
-### Ложное доказательство (код: ok, чекер: нарушение) — `INV-SYNC-1`
-- Где: строка 13, scope `sync_offline`, seq 3
-- Требование REQ-SYNC-1: При слиянии локальных и серверных записей по id побеждает большая версия, при равных версиях — серверная. Удалённые записи (tombstone) в результат не попадают. Дублей по id в результате нет.
-- Инвариант: out совпадает с результатом слияния local и remote по правилу REQ-SYNC-1
-- Код заявил ok=True; чекер: нарушение
-- Причина: лишние/удалённые ['e']
-- Свидетельство: `{"local":[["e",5,false]],"remote":[["e",5,true]],"out":[["e",5]]}`
+### False proof (code: ok, checker: violation) — `INV-SYNC-1`
+- Where: line 13, scope `sync_offline`, seq 3
+- Requirement REQ-SYNC-1: When merging local and server records by id, the greater version wins, on equal versions the server one. Deleted records (tombstones) do not get into the result. There are no duplicate ids in the result.
+- Invariant: out matches the result of merging local and remote by the rule REQ-SYNC-1
+- Code claimed ok=True; checker: violation
+- Reason: extra/deleted ['e']
+- Evidence: `{"local":[["e",5,false]],"remote":[["e",5,true]],"out":[["e",5]]}`
 
-### Неполное свидетельство — `INV-CART-3`
-- Где: строка 9, scope `checkout_discount`, seq 9
-- Требование REQ-CART-1: Итог корзины = сумма (цена × количество) по позициям минус скидка. Деньги — целые копейки. Процентная скидка округляется вниз до копейки. Фиксированная скидка не больше суммы позиций. Итог не бывает отрицательным.
-- Инвариант: result == subtotal − off, где subtotal = Σ price·qty, off считается по правилу скидки из REQ-CART-1
-- Код заявил ok=True; чекер: не смог проверить
-- Причина: нет полей: lines, discount, subtotal, off
-- Свидетельство: `{"result":8490}`
+### Incomplete evidence — `INV-CART-3`
+- Where: line 9, scope `checkout_discount`, seq 9
+- Requirement REQ-CART-1: Cart total = sum of (price × quantity) over the lines minus the discount. Money is whole minor units. A percent discount is rounded down to the minor unit. A fixed discount is not greater than the sum of the lines. The total is never negative.
+- Invariant: result == subtotal − off, where subtotal = Σ price·qty, off is computed by the discount rule from REQ-CART-1
+- Code claimed ok=True; checker: could not verify
+- Reason: missing fields: lines, discount, subtotal, off
+- Evidence: `{"result":8490}`
 
-### Инвариант не зарегистрирован — `INV-CART-9`
-- Где: строка 10, scope `checkout_discount`, seq 10
-- Код заявил ok=True; чекер: не смог проверить
-- Причина: нет в ebt/spec.toml — новый инвариант должен пройти утверждение
-- Свидетельство: `{"items":2}`
+### Invariant not registered — `INV-CART-9`
+- Where: line 10, scope `checkout_discount`, seq 10
+- Code claimed ok=True; checker: could not verify
+- Reason: not in ebt/spec.toml: a new invariant must be approved
+- Evidence: `{"items":2}`
 
 
-## Покрытие
+## Coverage
 
-- **REQ-PROFILE-1** не формализовано ни одним инвариантом
-- **INV-CART-3**: не встретились классы входов: `empty_cart`, `percent`, `percent_rounding`, `fixed_exceeds_subtotal`
-- **INV-SYNC-1**: не встретились классы входов: `conflict_remote_wins`
-- **SM-CHECKOUT**: не встретились классы входов: `confirmed --edit--> cart`
+- **REQ-PROFILE-1** is not formalized by any invariant
+- **INV-CART-3**: partitions not encountered: `empty_cart`, `percent`, `percent_rounding`, `fixed_exceeds_subtotal`
+- **INV-SYNC-1**: partitions not encountered: `conflict_remote_wins`
+- **SM-CHECKOUT**: partitions not encountered: `confirmed --edit--> cart`
 
-## Изменения относительно прошлого прогона
+## Changes since the previous run
 
-- появился `checkout_discount / INV-CART-9`
-- `checkout_discount / INV-CART-3`: записей было 3, стало 4
-- `checkout_discount / INV-CART-3`, запись №2: off: 149 → 150; result: 850 → 849
-- `sync_offline / INV-SYNC-1`, запись №3: out: [] → [["e", 5]]
+- `checkout_discount / INV-CART-9` appeared
+- `checkout_discount / INV-CART-3`: records were 3, now 4
+- `checkout_discount / INV-CART-3`, record #2: off: 149 → 150; result: 850 → 849
+- `sync_offline / INV-SYNC-1`, record #3: out: [] → [["e", 5]]
 
-## Самопроверка чекеров
+## Checker self-test
 
-Каждое поле свидетельства и первые элементы его списков портятся, и проверяется, что чекер это замечает.
+Each evidence field and the first elements of its lists are corrupted, and the checker is verified to notice it.
 
-- ℹ️ **INV-CART-3**: порча пути `discount.type` ловится только проверкой формы: подставьте в тест другое допустимое значение или проверьте, что чекер сверяет его с правилом
-- **INV-SYNC-1**: порча любого поля ловится (образцов: 2)
-- **SM-CHECKOUT**: порча любого поля ловится (образцов: 5)
+- ℹ️ **INV-CART-3**: corruption of path `discount.type` is caught only by the shape check: substitute another valid value in the test or check that the checker compares it with the rule
+- **INV-SYNC-1**: corruption of any field is caught (samples: 2)
+- **SM-CHECKOUT**: corruption of any field is caught (samples: 5)

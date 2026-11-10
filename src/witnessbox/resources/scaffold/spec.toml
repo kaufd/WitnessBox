@@ -1,61 +1,61 @@
-# ebt/spec.toml — реестр требований и инвариантов проекта (EBT, уровень решения).
+# ebt/spec.toml: registry of the project requirements and invariants (EBT, decision level).
 #
-# Это спецификация, а не код. Её пишет аналитик из тикета, решений владельца и эталона
-# до кода, а утверждает человек (решение D4). Агент, который пишет код приложения, этот
-# файл не меняет. Заготовка ниже — пример для замены: идентификаторы EXAMPLE и правило
-# `example_rule` не должны попасть в утверждённую спецификацию продукта.
+# This is a spec, not code. An analyst writes it from the ticket, owner decisions and the reference
+# before the code, and a human approves it (decision D4). The agent that writes the application code
+# does not change this file. The scaffold below is an example to replace: the EXAMPLE identifiers and the rule
+# `example_rule` must not end up in the approved product spec.
 #
-# [req.<ID>] — требование:
-#   text   — что должно быть верно, словами предметной области;
-#   source — откуда взято: ticket, decision <дата>, <эталон>: path:line.
+# [req.<ID>]: requirement:
+#   text   — what must be true, in domain terms;
+#   source — where it comes from: ticket, decision <date>, <reference>: path:line.
 #
-# [inv.<ID>] — проверяемая формулировка требования:
-#   req        — какой REQ формализует инвариант;
-#   statement  — одна фраза для человека;
-#   checker    — имя в CHECKERS из ebt/checks.py или чекер ядра
+# [inv.<ID>]: checkable formulation of the requirement:
+#   req        — which REQ the invariant formalizes;
+#   statement  — one phrase for a human;
+#   checker    — name in CHECKERS from ebt/checks.py or a core checker
 #                (cart_total, transition, sync_merge);
-#   witness    — поля data, без которых результат нельзя пересчитать;
-#   partitions — классы входов, каждый из которых обязан встретиться в прогоне.
+#   witness    — data fields without which the result cannot be recomputed;
+#   partitions — input partitions, each of which must occur in the run.
 #
-# Для машины состояний вместо partitions задайте checker = "transition" и
-# transitions = [[from, event, to], ...]; классы покрытия выводятся по одному на переход.
+# For a state machine, instead of partitions set checker = "transition" and
+# transitions = [[from, event, to], ...]; one coverage partition is derived per transition.
 #
-# Для требования с видимым или сохраняемым исходом добавьте близнеца <INV>-OBS с тем же
-# checker и witness, но своими partitions: его записи делает тест по наблюдению (D29).
+# For a requirement with a visible or persisted outcome, add a twin <INV>-OBS with the same
+# checker and witness but its own partitions: its records are made by the observation test (D29).
 #
-# Правило проверяется независимо: checks.py не импортирует приложение и SDK и не смотрит
-# на поле ok. Стоимость поддержки спецификации ниже, если witness — минимальный набор
-# входов и выходов, а partitions — реальные границы из требования, а не перечень тестов.
+# The rule is verified independently: checks.py does not import the application or SDK and does not look
+# at the ok field. The spec maintenance cost is lower if the witness is the minimal set
+# of inputs and outputs, and partitions are the real boundaries from the requirement, not a list of tests.
 
 [meta]
-version = "YYYY-MM-DD"  # замените на дату утверждения спецификации человеком
+version = "YYYY-MM-DD"  # replace with the date a human approved the spec
 
-# ── Пример: замените на утверждённое требование ───────────────────────
+# ── Example: replace with an approved requirement ───────────────────────
 
 [req.REQ-EXAMPLE-1]
-text = """Итог равен удвоенному значению: result = value × 2. Это пример шаблона,
-а не требование продукта: замените текст, ID и source утверждённым требованием."""
-source = """ticket: <номер и цитата>; decision <дата>: <цитата>"""
+text = """The result is twice the value: result = value × 2. This is a template example,
+not a product requirement: replace the text, ID and source with an approved requirement."""
+source = """ticket: <number and quote>; decision <date>: <quote>"""
 
 [inv.INV-EXAMPLE-1]
 req = "REQ-EXAMPLE-1"
 statement = "result == value × 2"
 checker = "example_rule"
 witness = ["value", "result"]
-# Классы входов, которые обязаны встретиться в свидетельствах. Нарушение правила —
-# не класс покрытия: его проверяет test_checks.py, а свидетельство с ним даёт находку.
+# Input partitions that must occur in the evidence. A rule violation is
+# not a coverage partition: test_checks.py checks it, and evidence with it yields a finding.
 partitions = ["zero", "positive", "negative"]
 
-# ── Пример машины состояний (раскомментируйте и замените) ─────────────
+# ── State machine example (uncomment and replace) ─────────────
 #
 # [req.REQ-CHECKOUT-1]
-# text = """Оплатить можно только подтверждённую корзину; после оплаты вернуться
-# в редактирование нельзя."""
-# source = """ticket: <номер и цитата>"""
+# text = """Only a confirmed cart can be paid for; after payment returning
+# to editing is not possible."""
+# source = """ticket: <number and quote>"""
 #
 # [inv.SM-CHECKOUT]
 # req = "REQ-CHECKOUT-1"
-# statement = "Каждый переход есть в таблице, все переходы таблицы встречаются в прогоне"
+# statement = "Every transition is in the table, all table transitions occur in the run"
 # checker = "transition"
 # witness = ["from", "event", "to"]
 # transitions = [

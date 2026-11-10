@@ -1,15 +1,15 @@
-"""Независимые чекеры EBT.
+"""Independent EBT checkers.
 
-Каждый чекер — отдельная реализация правила из требования (ebt/spec.toml),
-написанная НЕ тем, кто писал код приложения. Чекер:
-  * получает только witness (поле data записи) и описание инварианта;
-  * никогда не смотрит на поле ok — это всего лишь заявление кода;
-  * возвращает свой вердикт, причину и классы входов (partitions),
-    к которым относится запись, — из них строится отчёт покрытия.
+Each checker is a separate implementation of a rule from the requirement (ebt/spec.toml),
+written NOT by whoever wrote the application code. The checker:
+  * receives only the witness (the record data field) and the invariant description;
+  * never looks at the ok field, which is merely a claim by the code;
+  * returns its own verdict, reason and input partitions,
+    to which the record belongs; the coverage report is built from them.
 
-Чекер написан на другом языке, чем приложение, намеренно:
-переиспользовать код приложения физически невозможно, поэтому ошибка
-в понимании требования не может «согласованно» попасть в обе стороны.
+The checker is deliberately written in a different language than the application:
+reusing application code is physically impossible, so a mistake
+in understanding the requirement cannot get into both sides "consistently".
 """
 
 from __future__ import annotations
@@ -23,21 +23,21 @@ from witnessbox.api import CheckFn, PartitionsFn, Verdict, WitnessError
 
 
 def _int(v: Any, name: str) -> int:
-    # bool — подкласс int в Python, но в свидетельстве это ошибка типа.
+    # bool is a subclass of int in Python, but in the evidence it is a type error.
     if isinstance(v, bool) or not isinstance(v, int):
-        raise WitnessError(f"{name}: ожидалось целое, получено {v!r}")
+        raise WitnessError(f"{name}: expected an integer, got {v!r}")
     return v
 
 
 def _flag(v: Any, name: str) -> bool:
     if not isinstance(v, bool):
-        raise WitnessError(f"{name}: ожидалось true/false, получено {v!r}")
+        raise WitnessError(f"{name}: expected true/false, got {v!r}")
     return v
 
 
 def _list(v: Any, name: str) -> list:
     if not isinstance(v, list):
-        raise WitnessError(f"{name}: ожидался список, получено {type(v).__name__}")
+        raise WitnessError(f"{name}: expected a list, got {type(v).__name__}")
     return v
 
 
@@ -50,15 +50,15 @@ def cart_total(w: dict, inv: dict) -> Verdict:
     for i, line in enumerate(lines):
         pair = _list(line, f"lines[{i}]")
         if len(pair) != 2:
-            raise WitnessError(f"lines[{i}]: ожидалось [price, qty]")
+            raise WitnessError(f"lines[{i}]: expected [price, qty]")
         price, qty = _int(pair[0], f"lines[{i}].price"), _int(pair[1], f"lines[{i}].qty")
         if price < 0 or qty < 1:
-            return Verdict(False, f"lines[{i}]: недопустимые price={price}, qty={qty}")
+            return Verdict(False, f"lines[{i}]: invalid price={price}, qty={qty}")
         subtotal += price * qty
 
     d = w["discount"]
     if not isinstance(d, dict) or "type" not in d or "value" not in d:
-        raise WitnessError("discount: ожидалось {type, value}")
+        raise WitnessError("discount: expected {type, value}")
     dtype, dval = d["type"], _int(d["value"], "discount.value")
 
     parts: set[str] = set()
@@ -67,25 +67,25 @@ def cart_total(w: dict, inv: dict) -> Verdict:
 
     if dtype == "none":
         if dval != 0:
-            return Verdict(False, f"discount none с ненулевым value={dval}", parts)
+            return Verdict(False, f"discount none with non-zero value={dval}", parts)
         expected_off = 0
         parts.add("no_discount")
     elif dtype == "percent":
         if not 0 <= dval <= 100:
-            return Verdict(False, f"процент вне 0..100: {dval}", parts)
-        expected_off = subtotal * dval // 100  # округление вниз до копейки
+            return Verdict(False, f"percent outside 0..100: {dval}", parts)
+        expected_off = subtotal * dval // 100  # rounding down to the minor unit
         parts.add("percent")
         if subtotal * dval % 100:
             parts.add("percent_rounding")
     elif dtype == "fixed":
         if dval < 0:
-            return Verdict(False, f"отрицательная фиксированная скидка {dval}", parts)
+            return Verdict(False, f"negative fixed discount {dval}", parts)
         expected_off = min(dval, subtotal)
         parts.add("fixed")
         if dval > subtotal:
             parts.add("fixed_exceeds_subtotal")
     else:
-        raise WitnessError(f"discount.type: неизвестный тип {dtype!r}")
+        raise WitnessError(f"discount.type: unknown type {dtype!r}")
 
     expected_result = subtotal - expected_off
     got_sub = _int(w["subtotal"], "subtotal")
@@ -93,17 +93,17 @@ def cart_total(w: dict, inv: dict) -> Verdict:
     got_res = _int(w["result"], "result")
 
     if got_sub != subtotal:
-        return Verdict(False, f"subtotal={got_sub}, пересчёт по lines даёт {subtotal}", parts)
+        return Verdict(False, f"subtotal={got_sub}, recomputing from lines gives {subtotal}", parts)
     if got_off != expected_off:
-        return Verdict(False, f"off={got_off}, по правилу скидки {dtype}:{dval} должно быть {expected_off}", parts)
+        return Verdict(False, f"off={got_off}, by the discount rule {dtype}:{dval} it must be {expected_off}", parts)
     if got_res != expected_result:
-        return Verdict(False, f"result={got_res}, должно быть {expected_result}", parts)
+        return Verdict(False, f"result={got_res}, must be {expected_result}", parts)
     if got_res < 0:
-        return Verdict(False, f"отрицательный итог {got_res}", parts)
+        return Verdict(False, f"negative result {got_res}", parts)
     return Verdict(True, "", parts)
 
 
-# ── Машины состояний ──────────────────────────────────────────────────
+# ── State machines ──────────────────────────────────────────────────
 
 
 def _transition_key(t: list) -> str:
@@ -115,14 +115,14 @@ def transition(w: dict, inv: dict) -> Verdict:
     t = [w["from"], w["event"], w["to"]]
     for i, v in enumerate(t):
         if not isinstance(v, str):
-            raise WitnessError(f"{['from', 'event', 'to'][i]}: ожидалась строка")
+            raise WitnessError(f"{['from', 'event', 'to'][i]}: expected a string")
     if t in table:
         return Verdict(True, "", {_transition_key(t)})
     states = {s for row in table for s in (row[0], row[2])}
     if t[0] not in states:
-        return Verdict(False, f"неизвестное состояние from={t[0]!r}")
+        return Verdict(False, f"unknown state from={t[0]!r}")
     allowed = [f"{r[1]}→{r[2]}" for r in table if r[0] == t[0]]
-    return Verdict(False, f"переход {_transition_key(t)} не разрешён; из {t[0]!r} можно: {', '.join(allowed) or 'никуда'}")
+    return Verdict(False, f"transition {_transition_key(t)} is not allowed; from {t[0]!r} one can go to: {', '.join(allowed) or 'nowhere'}")
 
 
 def transition_partitions(inv: dict) -> list[str]:
@@ -137,7 +137,7 @@ def _records(v: Any, name: str, width: int) -> list[tuple]:
     for i, row in enumerate(_list(v, name)):
         row = _list(row, f"{name}[{i}]")
         if len(row) != width:
-            raise WitnessError(f"{name}[{i}]: ожидалось {width} поля")
+            raise WitnessError(f"{name}[{i}]: expected {width} fields")
         out.append(tuple(row))
     return out
 
@@ -150,7 +150,7 @@ def sync_merge(w: dict, inv: dict) -> Verdict:
     for name, rows in (("local", local), ("remote", remote)):
         ids = [r[0] for r in rows]
         if len(ids) != len(set(ids)):
-            raise WitnessError(f"{name}: дубли id во входе")
+            raise WitnessError(f"{name}: duplicate ids in the input")
 
     loc = {r[0]: (_int(r[1], "local.version"), _flag(r[2], "local.deleted")) for r in local}
     rem = {r[0]: (_int(r[1], "remote.version"), _flag(r[2], "remote.deleted")) for r in remote}
@@ -167,7 +167,7 @@ def sync_merge(w: dict, inv: dict) -> Verdict:
                 ver, deleted = rv, rd
                 parts.add("conflict_remote_wins")
             else:
-                ver, deleted = rv, rd  # при равенстве — серверная
+                ver, deleted = rv, rd  # on a tie, the server one
                 parts.add("conflict_tie")
         elif key in loc:
             ver, deleted = loc[key]
@@ -183,7 +183,7 @@ def sync_merge(w: dict, inv: dict) -> Verdict:
     out_ids = [r[0] for r in out]
     dups = sorted({i for i in out_ids if out_ids.count(i) > 1}, key=str)
     if dups:
-        return Verdict(False, f"дубли id в результате: {dups[:5]}", parts)
+        return Verdict(False, f"duplicate ids in the result: {dups[:5]}", parts)
     got = {r[0]: _int(r[1], "out.version") for r in out}
 
     missing = sorted(expected.keys() - got.keys(), key=str)
@@ -192,16 +192,16 @@ def sync_merge(w: dict, inv: dict) -> Verdict:
     if missing or extra or wrong:
         msg = []
         if missing:
-            msg.append(f"потеряны {missing[:5]}")
+            msg.append(f"lost {missing[:5]}")
         if extra:
-            msg.append(f"лишние/удалённые {extra[:5]}")
+            msg.append(f"extra/deleted {extra[:5]}")
         if wrong:
-            msg.append("не та версия " + ", ".join(f"{k}: {got[k]}≠{expected[k]}" for k in wrong[:5]))
+            msg.append("wrong version " + ", ".join(f"{k}: {got[k]}≠{expected[k]}" for k in wrong[:5]))
         return Verdict(False, "; ".join(msg), parts)
     return Verdict(True, "", parts)
 
 
-# ── Реестр ────────────────────────────────────────────────────────────
+# ── Registry ────────────────────────────────────────────────────────────
 
 CHECKERS: dict[str, CheckFn] = {
     "cart_total": cart_total,
@@ -209,12 +209,12 @@ CHECKERS: dict[str, CheckFn] = {
     "sync_merge": sync_merge,
 }
 
-# Чекеры, у которых классы покрытия выводятся из спецификации, а не задаются списком.
+# Checkers whose coverage partitions are derived from the spec rather than given as a list.
 DERIVED_PARTITIONS: dict[str, PartitionsFn] = {
     "transition": transition_partitions,
 }
 
-# Прежний и канонический пути импорта используют один реестр.
+# The legacy and canonical import paths use one registry.
 _canonical = "witnessbox.checker.checkers"
 _current = sys.modules[__name__]
 if _canonical in sys.modules:

@@ -1,16 +1,16 @@
-# Публикация выпуска в TestPyPI или PyPI через Trusted Publishing (OIDC, без API-токена).
-# Workflow ничего не собирает: он берёт файлы, приложенные к GitHub Release тега после
-# `make release-check`, поэтому в индекс попадают те же байты, чьи SHA-256 записаны в журнале решений.
+# Publishing a release to TestPyPI or PyPI via Trusted Publishing (OIDC, no API token).
+# The workflow builds nothing: it takes the files attached to the tag GitHub Release after
+# `make release-check`, so the index gets the same bytes whose SHA-256 are recorded in the decision log.
 name: publish
 
 on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Тег выпуска, например v0.5.1"
+        description: "Release tag, for example v0.5.1"
         required: true
       index:
-        description: "Индекс пакетов"
+        description: "Package index"
         type: choice
         options: [testpypi, pypi]
         default: testpypi
@@ -27,7 +27,7 @@ jobs:
       contents: read
       id-token: write
     steps:
-      - name: Скачать артефакты выпуска и сверить с release.json
+      - name: Download the release artifacts and verify them against release.json
         env:
           GH_TOKEN: ${{ github.token }}
           TAG: ${{ inputs.tag }}
@@ -54,12 +54,12 @@ jobs:
           EOF
           rm dist/release.json
 
-      - name: Опубликовать в TestPyPI
+      - name: Publish to TestPyPI
         if: inputs.index == 'testpypi'
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3
         with:
           repository-url: https://test.pypi.org/legacy/
 
-      - name: Опубликовать в PyPI
+      - name: Publish to PyPI
         if: inputs.index == 'pypi'
         uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086 # v1.14.3

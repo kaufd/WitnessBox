@@ -1,56 +1,59 @@
-# Разработка
+# Development
 
-Нужны Python 3.11+ и `uv` для установки/сборки wheel и sdist. Runtime использует стандартную библиотеку. SDK-тесты требуют JDK 17+ и Bun.
+**English** · [Русский](development.ru.md)
 
-Из корня репозитория:
+You need Python 3.11+ and `uv` to install and build the wheel and sdist. The runtime uses the standard library. The SDK tests require JDK 17+ and Bun.
+
+From the repository root:
 
 ```bash
-make test        # source checker, установленный wheel-гейт, заготовка ebt/ и скрипты actions
-make test-actions  # только скрипты actions/setup и actions/verify
-make test-sdk    # Java, TypeScript и Dart SDK
-make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
-make e2e STACK=ts|jvm|generic  # сквозной пример: заготовка → PASS → дефект → FAIL
-make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере
-make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
+make test        # source checker, installed wheel gate, ebt/ scaffold and actions scripts
+make test-actions  # only the actions/setup and actions/verify scripts
+make test-sdk    # Java, TypeScript and Dart SDKs
+make format-dart  # dart format does not change ebt.dart (part of test-sdk)
+make example     # rebuild the demonstration with four intentional defects
+make e2e STACK=ts|jvm|generic  # end-to-end example: scaffold → PASS → defect → FAIL
+make test-linux  # make test and make example for the committed HEAD in a Linux container
+make release-check  # release check: sdist → wheel, tests from the sdist, wheel comparison
 ```
 
-`make test` и `make example` работают без сети и без Bun/Gradle. `make e2e`
-собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
-установленную команду `witnessbox gate` дважды и проверяет `checker_failed`; нужна `witnessbox` из
-wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`) и сеть для
-зависимостей. Сгенерированные Gradle wrapper и `node_modules` в репозиторий не
-коммитятся.
+`make test` and `make example` work without a network and without Bun/Gradle. `make e2e`
+builds a temporary git repository, applies the scaffold and the example, runs the
+installed `witnessbox gate` command twice and checks for `checker_failed`; it needs `witnessbox` from the
+wheel, Bun (for `ts` and `generic`), Gradle with JDK 17 (for `jvm`) and a network for
+dependencies. The generated Gradle wrapper and `node_modules` are not
+committed to the repository.
 
-Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13), `make test-sdk` и `make e2e` для `ts`, `generic` и `jvm` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+The [test](../.github/workflows/test.yml) workflow runs `make test example` on Linux and macOS (Python 3.11 and 3.13), `make test-sdk` and `make e2e` for `ts`, `generic` and `jvm` on every PR; `make test-linux` and `make release-check` stay local.
 
-Standalone artifacts собираются и проверяются отдельно:
+Standalone artifacts are built and checked separately:
 
 ```bash
 uv build
 uv tool install --force dist/witnessbox-0.7.0-py3-none-any.whl
 ```
 
-Интеграционные тесты гейта устанавливают wheel во временное изолированное окружение; они проверяют поставку без editable install и без `PYTHONPATH`. Source-checker tests используют `PYTHONPATH=src` локально как тесты дерева разработки. Этот приём не нужен проектным расширениям: установленные чекеры импортируют типы через `witnessbox.api`.
+The gate integration tests install the wheel into a temporary isolated environment; they check the distribution without an editable install and without `PYTHONPATH`. The source-checker tests use `PYTHONPATH=src` locally as development-tree tests. Project extensions do not need this trick: installed checkers import the types through `witnessbox.api`.
 
-`make release-check` собирает sdist и wheel из него, запускает из извлечённого sdist `make test example` и `make test-sdk` (если есть bun, javac и dart), сравнивает wheel из sdist с выпускным и ставит выпускной wheel в чистый venv без индекса, проверяя версию и отпечатки установки. Итог, версия и SHA-256 артефактов — в `build/release/<версия>/release.json`. `uv build` собирает sdist, а wheel — из него. `uv build --wheel` собирает напрямую из рабочего дерева и переиспользует устаревший `build/lib`: в wheel могут попасть удалённые из исходников модули, поэтому для выпуска и проверок используется только сборка через sdist.
+`make release-check` builds the sdist and a wheel from it, runs `make test example` and `make test-sdk` (if bun, javac and dart are present) from the extracted sdist, compares the wheel from the sdist with the release one, and installs the release wheel into a clean venv without an index, checking the version and the installation fingerprints. The result, the version and the SHA-256 of the artifacts are in `build/release/<version>/release.json`. `uv build` builds the sdist, and the wheel from it. `uv build --wheel` builds directly from the working tree and reuses a stale `build/lib`: modules deleted from the sources may end up in the wheel, so only the build through the sdist is used for releases and checks.
 
-Для `make test-linux` нужен работающий docker; образ задаёт `LINUX_IMAGE`. На Linux пропускается только проверка гейта без доступа к исходникам: она использует macOS `sandbox-exec`.
+`make test-linux` needs a working docker; the image is set by `LINUX_IMAGE`. On Linux, only the gate check without access to the sources is skipped: it uses macOS `sandbox-exec`.
 
-`make example` ожидаемо получает FAIL, потому что пример содержит четыре дефекта. Он также запускает self-test. При изменении чекера или классификации добавьте целевые случаи корректного свидетельства и каждого изменённого класса ошибки, затем запустите `make test` и `make example`. Изменения SDK требуют соответствующих тестов (`make test-sdk`). Подробные правила для изменений перечислены в корневом [CLAUDE.md](../CLAUDE.md).
+`make example` is expected to get FAIL, because the example contains four defects. It also runs the self-test. When you change the checker or the classification, add targeted cases of correct evidence and of each changed error class, then run `make test` and `make example`. SDK changes require the corresponding tests (`make test-sdk`). The detailed rules for changes are listed in the root [CLAUDE.md](../CLAUDE.md).
 
-## Выпуск
+## Release
 
-Публикуются ровно те файлы, которые проверил `make release-check`: workflow [publish](../.github/workflows/publish.yml) ничего не собирает, а скачивает wheel, sdist и `release.json` из GitHub Release тега, сверяет SHA-256 с `release.json` и загружает файлы через Trusted Publishing (D40).
+Exactly the files that `make release-check` verified are published: the [publish](../.github/workflows/publish.yml) workflow builds nothing, but downloads the wheel, sdist and `release.json` from the GitHub Release of the tag, checks the SHA-256 against `release.json` and uploads the files through Trusted Publishing (D40).
 
-1. Поднять `version` в `pyproject.toml`, закоммитить, выполнить `make release-check` — итог PASS в `build/release/<версия>/release.json`.
-2. Поставить тег на этот коммит и отправить его: `git tag -a v<версия> -m ...`, `git push origin v<версия>`.
-3. Создать prerelease с проверенными файлами: `gh release create v<версия> --prerelease build/release/<версия>/dist/* build/release/<версия>/release.json`.
-4. Необязательно, пробный выпуск (нужен pending publisher на test.pypi.org с окружением `testpypi`): `gh workflow run publish.yml -f tag=v<версия> -f index=testpypi`, затем установка в чистое окружение — `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<версия> witnessbox --installation` и `witnessbox scaffold` во временный каталог.
-5. Выпуск: `gh workflow run publish.yml -f tag=v<версия> -f index=pypi`; SHA-256 файлов на PyPI сверить с `release.json`, проверить `uvx --from witnessbox==<версия> witnessbox --installation` и `--scaffold`, затем `gh release edit v<версия> --prerelease=false --latest`.
-6. Следующим коммитом — запись о выпуске с SHA-256 в журнале решений.
+1. Bump `version` in `pyproject.toml`, commit, and run `make release-check`: the result is PASS in `build/release/<version>/release.json`.
+2. Tag that commit and push the tag: `git tag -a v<version> -m ...`, `git push origin v<version>`.
+3. Create a prerelease with the verified files: `gh release create v<version> --prerelease build/release/<version>/dist/* build/release/<version>/release.json`.
+4. Optional, a trial release (needs a pending publisher on test.pypi.org with the `testpypi` environment): `gh workflow run publish.yml -f tag=v<version> -f index=testpypi`, then install into a clean environment: `uv tool run --default-index https://test.pypi.org/simple/ --from witnessbox==<version> witnessbox --installation` and `witnessbox scaffold` into a temporary directory.
+5. Release: `gh workflow run publish.yml -f tag=v<version> -f index=pypi`; compare the SHA-256 of the files on PyPI with `release.json`, check `uvx --from witnessbox==<version> witnessbox --installation` and `--scaffold`, then `gh release edit v<version> --prerelease=false --latest`.
+6. In the next commit, add the release entry with the SHA-256 to the decision log.
 
-Повторно загрузить файл с той же версией PyPI не даёт, поэтому ошибка после шага 5 исправляется только новой версией.
+PyPI does not allow uploading a file again with the same version, so an error after step 5 can be fixed only with a new version.
 
-## Совместимость импортов
+## Import compatibility
 
-Библиотечные импорты `from checkers import Verdict, WitnessError` и `from ebt_verification.api import Verdict, WitnessError` остаются совместимыми для установленной поставки: оба возвращают объекты из `witnessbox.api`. Внутренние модули старого пакета (`ebt_verification.checker.*`, `ebt_verification.cli`) не реэкспортируются: это не поддерживаемый интерфейс, их пути после переименования — `witnessbox.checker.*` и `witnessbox.cli`. Предпочтительный публичный импорт — `from witnessbox.api import Verdict, WitnessError`; новые шаблоны заготовки используют его. Ни shim каталога `tool/ebt_check`, ни symlink `lib/ebt` в текущем дереве исходников нет.
+The library imports `from checkers import Verdict, WitnessError` and `from ebt_verification.api import Verdict, WitnessError` stay compatible for the installed distribution: both return objects from `witnessbox.api`. The internal modules of the old package (`ebt_verification.checker.*`, `ebt_verification.cli`) are not re-exported: they are not a supported interface, and after the rename their paths are `witnessbox.checker.*` and `witnessbox.cli`. The preferred public import is `from witnessbox.api import Verdict, WitnessError`; the new scaffold templates use it. The current source tree has neither a `tool/ebt_check` directory shim nor a `lib/ebt` symlink.

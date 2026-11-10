@@ -1,6 +1,6 @@
-"""Тесты gate.sh, команды witnessbox и заготовки ebt/: договор с test.sh проекта
-(OUT_DIR, коды), свежесть свидетельств, итог попытки, шаблоны spec/test.sh/pinned.txt
-и `scaffold`.
+"""Tests of gate.sh, the witnessbox command and the ebt/ scaffold: the contract with the project test.sh
+(OUT_DIR, codes), evidence freshness, the attempt result, the spec/test.sh/pinned.txt templates
+and `scaffold`.
 
 python3 -m unittest discover -s tests
 """
@@ -20,7 +20,7 @@ FIXTURE = KIT / "src/witnessbox/checker/fixtures/record.jsonl"
 VERSION = tomllib.loads((KIT / "pyproject.toml").read_text(encoding="utf-8"))["project"]["version"]
 
 SPEC = """[req.REQ-CART-1]
-text = "Итог корзины = сумма позиций минус скидка."
+text = "Cart total = sum of lines minus the discount."
 
 [inv.INV-CART-3]
 req = "REQ-CART-1"
@@ -40,7 +40,7 @@ class Gate(unittest.TestCase):
         self.new_project()
 
     def new_project(self):
-        """Свежий проект: отдельные клон и каталог проверки для независимого случая."""
+        """A fresh project: a separate clone and checks directory for an independent case."""
         tmp = tempfile.TemporaryDirectory()
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name)
@@ -49,8 +49,8 @@ class Gate(unittest.TestCase):
         self.ebt.mkdir()
         (self.ebt / "spec.toml").write_text(SPEC, encoding="utf-8")
         (self.clone / ".gitignore").write_text("build/\n")
-        # commit запускает `git maintenance run --auto --detach` в фоне: его maintenance.lock
-        # гоняется с rmtree клона в случаях problem_cases и роняет тест (macOS CI).
+        # commit runs `git maintenance run --auto --detach` in the background: its maintenance.lock
+        # races with the clone rmtree in the problem_cases cases and fails the test (macOS CI).
         git = ["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
                "-c", "maintenance.auto=false"]
         subprocess.run([*git, "init", "-q"], check=True)
@@ -83,7 +83,7 @@ class Gate(unittest.TestCase):
             cwd=cwd, capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
 
     def fake_checker(self, rc: int) -> Path:
-        """Подставной чекер на PATH: всегда отвечает кодом rc."""
+        """A fake checker on PATH: always answers with code rc."""
         bin_dir = self.run_dir.parent / "bin"
         bin_dir.mkdir(exist_ok=True)
         fake = bin_dir / "fake-check"
@@ -158,10 +158,10 @@ class Gate(unittest.TestCase):
     def case_base_changed(self) -> dict:
         (self.clone / "ebt").mkdir()
         marker = self.clone / "ebt/marker"
-        marker.write_text("до BASE", encoding="utf-8")
-        base = self.commit_clone("ebt/marker в BASE")
-        marker.write_text("после BASE", encoding="utf-8")
-        self.commit_clone("изменение защищённого ebt/")
+        marker.write_text("before BASE", encoding="utf-8")
+        base = self.commit_clone("ebt/marker in BASE")
+        marker.write_text("after BASE", encoding="utf-8")
+        self.commit_clone("change of the protected ebt/")
         return {"BASE": base}
 
     def case_unknown_checker_out_of_scope(self) -> dict:
@@ -180,23 +180,23 @@ class Gate(unittest.TestCase):
         shutil.rmtree(self.clone)
         self.clone.mkdir()
         subprocess.run(["git", "-C", str(self.clone), "init", "-q"], check=True)
-        # Неотслеживаемый файл, как в свежем проекте: причина — отсутствие коммитов, а не грязное дерево.
+        # An untracked file, as in a fresh project: the cause is the absence of commits, not a dirty tree.
         (self.clone / ".gitignore").write_text("build/\n")
         return {}
 
     def problem_cases(self):
         return {
-            "checks: неизвестный checker": (self.case_unknown_checker, "checks"),
-            "checks: EBT_CHECK не найден": (self.case_missing_ebt_check, "checks"),
-            "checks: checks.py падает": (self.case_broken_checks, "checks"),
-            "checks: имя чекера ядра": (self.case_core_checker, "checks"),
-            "spec: неизвестный EBT_INV": (self.case_unknown_ebt_inv, "spec"),
-            "runner: test.sh не исполняем": (self.case_non_executable_test_sh, "runner"),
-            "pinned: расхождение": (self.case_pinned_drift, "pinned"),
-            "clone: грязное дерево": (self.case_dirty_clone, "clone"),
+            "checks: unknown checker": (self.case_unknown_checker, "checks"),
+            "checks: EBT_CHECK not found": (self.case_missing_ebt_check, "checks"),
+            "checks: checks.py crashes": (self.case_broken_checks, "checks"),
+            "checks: core checker name": (self.case_core_checker, "checks"),
+            "spec: unknown EBT_INV": (self.case_unknown_ebt_inv, "spec"),
+            "runner: test.sh is not executable": (self.case_non_executable_test_sh, "runner"),
+            "pinned: drift": (self.case_pinned_drift, "pinned"),
+            "clone: dirty tree": (self.case_dirty_clone, "clone"),
             "clone: skip-worktree": (self.case_hidden_edit, "clone"),
-            "clone: репозиторий без коммитов": (self.case_no_commits, "clone"),
-            "base: изменён ebt/": (self.case_base_changed, "base"),
+            "clone: repository without commits": (self.case_no_commits, "clone"),
+            "base: ebt/ changed": (self.case_base_changed, "base"),
         }
 
     def test_strict_runner_requires_test_script(self):
@@ -213,7 +213,7 @@ class Gate(unittest.TestCase):
                 self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
                 self.assertIn("flutter test --no-pub test/ebt", self.gate_md())
                 self.assertIn("Flutter test-double", self.gate_md())
-                self.assertEqual("Совместимость:" in p.stderr, not selection)
+                self.assertEqual("Compatibility:" in p.stderr, not selection)
 
     def test_runner_filters_and_out_dir_contract_are_preserved(self):
         script = ('[ "$#" -eq 2 ] && [ "$1" = one ] && [ "$2" = two ] || exit 2\n'
@@ -227,7 +227,7 @@ class Gate(unittest.TestCase):
                                     + self.write_to("build/ebt"))
         p = self.gate(None, self.command_env(flutter, EBT_RUNNER="flutter", EBT_TESTS="one two"))
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        # Мост build/ebt копируется в out/: evidence перечисляет то, что читал чекер.
+        # The build/ebt bridge is copied to out/: evidence lists what the checker read.
         self.assertEqual([e["file"] for e in self.gate_json()["evidence"]], ["a.jsonl"])
 
     def test_runner_choice_errors_do_not_fall_back_to_flutter(self):
@@ -245,7 +245,7 @@ class Gate(unittest.TestCase):
     def test_explicit_flutter_does_not_bypass_existing_test_script(self):
         p = self.gate(self.write_to('"$OUT_DIR"'), {"EBT_RUNNER": "flutter"})
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("пакет содержит test.sh", p.stderr)
+        self.assertIn("the package contains test.sh", p.stderr)
 
     def test_preflight_git_failures_are_errors(self):
         import shutil
@@ -272,7 +272,7 @@ class Gate(unittest.TestCase):
         git = self.fake_command("git", f'if [ "$1" = rev-parse ] && [ -f "{marker}" ]; then exit 37; fi\nexec "{real_git}" "$@"\n')
         p = self.gate(self.write_to('"$OUT_DIR"') + f'touch "{marker}"\n', self.command_env(git))
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("после тестов", p.stderr)
+        self.assertIn("after the tests", p.stderr)
 
     def test_output_io_failures_never_pass(self):
         for filename in ("gate.md", "gate.json", "evidence.jsonl", "ebt-check.err", "report.md", "report.json"):
@@ -281,7 +281,7 @@ class Gate(unittest.TestCase):
                 script = self.write_to('"$OUT_DIR"') + f'mkdir "$(dirname "$OUT_DIR")/{filename}"\n'
                 p = self.gate(script)
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-                self.assertNotIn("зелёный", self.gate_md() if (self.run_dir / "gate.md").is_file() else "")
+                self.assertNotIn("green", self.gate_md() if (self.run_dir / "gate.md").is_file() else "")
                 if (self.run_dir / "gate.json").is_file():
                     self.assertEqual(self.gate_json()["result"], "ERROR")
                 target = self.run_dir / filename
@@ -293,14 +293,14 @@ class Gate(unittest.TestCase):
         (self.ebt / "prepare.sh").chmod(0o755)
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("не удалось открыть test.log", p.stderr)
+        self.assertIn("could not open test.log", p.stderr)
 
     def test_tracked_runner_changes_are_stashed(self):
         p = self.gate(self.write_to('"$OUT_DIR"') + 'echo changed > .gitignore\n')
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((self.clone / ".gitignore").read_text(), "build/\n")
         stash = subprocess.check_output(["git", "-C", str(self.clone), "stash", "list"], text=True)
-        self.assertIn("witnessbox gate: изменения за прогон", stash)
+        self.assertIn("witnessbox gate: changes from run", stash)
 
     def test_stash_failure_cannot_publish_pass(self):
         import shutil
@@ -308,13 +308,13 @@ class Gate(unittest.TestCase):
         git = self.fake_command("git", f'case " $* " in *" stash push "*) exit 37;; esac\nexec "{real_git}" "$@"\n')
         p = self.gate(self.write_to('"$OUT_DIR"'), self.command_env(git))
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertNotIn("зелёный", p.stdout)
+        self.assertNotIn("green", p.stdout)
         self.assertFalse((self.run_dir / "gate.md").exists())
         self.assertEqual(self.gate_json()["result"], "ERROR")
         self.assertIn("git stash", self.gate_json()["message"])
 
     def test_gate_json_and_report_json_contract(self):
-        """Поддерживаемые машиночитаемые итоги: gate.json гейта и report.json чекера."""
+        """Supported machine-readable results: gate.json of the gate and report.json of the checker."""
         import json
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
@@ -355,7 +355,7 @@ class Gate(unittest.TestCase):
         self.assertNotIn("gate.md", s["files"])
 
     def test_gate_json_evidence_lists_regular_files_sorted(self):
-        """evidence перечисляет обычные файлы out/*.jsonl по имени."""
+        """evidence lists the regular out/*.jsonl files by name."""
         def two_files(target: str) -> str:
             return (f"mkdir -p {target}\n"
                     f"cat > {target}/b.jsonl <<'JSONL'\n{self.record}\nJSONL\n"
@@ -369,14 +369,14 @@ class Gate(unittest.TestCase):
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         s = self.gate_json()
         self.assertEqual(s["result"], "ERROR")
-        # macOS awk пропускает каталог, и чекер падает на чтении (evidence перечислен);
-        # mawk в Debian может упасть на склейке до чекера (evidence — null).
-        # Главное — итог не пропадает.
+        # macOS awk skips the directory, and the checker fails on reading (evidence is listed);
+        # mawk on Debian may fail at the concatenation before the checker (evidence is null).
+        # The main thing is that the result does not vanish.
         self.assertTrue(s["evidence"] is None
                         or [e["file"] for e in s["evidence"]] == ["a.jsonl", "b.jsonl"])
 
     def test_installation_identity_covers_shipped_code_and_gate_helpers(self):
-        """Отпечаток покрывает весь поставляемый .py/.sh; scaffold — данные, cli.py — гейт."""
+        """The fingerprint covers all shipped .py/.sh; scaffold is data, cli.py is the gate."""
         info = self.installation()
         package = Path(info["package"])
         compat = package.parent / "ebt_verification"
@@ -398,7 +398,7 @@ class Gate(unittest.TestCase):
                 finally:
                     target.write_bytes(original)
         self.assertEqual(before["checker_sha256"], self.installation()["checker_sha256"])
-        # cli.py — код гейта, а не чекера: он входит только в gate_sha256.
+        # cli.py is gate code, not checker code: it goes only into gate_sha256.
         cli = package / "cli.py"
         original = cli.read_bytes()
         try:
@@ -409,8 +409,8 @@ class Gate(unittest.TestCase):
         finally:
             cli.write_bytes(original)
         self.assertEqual(before["gate_sha256"], self.installation()["gate_sha256"])
-        # Заготовка — данные для нового проекта, а не код проверки: её правка не должна
-        # менять удостоверение установленного гейта.
+        # The scaffold is data for a new project, not checking code: editing it must not
+        # change the identity of the installed gate.
         scaffold_spec = package / "resources" / "scaffold" / "spec.toml"
         original = scaffold_spec.read_bytes()
         try:
@@ -431,7 +431,7 @@ class Gate(unittest.TestCase):
             helper.write_bytes(original)
 
     def test_installation_falls_back_when_record_lacks_package_files(self):
-        """Editable/PYTHONPATH: RECORD без witnessbox/ — отпечаток строится обходом дерева."""
+        """Editable/PYTHONPATH: RECORD without witnessbox/ means the fingerprint is built by a tree walk."""
         import hashlib
         import json
         import shutil
@@ -463,7 +463,7 @@ class Gate(unittest.TestCase):
                 self.assertEqual(Path(info["package"]), (tree / "witnessbox").resolve())
                 self.assertNotEqual(info["checker_sha256"], empty)
                 self.assertNotEqual(info["gate_sha256"], empty)
-                # Обход дерева покрывает ровно то же, что RECORD установленного wheel.
+                # The tree walk covers exactly the same as the RECORD of an installed wheel.
                 installed_info = self.installation()
                 self.assertEqual(info["checker_sha256"], installed_info["checker_sha256"])
                 self.assertEqual(info["gate_sha256"], installed_info["gate_sha256"])
@@ -489,7 +489,7 @@ class Gate(unittest.TestCase):
                     gate.write_bytes(original)
 
     def test_installation_falls_back_when_metadata_describes_another_install(self):
-        """PYTHONPATH=src без egg-info рядом с wheel: RECORD описывает другую установку."""
+        """PYTHONPATH=src without egg-info next to a wheel: RECORD describes another installation."""
         import hashlib
         import json
         import shutil
@@ -506,13 +506,13 @@ class Gate(unittest.TestCase):
         self.assertEqual(Path(info["package"]), (tree / "witnessbox").resolve())
         self.assertNotEqual(info["checker_sha256"], hashlib.sha256(b"").hexdigest())
         self.assertNotEqual(info["gate_sha256"], hashlib.sha256(b"").hexdigest())
-        # Код в src тот же, что в wheel: отпечатки обязаны совпасть.
+        # The code in src is the same as in the wheel: the fingerprints must match.
         installed_info = self.installation()
         self.assertEqual(info["checker_sha256"], installed_info["checker_sha256"])
         self.assertEqual(info["gate_sha256"], installed_info["gate_sha256"])
 
     def test_installation_refuses_empty_fingerprint(self):
-        """Пустой набор файлов — ошибка установки, а не постоянный SHA пустого ввода."""
+        """An empty file set is an installation error, not a constant SHA of empty input."""
         code = (
             "import witnessbox.cli as cli\n"
             "cli._installed_entries = lambda package, dist: (package.parent, [])\n"
@@ -525,7 +525,7 @@ class Gate(unittest.TestCase):
                            capture_output=True, text=True,
                            env={**os.environ, "PYTHONPATH": ""})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("пустой отпечаток", p.stdout)
+        self.assertIn("empty witnessbox code fingerprint", p.stdout)
 
     def installation(self) -> dict:
         import json
@@ -534,7 +534,7 @@ class Gate(unittest.TestCase):
             env={**os.environ, "PYTHONPATH": ""}))
 
     def test_installation_reports_witnessbox_and_existing_paths(self):
-        """--installation описывает установленный witnessbox, а его пути существуют."""
+        """--installation describes the installed witnessbox, and its paths exist."""
         info = self.installation()
         self.assertEqual((info["distribution"], info["version"]), ("witnessbox", VERSION))
         for key in ("package", "resources", "python", "checker"):
@@ -563,7 +563,7 @@ class Gate(unittest.TestCase):
     def test_usage_without_command(self):
         p = self.witnessbox()
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("usage: witnessbox <команда>", p.stderr)
+        self.assertIn("usage: witnessbox <command>", p.stderr)
 
     def test_help_lists_commands(self):
         p = self.witnessbox("--help")
@@ -585,8 +585,8 @@ class Gate(unittest.TestCase):
             with self.subTest(arg=arg):
                 p = self.witnessbox(arg, "ts")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-                self.assertIn(f"witnessbox: неизвестная команда {arg}", p.stderr)
-                self.assertIn("usage: witnessbox <команда>", p.stderr)
+                self.assertIn(f"witnessbox: unknown command {arg}", p.stderr)
+                self.assertIn("usage: witnessbox <command>", p.stderr)
 
     def test_version_and_installation_take_no_arguments(self):
         for flag in ("--version", "--installation"):
@@ -594,7 +594,7 @@ class Gate(unittest.TestCase):
                 p = self.witnessbox(flag, "extra")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 self.assertIn(f"usage: witnessbox {flag}", p.stderr)
-                self.assertNotIn("неизвестная команда", p.stderr)
+                self.assertNotIn("unknown command", p.stderr)
 
     def test_gate_without_args_names_command(self):
         p = self.witnessbox("gate")
@@ -607,7 +607,7 @@ class Gate(unittest.TestCase):
         self.assertIn("usage: witnessbox check", p.stderr)
 
     def test_installed_public_imports_are_identical_without_checkout(self):
-        """Поставка работает без checkout и PYTHONPATH; новый и совместимый импорты — один класс."""
+        """The distribution works without a checkout and PYTHONPATH; the new and compatible imports are one class."""
         code = (
             "import sys\n"
             "import witnessbox\n"
@@ -639,7 +639,7 @@ class Gate(unittest.TestCase):
             "dart": ("lib/ebt/ebt.dart", "lib/ebt/ebt.dart"),
             "ts": ("lib/ebt/ebt.ts", "src/lib/ebt/ebt.ts"),
             "jvm": ("lib/ebt/Ebt.java", "src/test/java/ebt/Ebt.java"),
-            # generic не выбирает язык: строки всех трёх SDK в pinned.txt — комментарии.
+            # generic does not choose a language: the lines of all three SDKs in pinned.txt are comments.
             "generic": None,
         }
         env = {**os.environ, "PYTHONPATH": ""}
@@ -651,7 +651,7 @@ class Gate(unittest.TestCase):
                                    capture_output=True, text=True, env=env)
                 self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
                 self.assertEqual({path.name for path in target.iterdir()}, files)
-                self.assertTrue(os.access(target / "test.sh", os.X_OK), "test.sh не исполняемый")
+                self.assertTrue(os.access(target / "test.sh", os.X_OK), "test.sh is not executable")
                 self.assertEqual(subprocess.run(["/bin/bash", "-n", str(target / "test.sh")],
                                                 capture_output=True).returncode, 0)
 
@@ -664,7 +664,7 @@ class Gate(unittest.TestCase):
                     sdk, destination = pin
                     self.assertIn(f"kit:{sdk}  {destination}", pinned)
                 else:
-                    # Пустой набор строк гейт принимает: все строки — комментарии.
+                    # The gate accepts an empty set of lines: all lines are comments.
                     self.assertEqual([line for line in pinned.splitlines()
                                       if line.strip() and not line.startswith("#")], [])
                     for sdk in ("lib/ebt/Ebt.java", "lib/ebt/ebt.ts", "lib/ebt/ebt.dart"):
@@ -672,20 +672,20 @@ class Gate(unittest.TestCase):
                     p = self.sync_pinned(target, cwd=self.clone)
                     self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
                     self.assertEqual(p.stdout.strip(), "")
-                # Новые шаблоны импортируют публичный witnessbox.api, прежний импорт — только совместимость.
+                # The new templates import the public witnessbox.api, the legacy import is for compatibility only.
                 for name in ("checks.py", "test_checks.py"):
                     template = (target / name).read_text(encoding="utf-8")
                     self.assertIn("from witnessbox.api import", template)
                     self.assertNotIn("from ebt_verification.api import", template)
 
-                # Договор test.sh: без OUT_DIR — ошибка исполнения, а не «тесты упали».
+                # The test.sh contract: without OUT_DIR it is an execution error, not "tests failed".
                 p = subprocess.run([str(target / "test.sh")], cwd=target, capture_output=True, text=True,
                                    env={k: v for k, v in os.environ.items() if k != "OUT_DIR"})
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
-                # Пример чекера и его тесты — рабочие, а не комментарии. Инструкция
-                # должна запускать тесты интерпретатором поставки: системный python3
-                # пакет witnessbox не видит.
+                # The example checker and its tests are working code, not comments. The instruction
+                # must run the tests with the distribution interpreter: the system python3
+                # does not see the witnessbox package.
                 for name in ("test_checks.py", "README.md"):
                     self.assertIn("witnessbox test-checks", (target / name).read_text(encoding="utf-8"))
                 p = subprocess.run([str(self.bin / "witnessbox"), "test-checks", target.name],
@@ -693,7 +693,7 @@ class Gate(unittest.TestCase):
                                    env={**env, "PATH": f"{self.bin}:{os.environ['PATH']}"})
                 self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
-                # Заготовка самосогласована: spec, checks.py и self-test дают PASS.
+                # The scaffold is self-consistent: spec, checks.py and the self-test give PASS.
                 evidence = target / "evidence.jsonl"
                 evidence.write_text(
                     '{"seq":1,"req":"REQ-EXAMPLE-1","inv":"INV-EXAMPLE-1","ok":true,'
@@ -712,12 +712,12 @@ class Gate(unittest.TestCase):
         target = self.clone.parent / "scaffold-existing"
         target.mkdir()
         approved = target / "spec.toml"
-        approved.write_text("# утверждённая спецификация\n", encoding="utf-8")
+        approved.write_text("# approved spec\n", encoding="utf-8")
         p = subprocess.run([str(self.bin / "witnessbox"), "scaffold", "ts", str(target)],
                            capture_output=True, text=True, env=env)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("не пуст", p.stderr)
-        self.assertEqual(approved.read_text(encoding="utf-8"), "# утверждённая спецификация\n")
+        self.assertIn("not empty", p.stderr)
+        self.assertEqual(approved.read_text(encoding="utf-8"), "# approved spec\n")
 
         missing = self.clone.parent / "scaffold-unknown"
         p = subprocess.run([str(self.bin / "witnessbox"), "scaffold", "ruby", str(missing)],
@@ -729,7 +729,7 @@ class Gate(unittest.TestCase):
         p = subprocess.run([str(self.bin / "witnessbox"), "scaffold"], capture_output=True, text=True, env=env)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
-        # Каталог по умолчанию — ebt в текущем каталоге.
+        # The default directory is ebt in the current directory.
         default = self.clone.parent / "scaffold-default"
         default.mkdir()
         p = subprocess.run([str(self.bin / "witnessbox"), "scaffold", "ts"], cwd=default,
@@ -738,7 +738,7 @@ class Gate(unittest.TestCase):
         self.assertTrue((default / "ebt" / "spec.toml").is_file())
 
     def test_scaffold_accepts_current_directory(self):
-        """`.` — текущий пустой каталог для каждого стека; раньше он удалялся как временный и падал."""
+        """`.` is the current empty directory for each stack; before, it was removed as a temporary one and failed."""
         env = {**os.environ, "PYTHONPATH": ""}
         for stack in ("dart", "ts", "jvm", "generic"):
             with self.subTest(stack=stack):
@@ -753,7 +753,7 @@ class Gate(unittest.TestCase):
                 self.assertFalse((dot / "ebt").exists())
 
     def test_scaffold_test_scripts_follow_gate_contract(self):
-        """Шаблон test.sh: аргументы EBT_TESTS, OUT_DIR, коды 0/1/2 и свидетельства при любом исходе."""
+        """The test.sh template: EBT_TESTS arguments, OUT_DIR, codes 0/1/2 and evidence for any outcome."""
         env = {k: v for k, v in os.environ.items()
                if not k.startswith("EBT_") and k != "OUT_DIR"}
         env["PYTHONPATH"] = ""
@@ -797,7 +797,7 @@ exit "${FAKE_RC:-0}"
                 elif stack == "ts":
                     self.assertIn("run", args)
                 else:
-                    # Слова из EBT_TESTS переданы команде как отдельные аргументы, без eval.
+                    # The EBT_TESTS words are passed to the command as separate arguments, without eval.
                     self.assertEqual(args, "one two")
 
                 p, out = run_tests(1, "out-failed")
@@ -809,7 +809,7 @@ exit "${FAKE_RC:-0}"
 
                 p, out = run_tests(7, "out-ambiguous")
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-                # Свидетельства копируются и при «ошибке исполнения»: код 7 не в EBT_TEST_FAIL_CODES.
+                # Evidence is copied even on an "execution error": code 7 is not in EBT_TEST_FAIL_CODES.
                 self.assertTrue((out / "a.jsonl").is_file())
 
         project = self.clone.parent / "run-jvm"
@@ -853,8 +853,8 @@ exit 0
         p, _ = run_gradle(3, "out-ambiguous")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
-        # Нет XML: старый grep без файлов читал stdin и мог зависнуть. Держим stdin
-        # открытым и ждём: шаблон обязан вернуть 2, не дожидаясь закрытия stdin.
+        # No XML: the old grep without files read stdin and could hang. Keep stdin
+        # open and wait: the template must return 2 without waiting for stdin to close.
         out = project / "out-no-xml"
         out.mkdir()
         process = subprocess.Popen([str(target / "test.sh")], cwd=project,
@@ -866,12 +866,12 @@ exit 0
         except subprocess.TimeoutExpired:
             process.kill()
             process.communicate()
-            self.fail("test.sh завис: grep читал stdin при отсутствии XML-отчётов")
+            self.fail("test.sh hung: grep read stdin without XML reports")
         stdout, stderr = process.communicate()
         self.assertEqual(process.returncode, 2, stdout + stderr)
 
     def test_generic_test_script_settings(self):
-        """generic: обязательный EBT_TEST_CMD, EBT_EVIDENCE_DIR, EBT_TEST_FAIL_CODES и аргументы."""
+        """generic: required EBT_TEST_CMD, EBT_EVIDENCE_DIR, EBT_TEST_FAIL_CODES and arguments."""
         env = {k: v for k, v in os.environ.items() if not k.startswith("EBT_") and k != "OUT_DIR"}
         env["PYTHONPATH"] = ""
         project = self.clone.parent / "run-generic-settings"
@@ -892,7 +892,7 @@ exit "${FAKE_RC:-0}"
         fake.chmod(0o755)
         path_env = {**env, "PATH": f"{bin_dir}:{os.environ['PATH']}"}
 
-        # 1. Без EBT_TEST_CMD — код 2 с подсказкой, а не запуск пустой команды.
+        # 1. Without EBT_TEST_CMD: code 2 with a hint, not running an empty command.
         out = project / "out-no-command"
         out.mkdir()
         p = subprocess.run([str(target / "test.sh")], cwd=project, capture_output=True, text=True,
@@ -909,7 +909,7 @@ exit "${FAKE_RC:-0}"
                                        "FAKE_ARGS": str(project / "command.args"),
                                        "FAKE_RC": "0", **overrides}), out
 
-        # 2. Свидетельства берутся из EBT_EVIDENCE_DIR, старый файл оттуда не переживает прогон.
+        # 2. Evidence is taken from EBT_EVIDENCE_DIR, an old file there does not survive the run.
         evidence_dir = project / "out/ev"
         evidence_dir.mkdir(parents=True)
         (evidence_dir / "old.jsonl").write_text('{"seq":1}\n', encoding="utf-8")
@@ -918,20 +918,20 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(sorted(path.name for path in out.iterdir()), ["a.jsonl"])
         self.assertFalse((evidence_dir / "old.jsonl").exists())
 
-        # 3. Код из EBT_TEST_FAIL_CODES — «тесты упали» (1), остальные коды — ошибка (2).
+        # 3. A code from EBT_TEST_FAIL_CODES means "tests failed" (1), other codes are an error (2).
         p, out = run("out-fail-code", EBT_TEST_FAIL_CODES="1 4", FAKE_RC="4")
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
         self.assertTrue((out / "a.jsonl").is_file())
         p, _ = run("out-other-code", EBT_TEST_FAIL_CODES="1 4", FAKE_RC="5")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
-        # 4. Аргумент с пробелом приходит команде одним словом: слова EBT_TESTS не переразбираются.
+        # 4. An argument with a space reaches the command as one word: the EBT_TESTS words are not re-parsed.
         p, _ = run("out-args")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
                          ["1", "a b"])
 
-        # 5. Хвостовой перевод строки из YAML-блока не превращает аргумент в новую команду.
+        # 5. A trailing newline from a YAML block does not turn an argument into a new command.
         p, _ = run("out-newline", EBT_TEST_CMD="fake-tests\n")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual((project / "command.args").read_text(encoding="utf-8").splitlines(),
@@ -939,7 +939,7 @@ exit "${FAKE_RC:-0}"
 
     def test_matching_checker_by_default_even_if_other_on_path(self):
         fake = self.fake_checker(0)
-        self.record = self.record.replace('"result":55870', '"result":1')  # нарушение правила
+        self.record = self.record.replace('"result":55870', '"result":1')  # a rule violation
         env = {"PATH": f"{fake.parent}:{os.environ['PATH']}"}
         p = self.gate(self.write_to('"$OUT_DIR"'), env)
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
@@ -957,7 +957,7 @@ exit "${FAKE_RC:-0}"
         self.record = self.record.replace('"result":55870', '"result":1')
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("Ложное доказательство", (self.run_dir / "report.md").read_text())
+        self.assertIn("False proof", (self.run_dir / "report.md").read_text())
 
     def test_installed_checker_only_on_request(self):
         fake = self.fake_checker(0)
@@ -977,7 +977,7 @@ exit "${FAKE_RC:-0}"
     def test_out_dir_evidence_passes(self):
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("зелёный", self.gate_md())
+        self.assertIn("green", self.gate_md())
         self.assertTrue((self.run_dir / "out" / "a.jsonl").exists())
 
     def test_legacy_build_ebt_bridge_passes(self):
@@ -999,13 +999,13 @@ exit "${FAKE_RC:-0}"
     def test_failed_tests_with_evidence_are_red(self):
         p = self.gate(self.write_to('"$OUT_DIR"') + "exit 1\n")
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("красный", self.gate_md())
+        self.assertIn("red", self.gate_md())
 
     def test_runner_error_with_evidence_is_error(self):
-        # Свидетельства через мост build/ebt: так случай проверяется и на гейте без OUT_DIR.
+        # Evidence through the build/ebt bridge: this is how the case is checked on a gate without OUT_DIR too.
         p = self.gate(self.write_to("build/ebt") + "exit 2\n")
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertNotIn("зелёный", self.gate_md())
+        self.assertNotIn("green", self.gate_md())
 
     def test_runner_error_without_evidence_is_error(self):
         p = self.gate("exit 2\n")
@@ -1016,7 +1016,7 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(first.returncode, 0, first.stdout + first.stderr)
         second = self.gate("exit 0\n")
         self.assertEqual(second.returncode, 2, second.stdout + second.stderr)
-        self.assertNotIn("зелёный", self.gate_md())
+        self.assertNotIn("green", self.gate_md())
         self.assertFalse((self.run_dir / "report.md").exists())
 
     def test_checker_crash_is_normalized_to_error(self):
@@ -1026,11 +1026,11 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
 
     def test_seq_boundaries_are_preserved(self):
-        # Два файла с seq=1 корректны; склейка как вход дала бы LOG_GAP.
+        # Two files with seq=1 are valid; a concatenation as input would give LOG_GAP.
         script = self.write_to('"$OUT_DIR"') + 'cp "$OUT_DIR/a.jsonl" "$OUT_DIR/b.jsonl"\n'
         p = self.gate(script)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("логов склеено: 2", self.gate_md())
+        self.assertIn("logs merged: 2", self.gate_md())
 
     def test_missing_bundle_clears_old_green(self):
         self.assertEqual(self.gate(self.write_to('"$OUT_DIR"')).returncode, 0)
@@ -1055,7 +1055,7 @@ exit "${FAKE_RC:-0}"
                        env={**os.environ, "GIT_COMMITTER_NAME": "t", "GIT_COMMITTER_EMAIL": "t@t"})
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("Закреплённые копии отличаются", self.gate_md())
+        self.assertIn("Pinned copies differ", self.gate_md())
 
     def test_sync_pinned_copies_originals_and_gate_sees_no_drift(self):
         (self.ebt / "obs").mkdir()
@@ -1064,10 +1064,10 @@ exit "${FAKE_RC:-0}"
             "# SDK\nkit:lib/ebt/Ebt.java  sdk/Ebt.java\n\nobs/helper.ts  src/obs/helper.ts\n")
         p = self.sync_pinned(self.ebt, cwd=self.clone)
         self.assertEqual(p.returncode, 0, p.stderr)
-        self.assertIn("обновлён sdk/Ebt.java", p.stdout)
+        self.assertIn("updated sdk/Ebt.java", p.stdout)
         sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
         self.assertEqual((self.clone / "sdk/Ebt.java").read_bytes(), sdk.read_bytes())
-        self.assertIn("без изменений", self.sync_pinned(self.ebt, cwd=self.clone).stdout)
+        self.assertIn("unchanged", self.sync_pinned(self.ebt, cwd=self.clone).stdout)
         subprocess.run(["git", "-C", str(self.clone), "add", "."], check=True)
         subprocess.run(["git", "-C", str(self.clone), "-c", "user.name=t", "-c", "user.email=t@t",
                         "commit", "-qm", "pin"], check=True)
@@ -1095,12 +1095,12 @@ exit "${FAKE_RC:-0}"
                 self.assertIn("witnessbox sync-pinned:", p.stderr)
                 self.assertFalse((self.clone / "sdk/Ebt.java").exists())
 
-        # Строгий режим --sync-pinned не принимает комментарий не в UTF-8, даже если
-        # --check-only по правилам гейта его пропускает.
+        # The strict --sync-pinned mode does not accept a non-UTF-8 comment, even if
+        # --check-only by the gate rules lets it through.
         (self.ebt / "pinned.txt").write_bytes(b"# \xcf\xf0\xe8\xec\xe5\xf0 cp1251\n")
         p = self.sync_pinned(self.ebt, cwd=self.clone)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("не удалось прочитать", p.stderr)
+        self.assertIn("could not read", p.stderr)
 
         p = subprocess.run([str(self.bin / "witnessbox"), "sync-pinned"],
                            capture_output=True, text=True, env={**os.environ, "PYTHONPATH": ""})
@@ -1112,23 +1112,23 @@ exit "${FAKE_RC:-0}"
         p = self.sync_pinned(empty, cwd=self.clone)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
         self.assertIn("witnessbox sync-pinned:", p.stderr)
-        self.assertIn("нет pinned.txt", p.stderr)
+        self.assertIn("no pinned.txt", p.stderr)
 
     def test_check_only_clean_project_is_ok(self):
         p = self.check_only()
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         lines = p.stdout.splitlines()
-        self.assertTrue(lines, "нет вывода по проверкам")
-        self.assertEqual([line for line in lines if line.startswith("пропущено")],
-                         ["пропущено base: BASE не задан — защищённые пути не проверяются"])
+        self.assertTrue(lines, "no output for the checks")
+        self.assertEqual([line for line in lines if line.startswith("skipped")],
+                         ["skipped base: BASE is not set: protected paths are not checked"])
         for line in lines:
-            if not line.startswith("пропущено"):
-                self.assertTrue(line.startswith("ок "), line)
+            if not line.startswith("skipped"):
+                self.assertTrue(line.startswith("ok "), line)
         for name in ("spec", "checks", "known", "baseline", "runner", "pinned", "clone"):
-            self.assertTrue(any(line.startswith(f"ок {name}") for line in lines), name)
+            self.assertTrue(any(line.startswith(f"ok {name}") for line in lines), name)
 
     def test_check_only_does_not_execute_project_scripts(self):
-        # checks.py импортируется, но __pycache__ в каталоге проверки остаться не должен.
+        # checks.py is imported, but __pycache__ must not remain in the checks directory.
         (self.ebt / "checks.py").write_text("CHECKERS = {}\n", encoding="utf-8")
         markers = []
         for name in ("prepare.sh", "test.sh"):
@@ -1140,10 +1140,10 @@ exit "${FAKE_RC:-0}"
         p = self.check_only()
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertEqual([marker.name for marker in markers if marker.exists()], [])
-        self.assertFalse((self.ebt / "__pycache__").exists(), "check-only оставил __pycache__")
+        self.assertFalse((self.ebt / "__pycache__").exists(), "check-only left __pycache__")
 
     def test_check_only_unknown_checker_out_of_scope_is_not_problem(self):
-        """Утверждённая spec может опережать код: вне EBT_INV незавершённый чекер не мешает."""
+        """An approved spec may run ahead of the code: outside EBT_INV an unfinished checker does not interfere."""
         env = self.case_unknown_checker_out_of_scope()
         p = self.check_only(env)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
@@ -1151,41 +1151,41 @@ exit "${FAKE_RC:-0}"
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_check_only_unknown_checker_in_scope_fails_gate(self):
-        """Проблема check-only в scope должна быть FAIL гейта, а не ERROR и не PASS."""
+        """A check-only problem in scope must be a gate FAIL, not ERROR and not PASS."""
         self.case_unknown_checker()
         p = self.check_only()
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
         p = self.gate(self.write_to('"$OUT_DIR"'))
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
         self.assertEqual(self.gate_json()["reasons"], ["checker_failed"])
-        self.assertIn("Нет чекера", (self.run_dir / "report.md").read_text(encoding="utf-8"))
+        self.assertIn("No checker", (self.run_dir / "report.md").read_text(encoding="utf-8"))
 
     def test_check_only_does_not_judge_external_checker_registry(self):
-        """EBT_CHECK может знать свой чекер: локальная проверка регистрации дала бы ложную проблему."""
+        """EBT_CHECK may know its own checker: a local registration check would report a false problem."""
         fake = self.fake_checker(0)
         (self.ebt / "spec.toml").write_text(
             SPEC.replace('"cart_total"', '"missing_rule"'), encoding="utf-8")
         p = self.check_only({"EBT_CHECK": str(fake)})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        self.assertIn("пропущено checks", p.stdout)
+        self.assertIn("skipped checks", p.stdout)
 
     def test_check_only_does_not_judge_external_checker_files(self):
-        """С внешним чекером локальный разбор spec/checks/known/baseline дал бы ложную проблему."""
+        """With an external checker, a local parse of spec/checks/known/baseline would report a false problem."""
         fake = self.fake_checker(0)
-        (self.ebt / "spec.toml").write_text("это не TOML\n", encoding="utf-8")
+        (self.ebt / "spec.toml").write_text("this is not TOML\n", encoding="utf-8")
         (self.ebt / "checks.py").write_text('raise RuntimeError("boom")\n', encoding="utf-8")
         (self.ebt / "known.toml").write_text("[[known]]\n", encoding="utf-8")
         (self.ebt / "baseline.jsonl").write_text("{not json\n", encoding="utf-8")
         p = self.check_only({"EBT_CHECK": str(fake)})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         for name in ("spec", "checks", "known", "baseline"):
-            self.assertIn(f"пропущено {name}", p.stdout)
-        # Гейт с тем же внешним чекером на этих файлах тоже PASS: гарантия не нарушена.
+            self.assertIn(f"skipped {name}", p.stdout)
+        # The gate with the same external checker on these files is PASS too: the guarantee is intact.
         p = self.gate(self.write_to('"$OUT_DIR"'), {"EBT_CHECK": str(fake)})
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
 
     def test_check_only_pinned_uses_gate_rules(self):
-        """Строгости --sync-pinned не дают проблемы там, где гейт на том же входе PASS."""
+        """The strictness of --sync-pinned gives no problem where the gate on the same input is PASS."""
         sdk = Path(self.installation()["resources"]) / "lib/ebt/Ebt.java"
 
         def pin_in_clone():
@@ -1216,11 +1216,11 @@ exit "${FAKE_RC:-0}"
                 f"kit:lib/ebt/Ebt.java  {target}\n", encoding="utf-8")
 
         for name, prepare in {
-            "CR только в комментарии": cr_comment,
-            "комментарий не в UTF-8": cp1251_comment,
-            "dest вне клона": outside_relative,
-            "повтор dest": duplicate_destination,
-            "абсолютный dest": absolute_destination,
+            "CR only in a comment": cr_comment,
+            "non-UTF-8 comment": cp1251_comment,
+            "dest outside the clone": outside_relative,
+            "repeated dest": duplicate_destination,
+            "absolute dest": absolute_destination,
         }.items():
             with self.subTest(name=name):
                 self.new_project()
@@ -1238,7 +1238,7 @@ exit "${FAKE_RC:-0}"
                 env = prepare()
                 p = self.check_only(env)
                 self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-                self.assertIn(f"проблема {check}:", p.stdout)
+                self.assertIn(f"problem {check}:", p.stdout)
                 self.assertNotIn("Traceback", p.stderr)
 
     def test_no_commits_is_named_before_dirty_tree(self):
@@ -1246,23 +1246,23 @@ exit "${FAKE_RC:-0}"
             with self.subTest(name=name):
                 self.new_project()
                 p = run(self.case_no_commits())
-                self.assertIn("в репозитории нет коммитов", p.stdout + p.stderr)
-                self.assertNotIn("не чистое", p.stdout + p.stderr)
+                self.assertIn("the repository has no commits", p.stdout + p.stderr)
+                self.assertNotIn("not clean", p.stdout + p.stderr)
 
     def test_check_only_problems_are_not_gate_pass(self):
-        """Каждая проблема --check-only на том же входе даёт гейту не-PASS (граница D47)."""
+        """Every --check-only problem on the same input gives the gate a non-PASS (D47 boundary)."""
         for name, (prepare, _) in self.problem_cases().items():
             with self.subTest(name=name):
                 self.new_project()
                 env = prepare()
-                # Неисполняемый test.sh проверяется гейтом как есть, без подмены скрипта.
+                # A non-executable test.sh is checked by the gate as is, without substituting the script.
                 test_sh = None if name.startswith("runner") else self.write_to('"$OUT_DIR"')
                 p = self.gate(test_sh, env)
                 self.assertIn(p.returncode, (1, 2), p.stdout + p.stderr)
 
     def test_check_only_usage_errors(self):
         env = {**os.environ, "PYTHONPATH": ""}
-        for args in ([], [str(self.ebt)], [str(self.ebt), str(self.clone), "лишний"]):
+        for args in ([], [str(self.ebt)], [str(self.ebt), str(self.clone), "extra"]):
             with self.subTest(args=args):
                 p = subprocess.run([str(self.bin / "witnessbox"), "gate", "--check-only", *args],
                                    capture_output=True, text=True, env=env)
@@ -1270,7 +1270,7 @@ exit "${FAKE_RC:-0}"
                 self.assertIn("usage:", p.stderr)
         p = self.check_only({}, str(self.ebt / "missing"), str(self.clone))
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("нет каталога", p.stderr)
+        self.assertIn("no checks directory", p.stderr)
 
     def test_test_checks_runs_scaffold_tests(self):
         target = self.clone.parent / "test-checks-ts"
@@ -1280,7 +1280,7 @@ exit "${FAKE_RC:-0}"
         p = self.run_test_checks(target, cwd=self.clone.parent)
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
         self.assertIn("OK", p.stdout + p.stderr)
-        self.assertFalse((target / "__pycache__").exists(), "--test-checks оставил __pycache__")
+        self.assertFalse((target / "__pycache__").exists(), "--test-checks left __pycache__")
 
     def test_test_checks_fails_on_broken_checker(self):
         target = self.clone.parent / "test-checks-broken"
@@ -1302,7 +1302,7 @@ exit "${FAKE_RC:-0}"
         (target / "test_checks.py").unlink()
         p = self.run_test_checks(target, cwd=self.clone.parent)
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("тестов чекера не найдено", p.stderr)
+        self.assertIn("no checker tests found", p.stderr)
 
     def test_test_checks_usage_errors(self):
         env = {**os.environ, "PYTHONPATH": ""}
@@ -1313,10 +1313,10 @@ exit "${FAKE_RC:-0}"
         p = subprocess.run([str(self.bin / "witnessbox"), "test-checks", str(self.ebt / "missing")],
                            capture_output=True, text=True, env=env)
         self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
-        self.assertIn("нет каталога", p.stderr)
+        self.assertIn("no directory", p.stderr)
 
     def test_wheel_from_sdist_ships_sdk_templates_and_compat_module(self):
-        """Wheel собран из sdist: SDK и все шаблоны едут в поставке, совместимость — без второй копии."""
+        """The wheel is built from the sdist: the SDK and all templates ship in the distribution, compatibility has no second copy."""
         import zipfile
         with zipfile.ZipFile(self.wheel) as wheel:
             names = wheel.namelist()
@@ -1328,7 +1328,7 @@ exit "${FAKE_RC:-0}"
             self.assertIn(f"witnessbox/resources/scaffold/{name}", names)
         self.assertIn("witnessbox/checker/fixtures/record.jsonl", names)
         self.assertIn("witnessbox/api.py", names)
-        # Старый импорт — тонкая пересылка ebt_verification/api.py, а не второй runtime.
+        # The old import is a thin forward through ebt_verification/api.py, not a second runtime.
         self.assertIn("ebt_verification/api.py", names)
         self.assertNotIn("ebt_verification/checker/checkers.py", names)
         self.assertFalse(any("prompts/" in p or p.endswith(("roles.toml", "run_role.py")) for p in names))
@@ -1370,10 +1370,10 @@ exit "${FAKE_RC:-0}"
                         "commit", "-qm", "protected edit"], check=True)
         p = self.gate(self.write_to('"$OUT_DIR"'), {"BASE": base})
         self.assertEqual(p.returncode, 1, p.stdout + p.stderr)
-        self.assertIn("В ветке приложения изменены", self.gate_md())
+        self.assertIn("changed in the application branch", self.gate_md())
 
     def test_runner_cannot_change_verification_inputs(self):
-        """Код проекта исполняется с правами гейта: правка входов за прогон — ERROR, чекер читает снимок."""
+        """Project code runs with the gate privileges: editing inputs during the run is ERROR, the checker reads a snapshot."""
         cases = {"spec.toml": 'echo "# changed" >> "$(dirname "$0")/spec.toml"\n',
                  "checks.py": 'echo "CHECKERS = {}" > "$(dirname "$0")/checks.py"\n'}
         for name, edit in cases.items():
@@ -1382,19 +1382,19 @@ exit "${FAKE_RC:-0}"
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 s = self.gate_json()
                 self.assertEqual((s["result"], s["reasons"]), ("ERROR", ["gate_error"]))
-                self.assertIn(f"изменены во время прогона: {name}", s["message"])
+                self.assertIn(f"changed during the run: {name}", s["message"])
                 self.assertEqual((self.run_dir / "inputs/spec.toml").read_text(encoding="utf-8"), SPEC)
                 (self.ebt / "spec.toml").write_text(SPEC, encoding="utf-8")
                 (self.ebt / "checks.py").unlink(missing_ok=True)
 
     def test_runner_cannot_change_installed_verifier(self):
         import json
-        env = {**os.environ, "PYTHONPATH": ""}  # make test-gate задаёт PYTHONPATH=src: нужен установленный пакет
+        env = {**os.environ, "PYTHONPATH": ""}  # make test-gate sets PYTHONPATH=src: the installed package is needed
         info = json.loads(subprocess.check_output([str(self.bin / "witnessbox"), "--installation"], env=env))
         self.assertIn("site-packages", info["package"])
         package = Path(info["package"])
-        # Совместимый пакет исполняется проектными чекерами, поэтому его правка —
-        # такая же порча поставки, как правка witnessbox/checker/.
+        # The compatible package is executed by project checkers, so editing it is
+        # the same distribution tampering as editing witnessbox/checker/.
         for target in (package / "checker" / "checkers.py",
                        package / "__init__.py",
                        package.parent / "ebt_verification" / "api.py",
@@ -1405,22 +1405,22 @@ exit "${FAKE_RC:-0}"
                     p = self.gate(self.write_to('"$OUT_DIR"') + f'echo "# changed" >> "{target}"\n')
                     self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                     self.assertEqual(self.gate_json()["result"], "ERROR")
-                    self.assertIn("код поставки изменён во время прогона", self.gate_json()["message"])
+                    self.assertIn("distribution code changed during the run", self.gate_json()["message"])
                 finally:
                     target.write_bytes(original)
 
     def test_installed_gate_without_source_access(self):
         import sys
         if sys.platform != "darwin":
-            self.skipTest("Проверка sandbox-exec требует macOS; используйте контейнер на других ОС")
+            self.skipTest("The sandbox-exec check requires macOS; use a container on other OSes")
         source = KIT
         policy = f'(version 1)(allow default)(deny file-read* (subpath "{source}"))'
         prefix = ["/usr/bin/sandbox-exec", "-p", policy]
         probe = subprocess.run(prefix + ["/bin/cat", str(source / "README.md")],
                                capture_output=True, text=True, cwd=self.clone.parent)
         if "sandbox_apply" in probe.stderr:
-            self.skipTest("Системная песочница недоступна внутри внешней песочницы процесса")
-        self.assertNotEqual(probe.returncode, 0, "Исходники репозитория доступны")
+            self.skipTest("The system sandbox is unavailable inside the external process sandbox")
+        self.assertNotEqual(probe.returncode, 0, "The repository sources are accessible")
         self.assertIn("Operation not permitted", probe.stderr)
         (self.ebt / "spec.toml").write_text(SPEC.replace('"cart_total"', '"project_cart"'))
         (self.ebt / "checks.py").write_text(
@@ -1429,7 +1429,7 @@ exit "${FAKE_RC:-0}"
             'from ebt_verification.api import Verdict as CompatVerdict\n'
             'assert Verdict is InstalledVerdict is CompatVerdict\n'
             'CHECKERS = {"project_cart": cart_total}\n')
-        self.gate(self.write_to('"$OUT_DIR"'))  # Сохранить проектные входы до запрета исходников.
+        self.gate(self.write_to('"$OUT_DIR"'))  # Save the project inputs before the sources are forbidden.
         env = {**os.environ, "PYTHONPATH": "", "BASE": "", "EBT_CHECK": ""}
         p = subprocess.run(prefix + [str(self.bin / "witnessbox"), "gate", str(self.ebt), str(self.clone),
                                      str(self.run_dir)], capture_output=True, text=True,

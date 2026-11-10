@@ -21,3 +21,7 @@ __pycache__/
 # Editors
 .idea/
 .vscode/
+
+# Working plans are kept locally, not in git (D56)
+docs/plans/
+docs/superpowers/

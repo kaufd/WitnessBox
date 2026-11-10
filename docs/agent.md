@@ -1,173 +1,175 @@
-# Инструкция для агента: подключение Witnessbox к проекту
+# Agent instructions: connecting Witnessbox to a project
 
-Документ адресован агенту-кодировщику (Claude Code, Codex, Cursor и т. п.), которому человек поручил подключить Witnessbox к своему проекту. Человеку достаточно дать агенту одну строку:
+**English** · [Русский](agent.ru.md)
+
+This document is addressed to a coding agent (Claude Code, Codex, Cursor and the like) that a human has asked to connect Witnessbox to their project. The human only needs to give the agent one line:
 
 ```
-Подключи Witnessbox к этому проекту по инструкции https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md
+Connect Witnessbox to this project following the instructions at https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md
 ```
 
-Для человека тот же путь описан в [быстром старте](quickstart.md) и [руководстве по спецификации](authoring.md); ниже — его версия с правилами и точками остановки для агента.
+For a human the same path is described in the [quick start](quickstart.md) and the [authoring guide](authoring.md); below is its version with rules and stop points for an agent.
 
 ---
 
-## Роль и главное правило
+## Role and the main rule
 
-Ты подключаешь к проекту независимую проверку решений кода (EBT). Код в тестах записывает свидетельство решения через `ev()`, а отдельный чекер пересчитывает правило по утверждённой человеком спецификации и выносит вердикт.
+You connect to the project an independent check of the code's decisions (EBT). In tests the code records evidence of a decision through `ev()`, and a separate checker recomputes the rule against the spec approved by a human and issues a verdict.
 
-**Ты не утверждаешь спецификацию.** Ты готовишь черновик `ebt/spec.toml`, показываешь его человеку и ждёшь явного утверждения. Если правило напишет и подгонит под код тот же, кто пишет код, проверка теряет смысл (решение D4). Всё остальное — заготовка, SDK, чекер, тесты, прогон гейта — твоя работа.
+**You do not approve the spec.** You prepare a draft of `ebt/spec.toml`, show it to the human and wait for explicit approval. If the rule is written and fitted to the code by the same one who writes the code, the check loses its meaning (decision D4). Everything else is your work: the scaffold, the SDK, the checker, the tests, running the gate.
 
-## Жёсткие запреты
+## Hard prohibitions
 
-1. Не коммить `ebt/spec.toml` и не запускай гейт «на зелёный», пока человек не утвердил требование, `witness`, `partitions` и, для `-OBS`, контракт наблюдения.
-2. После утверждения не меняй `spec.toml` по своей инициативе. Если оказалось, что правило не реализуемо или неоднозначно, остановись и спроси.
-3. Не правь `ebt/` и закреплённую копию SDK в ветке задачи, которую проверяет гейт: это `protected_paths_changed` и `pinned_drift`. Копию SDK обновляет только `witnessbox sync-pinned`.
-4. `checks.py` не импортирует приложение, его SDK и сторонние пакеты и не читает поле `ok`. Константы правила берутся из текста требования, а не из кода приложения.
-5. В `data` свидетельства пишется то, что реально использовало и вернуло приложение, а не то, что тест пересчитал сам.
-6. Не ослабляй проверку, чтобы получить PASS: не убирай классы из `partitions`, поля из `witness`, не добавляй `not_in_verdict`, `known.toml` или `--allow-uncovered` без решения человека. Красный гейт на коде проекта — находка, о ней сообщают, а не прячут.
-7. Не меняй код приложения, кроме вставки `ev()` в точку решения, если человек это разрешил. Найденный гейтом дефект ты описываешь, а исправляешь только по поручению.
-8. Отсутствие свидетельств — ERROR, а не успех. Не называй подключение работающим, пока не получен PASS на исправном коде и FAIL на внесённом дефекте (этап 7).
-9. Для Dart не утверждай, что код проверен, пока он не прошёл `flutter analyze` и тесты; `ev()` в Dart вызывается только внутри `assert`, деньги — целыми минимальными единицами.
+1. Do not commit `ebt/spec.toml` and do not run the gate "to get green" until the human has approved the requirement, `witness`, `partitions` and, for `-OBS`, the observation contract.
+2. After approval, do not change `spec.toml` on your own initiative. If it turns out the rule cannot be implemented or is ambiguous, stop and ask.
+3. Do not edit `ebt/` or the pinned SDK copy in the task branch that the gate checks: that gives `protected_paths_changed` and `pinned_drift`. Only `witnessbox sync-pinned` updates the SDK copy.
+4. `checks.py` does not import the application, its SDK or third-party packages and does not read the `ok` field. The rule's constants come from the requirement text, not from the application code.
+5. `data` of the evidence holds what the application actually used and returned, not what the test recomputed itself.
+6. Do not weaken the check to get PASS: do not remove classes from `partitions` or fields from `witness`, and do not add `not_in_verdict`, `known.toml` or `--allow-uncovered` without the human's decision. A red gate on project code is a finding; you report it, you do not hide it.
+7. Do not change application code, except inserting `ev()` at the decision point if the human allowed it. You describe a defect the gate found, and fix it only when told to.
+8. Missing evidence is ERROR, not success. Do not call the connection working until you have PASS on sound code and FAIL on an introduced defect (stage 7).
+9. For Dart, do not claim the code is checked until it has passed `flutter analyze` and the tests; in Dart `ev()` is called only inside `assert`, and money is in integer minimal units.
 
-## Точки остановки
+## Stop points
 
-Остановись и задай вопрос человеку, а не догадывайся, когда:
+Stop and ask the human, do not guess, when:
 
-- **требование не дано или неоднозначно** — граница (`>=` или `>`), единицы, округление, что при пустом входе;
-- **черновик спецификации готов** — обязательная остановка (этап 2);
-- **стек не подходит** ни к `dart`, `ts`, `jvm`, ни к рецептам `generic`, или проект на Python (Python SDK не поставляется);
-- **для `ev()` нужно менять код приложения**;
-- **гейт красный на исправном, по мнению человека, коде** — это либо дефект кода, либо ошибка спецификации; решает человек;
-- команда завершилась кодом `2` и причина не устраняется настройкой окружения.
+- **the requirement is missing or ambiguous**: the boundary (`>=` or `>`), units, rounding, what happens on an empty input;
+- **the spec draft is ready**: a mandatory stop (stage 2);
+- **the stack fits neither** `dart`, `ts`, `jvm`, nor the `generic` recipes, or the project is in Python (no Python SDK is shipped);
+- **`ev()` needs a change to application code**;
+- **the gate is red on code the human considers sound**: either a code defect or a spec error; the human decides;
+- a command ended with code `2` and the cause is not fixed by configuring the environment.
 
-## Этап 0. Окружение
+## Stage 0. Environment
 
 ```bash
-witnessbox --installation || uv tool install --force witnessbox   # или pipx install --force witnessbox
+witnessbox --installation || uv tool install --force witnessbox   # or pipx install --force witnessbox
 witnessbox --installation
 ```
 
-Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). Команда `witnessbox` есть с версии 0.7.0; более ранние давали `ebt-gate` и `ebt-check`. Поэтому установка в этапе 0 идёт с `--force`: без него `uv tool install` оставляет уже стоящую старую версию. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
+You need Python 3.11+, `git`, bash (macOS or Linux; not Windows). The `witnessbox` command exists from version 0.7.0; earlier versions gave `ebt-gate` and `ebt-check`. This is why the installation in stage 0 uses `--force`: without it `uv tool install` keeps an old version that is already installed. The release SHA-256 of the gate and the checker are in the [decision log](decisions.md); if the human requires verification, compare `gate_sha256` and `checker_sha256` from `--installation`.
 
-## Этап 1. Разведка проекта
+## Stage 1. Reconnaissance of the project
 
-Определи стек и инструмент тестов, не меняя файлов:
+Determine the stack and the test tool without changing files:
 
-| Признак | Стек `--scaffold` | Тесты по умолчанию | SDK в проекте |
+| Sign | `--scaffold` stack | Default tests | SDK in the project |
 |---|---|---|---|
 | `pubspec.yaml` | `dart` | `flutter test --no-pub test/ebt` | `lib/ebt/ebt.dart` |
-| `package.json` + Vitest и Bun | `ts` | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
+| `package.json` + Vitest and Bun | `ts` | `bunx vitest run .ebt.test` | `src/lib/ebt/ebt.ts` |
 | `build.gradle(.kts)` | `jvm` | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
-| npm/pnpm + Jest или Vitest, Maven, `dart test` | `generic` | `$EBT_TEST_CMD` | по языку |
+| npm/pnpm + Jest or Vitest, Maven, `dart test` | `generic` | `$EBT_TEST_CMD` | by language |
 
-Рецепты `generic` и оговорки (Jest без `import.meta.env`, Maven с кодом `1` на сломанную сборку) — в [заготовке](scaffold.md#стек-generic). Узнай, есть ли уже каталог `ebt/`: непустой каталог `--scaffold` не перезаписывает, и это правильно — в нём может лежать утверждённая спецификация.
+The `generic` recipes and caveats (Jest without `import.meta.env`, Maven returning code `1` on a broken build) are in the [scaffold](scaffold.md#the-generic-stack). Find out whether an `ebt/` directory already exists: `--scaffold` does not overwrite a non-empty directory, and that is right, since an approved spec may be there.
 
-Найди в коде **точку решения** по требованию: функцию, где вычисляется результат. Определи, видим или сохраняем ли исход (экран, уведомление, запись в хранилище, вызов внешней системы): тогда кроме уровня решения понадобится уровень наблюдения `<INV>-OBS` ([руководство, раздел 7](authoring.md#7-уровень-наблюдения-inv-obs)).
+Find the **decision point** for the requirement in the code: the function where the result is computed. Determine whether the outcome is visible or persisted (a screen, a notification, a write to storage, a call to an external system): then, besides the decision level, you need the observation level `<INV>-OBS` ([guide, section 7](authoring.md#7-observation-level-inv-obs)).
 
-## Этап 2. Черновик спецификации и утверждение
+## Stage 2. Spec draft and approval
 
 ```bash
-witnessbox scaffold <стек> ebt
+witnessbox scaffold <stack> ebt
 ```
 
-Замени пример `REQ-EXAMPLE-1`/`INV-EXAMPLE-1` в `ebt/spec.toml` черновиком по [руководству](authoring.md#2-spectoml):
+Replace the example `REQ-EXAMPLE-1`/`INV-EXAMPLE-1` in `ebt/spec.toml` with a draft following the [guide](authoring.md#2-spectoml):
 
-- `[req.*]` — текст требования словами владельца и `source` (тикет, решение с датой);
-- `[inv.*]` — `statement`, `checker`, `witness` — минимум полей для пересчёта, `partitions` — классы входов из требования, включая границы, а не имена тестов;
-- для видимого или сохраняемого исхода — близнец `<INV>-OBS` и текст контракта наблюдения (граница наблюдения, обязательные и запрещённые переходы, момент завершения и следующие шаги сеанса, запрещённые побочные эффекты, чтение журнала после действия).
+- `[req.*]` is the requirement text in the owner's words and `source` (a ticket, a dated decision);
+- `[inv.*]` is `statement`, `checker`, `witness` (the minimum fields for recomputation) and `partitions` (the input classes from the requirement, including boundaries, not test names);
+- for a visible or persisted outcome, a twin `<INV>-OBS` and the text of the observation contract (the observation boundary, required and forbidden transitions, the completion moment and next session steps, forbidden side effects, reading the log after the action).
 
-**Остановись.** Покажи человеку черновик в таком виде:
+**Stop.** Show the human the draft in this form:
 
 ```
-Требование: <текст> (источник: <source>)
-Инвариант: <statement>
-witness: <поля> — почему каждое нужно для пересчёта
-partitions: <классы> — какие значения входа каждый покрывает; граница: <значение>
-OBS: <нужен/не нужен и почему>; контракт: <пять пунктов>
-Вопросы: <всё, что ты не смог вывести из требования>
+Requirement: <text> (source: <source>)
+Invariant: <statement>
+witness: <fields> — why each is needed for recomputation
+partitions: <classes> — which input values each covers; boundary: <value>
+OBS: <needed/not needed and why>; contract: <five points>
+Questions: <everything you could not derive from the requirement>
 ```
 
-Продолжай только после явного «утверждаю» (или правок, которые человек утвердил). Правки человека переноси дословно.
+Continue only after an explicit "approved" (or edits the human approved). Carry the human's edits over verbatim.
 
-## Этап 3. Чекер
+## Stage 3. Checker
 
-Напиши в `ebt/checks.py` функцию правила и зарегистрируй её в `CHECKERS` ([образец](authoring.md#3-checkspy)): `Verdict(ok, reason, parts)` при корректной форме, `WitnessError` при отсутствующем поле или неверном типе; `parts` возвращаются и при нарушении; имя не совпадает с чекерами ядра (`cart_total`, `transition`, `sync_merge`). В `ebt/test_checks.py` — случай на каждый класс, нарушение на границе, ошибка формы, регистрация.
+Write the rule function in `ebt/checks.py` and register it in `CHECKERS` ([sample](authoring.md#3-checkspy)): `Verdict(ok, reason, parts)` for a well-formed record, `WitnessError` for a missing field or a wrong type; `parts` are returned on a violation too; the name does not match core checkers (`cart_total`, `transition`, `sync_merge`). In `ebt/test_checks.py`: a case for each class, a violation at the boundary, a shape error, registration.
 
 ```bash
 witnessbox test-checks ebt
 ```
 
-Ожидаемо — код `0`. Нулевой прогон (нет `test_*.py`) — код `1`.
+Expected is code `0`. A zero-test run (no `test_*.py`) gives code `1`.
 
-## Этап 4. SDK и тесты свидетельств
+## Stage 4. SDK and evidence tests
 
 ```bash
 witnessbox sync-pinned ebt
 ```
 
-Если проект кладёт SDK не туда, куда указывает шаблонная строка `ebt/pinned.txt`, сначала поправь путь назначения в `pinned.txt`, затем повтори команду. Файл SDK после этого не редактируй.
+If the project keeps the SDK somewhere other than where the template line of `ebt/pinned.txt` points, first fix the destination path in `pinned.txt`, then repeat the command. Do not edit the SDK file afterwards.
 
-Тест свидетельств водит реальный код по каждому классу из `partitions` и пишет JSONL в `build/ebt/<feature>.jsonl` (для `generic` — в `EBT_EVIDENCE_DIR`). Образец на TypeScript — [быстрый старт, шаг 4](quickstart.md#4-тест-свидетельств); формат и допустимые значения `data` — [SDK](sdk.md). Свидетельство записывается в точке решения или вокруг вызова; `Ebt.scope` — имя класса или сценария; `data` — ровно поля `witness`.
+An evidence test drives the real code across each class from `partitions` and writes JSONL to `build/ebt/<feature>.jsonl` (for `generic`, to `EBT_EVIDENCE_DIR`). A TypeScript sample is in the [quick start, step 4](quickstart.md#4-the-evidence-test); the format and the allowed values of `data` are in the [SDK](sdk.md). The evidence is recorded at the decision point or around the call; `Ebt.scope` is the class or scenario name; `data` is exactly the `witness` fields.
 
-Если чистому клону нужны зависимости, добавь исполняемый `ebt/prepare.sh` (`bun install --frozen-lockfile`, `flutter pub get`; для Gradle — ничего). Lock-файл должен быть закоммичен.
+If a clean clone needs dependencies, add an executable `ebt/prepare.sh` (`bun install --frozen-lockfile`, `flutter pub get`; nothing for Gradle). The lock file must be committed.
 
-Для `-OBS`: тест действует через границу наблюдения из контракта, читает наблюдённое значение (с журналом появлений или вызовов подделок, если они есть в контракте, — журнал читается после завершения действия) и пишет `ev("<INV>-OBS", ...)`. Помощники наблюдения закрепляются в `pinned.txt` строкой `obs/<feature>…  <путь>`.
+For `-OBS`: the test acts through the observation boundary from the contract, reads the observed value (with an appearance log or a log of fake calls if the contract has them; the log is read after the action completes) and writes `ev("<INV>-OBS", ...)`. Observation helpers are pinned in `pinned.txt` with a line `obs/<feature>…  <path>`.
 
-## Этап 5. Проверка подключения
+## Stage 5. Checking the connection
 
-Закоммить подключение одним коммитом (спецификация уже утверждена): `ebt/`, копию SDK, тесты свидетельств, lock-файл. `build/` — в `.gitignore`.
+Commit the connection in one commit (the spec is already approved): `ebt/`, the SDK copy, the evidence tests, the lock file. `build/` goes in `.gitignore`.
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
 ```
 
-Каждая строка должна быть `ок`; `проблема …` устрани и повтори. Это подсказка, а не вердикт.
+Every line must be `ok`; fix any `problem …` and repeat. This is a hint, not a verdict.
 
-## Этап 6. Гейт на исправном коде
+## Stage 6. The gate on sound code
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate ebt . ../ebt-results
 echo $?
 ```
 
-Каталог результатов — вне клона. Коды: `0` PASS, `1` FAIL, `2` ERROR. Причины — `reasons` в `../ebt-results/gate.json`, находки — `report.md`:
+The results directory is outside the clone. Codes: `0` PASS, `1` FAIL, `2` ERROR. The reasons are `reasons` in `../ebt-results/gate.json`, the findings are in `report.md`:
 
-| Итог | Что делать |
+| Result | What to do |
 |---|---|
-| ERROR, `нет свидетельств` | тест не записал файл в нужный каталог или `test.sh` не нашёл тесты: проверь путь и фильтр |
-| ERROR, `gate_error` иного вида | читай `message`, `prepare.log`, `test.log`; чаще всего — грязный клон или нет зависимостей |
-| FAIL, `checker_failed`, «не встретились классы входов» | тесты не дошли до класса — добавь сценарий; классы из `partitions` не убирай |
-| FAIL, `checker_failed`, нарушение или ложное доказательство | возможный дефект кода или ошибка спецификации — **остановись**, покажи находку человеку |
-| FAIL, `tests_failed` | упали сами тесты, смотри `test.log` |
-| FAIL, `pinned_drift` | копия SDK отличается — `witnessbox sync-pinned ebt`, коммит |
-| FAIL, `protected_paths_changed` | `ebt/` изменён после `BASE` — проверь, какой коммит передан в `BASE` |
-| `report.md`: «порча путей … ни разу не поймана» | чекер не смотрит на поле: либо проверь его в чекере, либо спроси человека, не лишнее ли оно в `witness` |
+| ERROR, `no evidence` | the test did not write the file to the right directory, or `test.sh` did not find the tests: check the path and the filter |
+| ERROR, `gate_error` of another kind | read `message`, `prepare.log`, `test.log`; most often a dirty clone or missing dependencies |
+| FAIL, `checker_failed`, "partitions not encountered" | the tests did not reach a class: add a scenario; do not remove classes from `partitions` |
+| FAIL, `checker_failed`, a violation or a false proof | a possible code defect or a spec error: **stop**, show the finding to the human |
+| FAIL, `tests_failed` | the tests themselves failed, see `test.log` |
+| FAIL, `pinned_drift` | the SDK copy differs: `witnessbox sync-pinned ebt`, commit |
+| FAIL, `protected_paths_changed` | `ebt/` changed after `BASE`: check which commit was passed as `BASE` |
+| `report.md`: "corruption of paths … was never caught" | the checker does not look at the field: either check it in the checker, or ask the human whether it is superfluous in `witness` |
 
-## Этап 7. Проверка чувствительности на дефекте
+## Stage 7. Sensitivity check on a defect
 
-PASS сам по себе не доказывает, что проверка работает. Внеси дефект в отдельном worktree, чтобы не трогать дерево человека:
+PASS alone does not prove the check works. Introduce a defect in a separate worktree so as not to touch the human's tree:
 
 ```bash
 git worktree add ../ebt-defect-check HEAD
-# в ../ebt-defect-check сломай границу правила в коде приложения (например, >= → >)
-git -C ../ebt-defect-check commit -am "временный дефект для проверки EBT"
+# in ../ebt-defect-check break the rule's boundary in the application code (for example, >= → >)
+git -C ../ebt-defect-check commit -am "temporary defect to check EBT"
 BASE=$(git rev-parse HEAD) witnessbox gate ../ebt-defect-check/ebt ../ebt-defect-check ../ebt-results-defect
 echo $?
 git worktree remove --force ../ebt-defect-check
 ```
 
-Ожидаемо — код `1` и `checker_failed` в `reasons` без `protected_paths_changed`. Если гейт остался зелёным, правило не чувствительно к этой ошибке: проверь `partitions` (есть ли граничный класс) и `witness`, и сообщи человеку. Временный коммит создаётся на отсоединённом HEAD worktree и в ветки человека не попадает.
+Expected is code `1` and `checker_failed` in `reasons` without `protected_paths_changed`. If the gate stayed green, the rule is not sensitive to this error: check `partitions` (is there a boundary class) and `witness`, and tell the human. The temporary commit is created on the worktree's detached HEAD and does not reach the human's branches.
 
-## Этап 8. Отчёт человеку
+## Stage 8. Report to the human
 
 ```
-Стек: <стек>, команда тестов: <...>
-Спецификация: <INV-...> — утверждена <кем/когда>
-Подключение: коммит <sha>; файлы: ebt/..., <SDK>, <тесты>
-Гейт на исправном коде: PASS (код 0), классы: <все из partitions>
-Гейт на дефекте <какой>: FAIL, reasons=[...]
-Найдено в коде проекта: <нарушения или «нет»>
-Не покрыто: <решения без свидетельств, требования без OBS, что осталось вне проверки>
-Дальше: CI — docs/ci.md (двухстадийный гейт для GitHub Actions)
+Stack: <stack>, test command: <...>
+Spec: <INV-...> — approved <by whom/when>
+Connection: commit <sha>; files: ebt/..., <SDK>, <tests>
+Gate on sound code: PASS (code 0), classes: <all from partitions>
+Gate on the defect <which>: FAIL, reasons=[...]
+Found in project code: <violations or "none">
+Not covered: <decisions without evidence, requirements without OBS, what stayed outside the check>
+Next: CI — docs/ci.md (the two-stage gate for GitHub Actions)
 ```
 
-Явно перечисли, что гейт **не** проверяет в этом подключении: решения без `ev()`, исходы без `-OBS`, классы, которых нет в `partitions`. Границы гарантий — [модель угроз](security.md); не обещай больше.
+List explicitly what the gate does **not** check in this connection: decisions without `ev()`, outcomes without `-OBS`, classes that are not in `partitions`. The limits of the guarantees are in the [threat model](security.md); do not promise more.

@@ -1,55 +1,57 @@
-# Как это работает: один пример от начала до конца
+# How it works: one example from start to finish
 
-Обычные тесты проверяют то, что о коде подумал автор тестов. Если тот же человек или агент ошибся в понимании правила, он ошибётся одинаково и в коде, и в тесте: тест будет зелёным, а поведение — неверным.
+**English** · [Русский](example.ru.md)
 
-Witnessbox закрывает этот разрыв. Код во время тестов записывает **свидетельство**: входы и результат своего решения. Затем отдельная программа — **чекер** — заново вычисляет правильный ответ по утверждённому требованию и сравнивает. Чекер не импортирует код приложения и не верит его заявлению «у меня всё правильно».
+Ordinary tests check what the test author thought about the code. If the same person or agent misunderstood the rule, they will make the same mistake in both the code and the test: the test is green and the behaviour is wrong.
 
-![Схема проверки](verification-flow.svg)
+Witnessbox closes this gap. During tests the code records **evidence**: the inputs and the result of its decision. Then a separate program, the **checker**, computes the correct answer again from the approved requirement and compares. The checker does not import application code and does not believe the code's claim "everything is right with me".
 
-Ниже — каждый шаг схемы на одном примере.
+![Verification flow](verification-flow.svg)
 
-## Пример: скидка в интернет-магазине
+Below is each step of the diagram on one example.
 
-Требование от владельца продукта:
+## Example: a discount in an online store
 
-> Итог корзины = сумма (цена × количество) по позициям минус скидка. Деньги — целые копейки. **Процентная скидка округляется вниз до копейки.**
+The requirement from the product owner:
 
-Покупатель кладёт в корзину три товара по 3,33 ₽ (333 копейки) и применяет скидку 15 %.
+> Cart total = sum of (price × quantity) over the lines minus the discount. Money is whole kopecks. **A percent discount is rounded down to the kopeck.**
 
-- Сумма: 333 × 3 = 999 копеек.
-- Скидка: 999 × 15 % = 149,85 копейки → **вниз до 149**.
-- Итог: 999 − 149 = **850 копеек**.
+A customer puts three items at 3.33 ₽ each (333 kopecks) into the cart and applies a 15% discount.
 
-## Шаг 0. Требование становится инвариантом
+- Sum: 333 × 3 = 999 kopecks.
+- Discount: 999 × 15% = 149.85 kopecks → **rounded down to 149**.
+- Total: 999 − 149 = **850 kopecks**.
 
-До написания кода требование формализуют в `spec.toml`, и его утверждает человек. Разработчик или агент, который пишет код, этот файл не меняет.
+## Step 0. The requirement becomes an invariant
+
+Before any code is written, the requirement is formalized in `spec.toml`, and a human approves it. The developer or agent who writes the code does not change this file.
 
 ```toml
 [req.REQ-CART-1]
-text = "Итог корзины = сумма позиций минус скидка. Процентная скидка округляется вниз до копейки. ..."
+text = "Cart total = sum of lines minus the discount. A percent discount is rounded down to the kopeck. ..."
 
 [inv.INV-CART-3]
 req = "REQ-CART-1"
-checker = "cart_total"                                   # кто пересчитывает
-witness = ["lines", "discount", "subtotal", "off", "result"]   # что код обязан записать
+checker = "cart_total"                                   # who recomputes
+witness = ["lines", "discount", "subtotal", "off", "result"]   # what the code must record
 partitions = ["empty_cart", "no_discount", "percent",
-              "percent_rounding", "fixed", "fixed_exceeds_subtotal"]  # какие случаи должны встретиться в тестах
+              "percent_rounding", "fixed", "fixed_exceeds_subtotal"]  # which cases must occur in the tests
 ```
 
-- **Инвариант** (`INV-CART-3`) — проверяемая формулировка требования: `result = subtotal − off`, где `off` считается по правилу скидки.
-- **witness** — поля, без которых пересчитать нельзя.
-- **partitions** — классы входов. Если тесты не прошли хотя бы один из них (например, ни разу не было скидки с дробными копейками), правило на этом классе не доказано.
+- The **invariant** (`INV-CART-3`) is a checkable wording of the requirement: `result = subtotal − off`, where `off` is computed by the discount rule.
+- **witness** is the fields without which recomputation is impossible.
+- **partitions** are the input partitions. If the tests did not go through at least one of them (for example, there was never a discount with fractional kopecks), the rule is not proven on that partition.
 
-## Шаг 1. Код записывает свидетельство
+## Step 1. The code records evidence
 
-Разработчик пишет функцию и одну строку записи через SDK. В функции ошибка: `Math.round` округляет 149,85 вверх, до 150.
+The developer writes the function and one record line through the SDK. The function has a bug: `Math.round` rounds 149.85 up, to 150.
 
 ```ts
 import { ev } from './lib/ebt/ebt';
 
 export function cartTotal(lines: [number, number][], percent: number): number {
   const subtotal = lines.reduce((sum, [price, qty]) => sum + price * qty, 0);
-  const off = Math.round(subtotal * percent / 100);   // ошибка: нужно Math.floor
+  const off = Math.round(subtotal * percent / 100);   // bug: Math.floor is needed
   const result = subtotal - off;
   ev('INV-CART-3', 'REQ-CART-1', result >= 0, () => ({
     lines, discount: { type: 'percent', value: percent }, subtotal, off, result,
@@ -58,92 +60,92 @@ export function cartTotal(lines: [number, number][], percent: number): number {
 }
 ```
 
-Третий аргумент `ev()` — заявление кода «у меня всё в порядке» (`ok`). Чекер его не учитывает при вердикте: он только помогает назвать находку.
+The third argument of `ev()` is the code's claim "everything is fine with me" (`ok`). The checker does not take it into account for the verdict: it only helps to name the finding.
 
-## Шаг 2. Тесты проекта запускаются и проходят
+## Step 2. The project tests run and pass
 
-Тест написан с той же ошибкой в понимании правила, поэтому он **зелёный**:
+The test is written with the same misunderstanding of the rule, so it is **green**:
 
 ```ts
 import { writeFileSync } from 'node:fs';
 import { Ebt } from './lib/ebt/ebt';
 
-test('скидка 15% на 999 копеек', () => {
-  expect(cartTotal([[333, 3]], 15)).toBe(849);   // автор теста тоже округлил вверх
+test('15% discount on 999 kopecks', () => {
+  expect(cartTotal([[333, 3]], 15)).toBe(849);   // the test author also rounded up
 });
 afterAll(() => writeFileSync(`${process.env.OUT_DIR}/cart.jsonl`, Ebt.toJsonl()));
 ```
 
-Гейт запускает тесты через проектный `test.sh` и передаёт ему пустой каталог `OUT_DIR` для свидетельств:
+The gate runs the tests through the project's `test.sh` and passes it an empty `OUT_DIR` directory for the evidence:
 
 ```bash
 witnessbox gate project/ebt clean-checkout results/
 ```
 
-Перед запуском гейт проверяет checkout: тестируется только закоммиченный код, а файлы проверки (`ebt/`, закреплённые копии SDK) не изменены в ветке.
+Before the run the gate checks the checkout: only committed code is tested, and the verification files (`ebt/`, pinned SDK copies) are unchanged in the branch.
 
-## Шаг 3. Свидетельство
+## Step 3. The evidence
 
-Во время теста в `OUT_DIR/cart.jsonl` появилась строка:
+During the test, a line appeared in `OUT_DIR/cart.jsonl`:
 
 ```json
 {"seq":1,"scope":"checkout_discount","req":"REQ-CART-1","inv":"INV-CART-3","ok":true,
  "data":{"lines":[[333,3]],"discount":{"type":"percent","value":15},"subtotal":999,"off":150,"result":849}}
 ```
 
-`seq` — порядковый номер записи: пропуск номера означает потерянные записи. `scope` — сценарий теста.
+`seq` is the sequence number of the record: a skipped number means lost records. `scope` is the test scenario.
 
-## Шаг 4. Чекер пересчитывает
+## Step 4. The checker recomputes
 
-`witnessbox check` читает `spec.toml`, находит чекер `cart_total` и пересчитывает по `data`, не глядя на код приложения:
+`witnessbox check` reads `spec.toml`, finds the `cart_total` checker and recomputes from `data`, without looking at the application code:
 
 ```
-subtotal = 333 × 3          = 999   ✓ совпало
-off      = 999 × 15 // 100  = 149   ✗ код записал 150
+subtotal = 333 × 3          = 999   ✓ matches
+off      = 999 × 15 // 100  = 149   ✗ the code recorded 150
 ```
 
-Код заявил `ok: true`, а пересчёт нашёл нарушение. Это самый опасный класс — **ложное доказательство** (`FALSE_PROOF`).
+The code claimed `ok: true`, but the recomputation found a violation. This is the most dangerous class, a **false proof** (`FALSE_PROOF`).
 
-## Шаг 5. Итог
+## Step 5. The result
 
-Гейт завершается с кодом `1` — **FAIL**, хотя все тесты прошли. В каталоге результатов:
+The gate ends with exit code `1`, **FAIL**, although all tests passed. The results directory contains:
 
-- `report.md` для человека:
+- `report.md`, for a human:
   ```
-  ### Ложное доказательство (код: ok, чекер: нарушение) — INV-CART-3
-  - Где: строка 1, scope checkout_discount, seq 1
-  - Код заявил ok=True; чекер: нарушение
-  - Причина: off=150, по правилу скидки percent:15 должно быть 149
+  ### False proof (code: ok, checker: violation) — INV-CART-3
+  - Where: line 1, scope checkout_discount, seq 1
+  - Code claimed ok=True; checker: violation
+  - Reason: off=150, by the discount rule percent:15 it must be 149
   ```
-- `gate.json` для CI:
+- `gate.json`, for CI:
   ```json
   {"result": "FAIL", "exit_code": 1, "reasons": ["checker_failed"], "tests_exit_code": 0, "checker_exit_code": 1, ...}
   ```
 
-После исправления на `Math.floor` тест с ожиданием 849 упадёт. Его исправят на 850, гейт пересчитает свидетельство и даст **PASS** — если тесты прошли все шесть классов входов из `partitions`. Один тест из примера покрывает только `percent` и `percent_rounding`, поэтому в реальном проекте тестов по этому правилу будет несколько; иначе гейт сообщит дыру покрытия.
+After the fix to `Math.floor`, the test that expects 849 will fail. It will be corrected to 850, the gate will recompute the evidence and give **PASS**, provided that the tests went through all six partitions from `partitions`. The one test in the example covers only `percent` and `percent_rounding`, so in a real project there will be several tests for this rule; otherwise the gate reports a coverage gap.
 
-## Что ещё гейт поймал бы на этом примере
+## What else the gate would catch in this example
 
-| Ситуация | Итог |
+| Situation | Result |
 |---|---|
-| Код не записал `subtotal` — пересчитать нельзя | FAIL: неполное свидетельство |
-| Ни один тест не дал скидку больше суммы корзины | FAIL: класс `fixed_exceeds_subtotal` не покрыт |
-| Код пишет запись с инвариантом, которого нет в `spec.toml` | FAIL: неизвестный инвариант — новое правило должно пройти утверждение |
-| Чекер не замечает порчу поля `off` (проверка самого чекера) | FAIL: слабый чекер |
-| В ветке изменили `ebt/spec.toml`, чтобы ослабить правило | FAIL при заданном `BASE` |
-| Тесты упали | FAIL, даже если свидетельства верны |
-| Тесты не запустились или свидетельств нет вовсе | ERROR: проверки не было, это не «зелёный» |
+| The code did not record `subtotal`, so recomputation is impossible | FAIL: incomplete evidence |
+| No test produced a discount greater than the cart sum | FAIL: the `fixed_exceeds_subtotal` partition is not covered |
+| The code writes a record with an invariant that is not in `spec.toml` | FAIL: unknown invariant; a new rule must go through approval |
+| The checker does not notice corruption of the `off` field (the checker's own check) | FAIL: weak checker |
+| `ebt/spec.toml` was changed in the branch to weaken the rule | FAIL when `BASE` is set |
+| The tests failed | FAIL, even if the evidence is correct |
+| The tests did not run or there is no evidence at all | ERROR: there was no check, and it is not "green" |
 
-## Чего продукт не делает
+## What the product does not do
 
-- Проверяет только записанное. Если код принимает решение, а записи нет, гейт увидит только непокрытый инвариант, но не само решение.
-- `test.sh` и проектный `checks.py` — доверенный код, а не песочница.
-- Правило в `spec.toml` должно быть верным: чекер доказывает соответствие утверждённому правилу, а не то, что правило хорошее. Поэтому его утверждает человек.
+- It checks only what was recorded. If the code makes a decision and there is no record, the gate will see only an uncovered invariant, not the decision itself.
+- `test.sh` and the project's `checks.py` are trusted code, not a sandbox.
+- The rule in `spec.toml` must be correct: the checker proves conformance to the approved rule, not that the rule is good. That is why a human approves it.
 
-## Попробовать
+## Try it
 
 ```bash
 make example
 ```
 
-Пример `examples/basic/` содержит четыре заложенных дефекта, включая этот случай с округлением; отчёт появится в `examples/basic/report.md`. Подключение своего проекта — в [использовании](usage.md), допустимые значения свидетельств — в [SDK](sdk.md).
+The `examples/basic/` example contains four planted defects, including this rounding case; the report appears in `examples/basic/report.md`. Connecting your own project is covered in [usage](usage.md), the allowed evidence values in the [SDK](sdk.md).

@@ -1,16 +1,16 @@
-"""Тесты примера чекера из заготовки. Замените вместе с checks.py и spec.toml.
+"""Tests of the example checker from the scaffold. Replace together with checks.py and spec.toml.
 
-Пакет установлен в окружение инструмента (`uv tool install`), а не в системный
-python3, поэтому тесты запускает команда поставки из корня проекта:
+The package is installed in the tool environment (`uv tool install`), not in the system
+python3, so the tests are run by the distribution command from the project root:
 
     witnessbox test-checks ebt
 
-Она запускает unittest интерпретатором установки и считает нулевой прогон
-провалом, а не успехом.
+It runs unittest with the installation interpreter and treats a zero-test run
+as a failure, not a success.
 
-Проверяются: корректное свидетельство каждого класса входов, нарушение правила и
-некорректная форма. Для каждого поля witness нужен случай, где его порча ловится
-(или WitnessError), иначе чекер это поле не проверяет.
+Checked: valid evidence of each input partition, a rule violation and
+a malformed shape. For each witness field there must be a case where its corruption is caught
+(or WitnessError), otherwise the checker does not check that field.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class ExampleRule(unittest.TestCase):
         verdict = self.rule(3, 7)
         self.assertFalse(verdict.ok)
         self.assertEqual(verdict.parts, {"positive"})
-        self.assertIn("ожидалось 6", verdict.reason)
+        self.assertIn("expected 6", verdict.reason)
 
     def test_missing_field(self):
         with self.assertRaises(WitnessError):

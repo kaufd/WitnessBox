@@ -1,6 +1,6 @@
-# Закреплённые копии примера e2e для TypeScript.
+# Pinned copies of the e2e example for TypeScript.
 #
-# Формат строки: <оригинал>  <путь в клоне продукта>.
-# kit: — файл из ресурсов установленной поставки (witnessbox --installation).
-# Копия должна совпадать с оригиналом байт в байт; иначе гейт даёт pinned_drift.
+# Line format: <original>  <path in the product clone>.
+# kit: is a file from the resources of the installed distribution (witnessbox --installation).
+# The copy must match the original byte for byte; otherwise the gate gives pinned_drift.
 kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts

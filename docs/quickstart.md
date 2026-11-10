@@ -1,28 +1,30 @@
-# Быстрый старт: от нуля до первого PASS
+# Quick start: from zero to the first PASS
 
-Учебник проходит весь путь на крошечном TypeScript-проекте: установка, заготовка `ebt/`, тест свидетельств, зелёный гейт, затем внесённый дефект и красный гейт с причиной `checker_failed`. Это тот же сценарий, что в [examples/e2e/ts](../examples/e2e/ts) (D48); его же прогоняет `make e2e STACK=ts`. Для готового примера на скидке в магазине см. [как это работает](example.md), для написания собственной спецификации — [руководство](authoring.md).
+**English** · [Русский](quickstart.ru.md)
 
-Чему учебник не учит: он берёт шаблонное требование «`result = value × 2`» как есть. В реальном проекте спецификацию утверждает человек (D4), а не тот, кто пишет код; пример нужен, чтобы увидеть работающий цикл.
+The tutorial walks the whole path on a tiny TypeScript project: installation, the `ebt/` scaffold, an evidence test, a green gate, then an injected defect and a red gate with the reason `checker_failed`. It is the same scenario as [examples/e2e/ts](../examples/e2e/ts) (D48), and `make e2e STACK=ts` runs it. For a ready example with a store discount, see [how it works](example.md); to write your own specification, see the [authoring guide](authoring.md).
 
-## Что понадобится
+What the tutorial does not teach: it takes the template requirement "`result = value × 2`" as is. In a real project a human approves the specification (D4), not the person who writes the code; the example is only here to show the working cycle.
 
-- Python 3.11+ и [uv](https://docs.astral.sh/uv/) (или `pipx`);
-- [Bun](https://bun.sh/) — запускает тесты Vitest в стеке `ts`;
-- `git`: гейт проверяет закоммиченный чистый клон.
+## What you need
 
-Команда `witnessbox` появилась в 0.7.0; более ранние выпуски давали `ebt-gate` и `ebt-check`, и шаги ниже на них не работают. Установленную раньше версию обновите: `uv tool upgrade witnessbox`. Вывод ниже снят с wheel 0.7.0, собранного из этого дерева (`uv build`); пути в нём сокращены.
+- Python 3.11+ and [uv](https://docs.astral.sh/uv/) (or `pipx`);
+- [Bun](https://bun.sh/), which runs the Vitest tests in the `ts` stack;
+- `git`: the gate checks a committed, clean clone.
 
-## 1. Установка
+The `witnessbox` command appeared in 0.7.0; earlier releases provided `ebt-gate` and `ebt-check`, and the steps below do not work with them. Upgrade an earlier installation with `uv tool upgrade witnessbox`. The output below was captured from the 0.7.0 wheel built from this tree (`uv build`); paths in it are shortened.
+
+## 1. Installation
 
 ```bash
 uv tool install witnessbox
 ```
 
-Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
+This installs one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks` subcommands; `witnessbox --help` lists them. `witnessbox --installation` prints the version and the fingerprints of the distribution.
 
-## 2. Проект и заготовка `ebt/`
+## 2. The project and the `ebt/` scaffold
 
-Создайте проект с одной функцией:
+Create a project with one function:
 
 ```bash
 mkdir double-demo && cd double-demo
@@ -43,7 +45,7 @@ mkdir src
 }
 ```
 
-`vitest.config.ts` — Vitest ищет только тесты свидетельств:
+`vitest.config.ts`: Vitest looks only for evidence tests.
 
 ```ts
 import { defineConfig } from "vitest/config";
@@ -86,54 +88,58 @@ node_modules/
 build/
 ```
 
-Установите зависимости и создайте заготовку:
+Install the dependencies and create the scaffold:
 
 ```bash
 bun install
 witnessbox scaffold ts ebt
 ```
 
-`bun install` создаст `bun.lock`: его нужно закоммитить, потому что гейт ставит зависимости в чистом клоне командой `bun install --frozen-lockfile`. Заготовка печатает список созданного:
+`bun install` creates `bun.lock`. Commit it, because the gate installs dependencies in a clean clone with `bun install --frozen-lockfile`. The scaffold prints the list of created files:
 
 ```
-Создана заготовка ebt/ (ts) в …/double-demo/ebt:
+Created ebt/ scaffold (ts) in …/double-demo/ebt:
   spec.toml
   checks.py
   test_checks.py
   README.md
   test.sh
   pinned.txt
-Дальше:
-  замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием (для пробы можно оставить);
-  прогоните тесты чекера: witnessbox test-checks ebt;
-  …
+Next:
+  replace the example REQ-EXAMPLE-1/INV-EXAMPLE-1 with an approved requirement (may stay for a trial);
+  run the checker tests: witnessbox test-checks ebt;
+  copy the SDK and helpers: witnessbox sync-pinned ebt;
+  write an evidence test (it writes build/ebt/*.jsonl) and, if needed, ebt/prepare.sh;
+  commit the project and check the setup: witnessbox gate --check-only ebt .;
+  run the gate: witnessbox gate ebt . <result dir>.
+Details are in the directory README.md.
 ```
 
-Подсказка «Дальше» — порядок для своего проекта, как в `ebt/README.md`. Учебник оставляет шаблонную спецификацию, поэтому сначала копирует SDK и пишет тест, а тесты чекера запускает перед коммитом.
+The "Next" hint is the order for your own project, as in `ebt/README.md`. The tutorial keeps the template specification, so it first copies the SDK and writes the test, and runs the checker tests before the commit.
 
-Что в ней важно сейчас:
+What matters in it right now:
 
-- `ebt/spec.toml` — пример требования `REQ-EXAMPLE-1` и инварианта `INV-EXAMPLE-1`: `result == value × 2`, `witness = ["value", "result"]`, классы входов `zero`, `positive`, `negative`;
-- `ebt/checks.py` — независимый чекер `example_rule`: он пересчитывает `value × 2` сам и не импортирует приложение;
-- `ebt/test.sh` — запуск `bunx vitest run .ebt.test` и копирование `build/ebt/*.jsonl` в `OUT_DIR`; его трогать не нужно.
+- `ebt/spec.toml` has the example requirement `REQ-EXAMPLE-1` and the invariant `INV-EXAMPLE-1`: `result == value × 2`, `witness = ["value", "result"]`, partitions `zero`, `positive`, `negative`;
+- `ebt/checks.py` has the independent checker `example_rule`: it recomputes `value × 2` itself and does not import the application;
+- `ebt/test.sh` runs `bunx vitest run .ebt.test` and copies `build/ebt/*.jsonl` to `OUT_DIR`; you do not need to touch it.
 
-Здесь шаблонную спецификацию мы оставляем как есть. Для своего требования её заменяют по [руководству](authoring.md).
+Here we leave the template specification as it is. For your own requirement, replace it following the [authoring guide](authoring.md).
 
-## 3. Копия SDK
+## 3. The SDK copy
 
 ```bash
 witnessbox sync-pinned ebt
 ```
 
 ```
-обновлён src/lib/ebt/ebt.ts
+updated src/lib/ebt/ebt.ts
 ```
 
-Команда прочитала `ebt/pinned.txt` (строка `kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts`) и положила SDK из установленной поставки в проект. Гейт сверяет копию с оригиналом байт в байт; правка копии вручную даст `pinned_drift`.
+The command read `ebt/pinned.txt` (the line `kit:lib/ebt/ebt.ts  src/lib/ebt/ebt.ts`) and put the SDK from the installed distribution into the project. The gate compares the copy with the original byte for byte; editing the copy by hand gives `pinned_drift`.
 
-## 4. Тест свидетельств
+## 4. The evidence test
 
-`double.ebt.test.ts` в корне проекта: тест водит код по классам входов и записывает по одному свидетельству на класс.
+`double.ebt.test.ts` in the project root: the test drives the code through the partitions and writes one piece of evidence per partition.
 
 ```ts
 import { afterAll, describe, expect, it } from "vitest";
@@ -142,7 +148,7 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { Ebt, ev } from "./src/lib/ebt/ebt";
 import { double } from "./src/double";
 
-// Свидетельства пишутся после всех случаев: классы покрытия — zero/positive/negative.
+// Evidence is written after all cases: partitions are zero/positive/negative.
 afterAll(() => {
   mkdirSync("build/ebt", { recursive: true });
   writeFileSync("build/ebt/double.jsonl", Ebt.toJsonl() + "\n");
@@ -166,18 +172,18 @@ describe("double", () => {
 });
 ```
 
-Что здесь происходит:
+What happens here:
 
-- `Ebt.scope = name` — имя класса входов; оно попадает в запись и отделяет сценарии друг от друга;
-- `ev(inv, req, ok, data)` — запись: какой инвариант, какое требование, что решил код (`ok`) и **данные решения** (`data`) — ровно поля `witness` из `spec.toml`;
-- `afterAll` — запись файла `build/ebt/double.jsonl`; `test.sh` скопирует его в `OUT_DIR`;
-- `expect` — обычная проверка теста. Она не заменяет свидетельство: гейт верит не ей, а пересчёту чекера.
+- `Ebt.scope = name` is the name of the partition; it goes into the record and separates scenarios from each other;
+- `ev(inv, req, ok, data)` is the record: which invariant, which requirement, what the code decided (`ok`) and the **decision data** (`data`), exactly the `witness` fields from `spec.toml`;
+- `afterAll` writes the file `build/ebt/double.jsonl`; `test.sh` copies it to `OUT_DIR`;
+- `expect` is an ordinary test assertion. It does not replace the evidence: the gate trusts the checker's recomputation, not the assertion.
 
-Формат записи и допустимые значения `data` — в [SDK](sdk.md).
+The record format and the allowed `data` values are in the [SDK](sdk.md).
 
 ## 5. `prepare.sh`
 
-В чистом клоне нет `node_modules`. Гейт запускает `ebt/prepare.sh` до `test.sh`, поэтому зависимости ставит он:
+A clean clone has no `node_modules`. The gate runs `ebt/prepare.sh` before `test.sh`, so it installs the dependencies:
 
 ```bash
 cat > ebt/prepare.sh <<'EOF'
@@ -189,9 +195,9 @@ EOF
 chmod 755 ebt/prepare.sh
 ```
 
-## 6. Проверка чекера и подключения до полного прогона
+## 6. Check the checker and the wiring before a full run
 
-Тесты чекера из заготовки:
+The scaffold's checker tests:
 
 ```bash
 witnessbox test-checks ebt
@@ -211,42 +217,42 @@ Ran 7 tests in 0.000s
 OK
 ```
 
-Теперь закоммитьте всё, включая `ebt/`: гейт проверяет клон, а изменение `ebt/` внутри проверяемой ветки считает нарушением защищённых путей.
+Now commit everything, including `ebt/`: the gate checks the clone, and it treats a change to `ebt/` inside the branch under test as a protected-path violation.
 
 ```bash
 git add -A
-git commit -m "Проект с заготовкой ebt"
+git commit -m "Project with the ebt scaffold"
 ```
 
-Проверка подключения (`prepare.sh` и `test.sh` она не запускает):
+The wiring check (it runs neither `prepare.sh` nor `test.sh`):
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
 ```
 
 ```
-ок spec
-ок checks
-ок known: нет known.toml
-ок baseline: нет baseline.jsonl
-ок runner
-ок pinned
-ок clone
-ок base
+ok spec
+ok checks
+ok known: no known.toml
+ok baseline: no baseline.jsonl
+ok runner
+ok pinned
+ok clone
+ok base
 ```
 
-До первого коммита та же команда нашла бы проблему: `проблема clone: в репозитории нет коммитов — гейт проверяет только закоммиченное`, код `1`; с незакоммиченными правками после него — `проблема clone: дерево клона не чистое`. Без `BASE` строка `base` будет `пропущено`: защищённые пути не проверялись. `--check-only` — подсказка, а не вердикт.
+Before the first commit, the same command would have found a problem: `problem clone: the repository has no commits: the gate checks only committed files`, exit code `1`; with uncommitted changes after it, the line is `problem clone: the clone tree is not clean`. Without `BASE`, the `base` line reads `skipped`: protected paths were not checked. `--check-only` is a hint, not a verdict.
 
-## 7. Гейт: PASS
+## 7. The gate: PASS
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate ebt . ../results
 echo $?
 ```
 
-Три аргумента — каталог `ebt/`, клон проекта и каталог результатов (его гейт создаёт и очищает сам; держите его вне клона). `BASE` — коммит, относительно которого гейт ищет изменения защищённых путей; здесь он совпадает с проверяемым коммитом.
+The three arguments are the `ebt/` directory, the project clone and the results directory (the gate creates and clears it itself; keep it outside the clone). `BASE` is the commit against which the gate looks for changes to protected paths; here it is the same as the commit under test.
 
-Код возврата `0`. Гейт печатает `gate.md` в терминал; его первая строка — `# EBT-гейт: зелёный`. Строка «Чекер» показывает версию самого чекера (`witnessbox check 0.1.0`): она ведётся отдельно от версии поставки, а поставку и чекер однозначно задают sha256. В `gate.json`:
+The exit code is `0`. The gate prints `gate.md` to the terminal; its first line is `# EBT gate: green`. The "Checker" line shows the version of the checker itself (`witnessbox check 0.1.0`): it is maintained separately from the distribution version, and the distribution and the checker are identified unambiguously by their sha256. In `gate.json`:
 
 ```json
 {
@@ -260,7 +266,7 @@ echo $?
 }
 ```
 
-(Показаны не все поля.) Свидетельства — `../results/evidence.jsonl`, три строки, по одной на класс:
+(Not all fields are shown.) The evidence is in `../results/evidence.jsonl`, three lines, one per partition:
 
 ```
 {"seq":1,"scope":"zero","req":"REQ-EXAMPLE-1","inv":"INV-EXAMPLE-1","ok":true,"data":{"value":0,"result":0}}
@@ -268,15 +274,15 @@ echo $?
 {"seq":3,"scope":"negative","req":"REQ-EXAMPLE-1","inv":"INV-EXAMPLE-1","ok":true,"data":{"value":-4,"result":-8}}
 ```
 
-В `report.md` — «Итог: ✅ доказано на этом прогоне», все категории находок равны нулю, а в самопроверке чекера: «порча любого поля ловится».
+`report.md` says "Result: ✅ proven on this run", all finding categories equal zero, and the checker self-test says "corruption of any field is caught".
 
-Что гейт сделал: поставил зависимости (`prepare.sh`), запустил `test.sh`, собрал свидетельства, пересчитал каждую запись чекером `example_rule`, проверил, что встретились все классы входов, и записал итог. PASS означает: на записанных сценариях правило выполнено. Он не означает, что код верен вне этих сценариев; границы гарантий — в [модели угроз](security.md).
+What the gate did: it installed the dependencies (`prepare.sh`), ran `test.sh`, collected the evidence, recomputed every record with the `example_rule` checker, checked that all partitions were encountered and wrote the result. PASS means that on the recorded scenarios the rule holds. It does not mean the code is correct outside those scenarios; the limits of the guarantees are in the [threat model](security.md).
 
-Если свидетельств нет вовсе (например, нет файла теста), гейт даёт не PASS, а ERROR: код `2`, причина `gate_error`, в `gate.json` — `"message": "нет свидетельств …"`. Отсутствие проверки не считается успехом.
+If there is no evidence at all (for example, the test file is missing), the gate gives ERROR, not PASS: exit code `2`, reason `gate_error`, and `gate.json` has `"message": "no evidence in …"`. A missing check is not counted as success.
 
-## 8. Внесите дефект
+## 8. Inject a defect
 
-Замените `src/double.ts`:
+Replace `src/double.ts`:
 
 ```ts
 export function double(value: number): number {
@@ -285,64 +291,64 @@ export function double(value: number): number {
 ```
 
 ```bash
-git commit -am "double: умножение на 3"
+git commit -am "double: multiply by 3"
 BASE=$(git rev-parse HEAD~1) witnessbox gate ebt . ../results-defect
 echo $?
 ```
 
-Код возврата `1`. Заготовка и тест не менялись, `BASE` — коммит до дефекта; защищённые пути не тронуты.
+The exit code is `1`. The scaffold and the test did not change, `BASE` is the commit before the defect, and the protected paths are untouched.
 
-## 9. Как читать результат
+## 9. How to read the result
 
-`gate.md` начинается строкой `# EBT-гейт: красный`, затем идут версии, хеши и коды стадий: `Тесты test.sh: код 1 · ebt_check: код 1`. Причины — в `gate.json`:
+`gate.md` starts with the line `# EBT gate: red`, followed by versions, hashes and stage codes: `test.sh tests: code 1 · ebt_check: code 1`. The reasons are in `gate.json`:
 
 ```json
 { "result": "FAIL", "exit_code": 1, "reasons": ["checker_failed", "tests_failed"] }
 ```
 
-- `checker_failed` — чекер нашёл нарушение или дыру в покрытии: смотрите `report.md`;
-- `tests_failed` — упали сами тесты (`expect(result).toBe(value * 2)`); подробности — в `test.log`. Здесь причин две, потому что дефект виден и тесту, и чекеру. Полный список причин — в [usage](usage.md#запуск-гейта-и-чекера).
+- `checker_failed`: the checker found a violation or a coverage gap; see `report.md`;
+- `tests_failed`: the tests themselves failed (`expect(result).toBe(value * 2)`); details are in `test.log`. There are two reasons here because both the test and the checker see the defect. The full list of reasons is in [usage](usage.md#running-the-gate-and-the-checker).
 
-Главное — `report.md`:
+The main thing is `report.md`:
 
 ```
-**Итог: ❌ не доказано**
+**Result: ❌ not proven**
 
-| Подтверждённое нарушение | 2 |
-| Инварианты с непройденными классами входов | 1 |
+| Confirmed violation | 2 |
+| Invariants with uncovered partitions | 1 |
 
-### Подтверждённое нарушение — `INV-EXAMPLE-1`
-- Где: строка 2, scope `positive`, seq 2
-- Инвариант: result == value × 2
-- Код заявил ok=False; чекер: нарушение
-- Причина: result=63, по правилу value × 2 ожидалось 42
-- Свидетельство: `{"value":21,"result":63}`
+### Confirmed violation — `INV-EXAMPLE-1`
+- Where: line 2, scope `positive`, seq 2
+- Invariant: result == value × 2
+- Code claimed ok=False; checker: violation
+- Reason: result=63, by the rule value × 2 expected 42
+- Evidence: `{"value":21,"result":63}`
 …
-## Покрытие
+## Coverage
 
-- **INV-EXAMPLE-1**: не встретились классы входов: `positive`, `negative`
+- **INV-EXAMPLE-1**: partitions not encountered: `positive`, `negative`
 ```
 
-Читать его надо так: «Где» указывает строку и `scope` свидетельства, «Причина» — что пересчитал чекер, «Свидетельство» — записанные данные. Строка «код заявил ok=…» показывает, что решило приложение; чекер её не использует. Если приложение запишет `ok=true` на неверных данных, это отдельная категория — «Ложное доказательство (код: ok, чекер: нарушение)»: чекер нарушение всё равно найдёт. Нарушенное свидетельство не засчитывает класс входов: поэтому классы `positive` и `negative` числятся непройденными.
+Read it like this: "Where" gives the line and `scope` of the evidence, "Reason" is what the checker recomputed, "Evidence" is the recorded data. The "Code claimed ok=…" line shows what the application decided; the checker does not use it. If the application records `ok=true` on wrong data, that is a separate category, "False proof (code: ok, checker: violation)": the checker finds the violation anyway. A violated record does not count its partition as covered, which is why the `positive` and `negative` partitions are listed as not passed.
 
-Каталог результатов:
+The results directory:
 
-| Файл | Что внутри |
+| File | Contents |
 |---|---|
-| `gate.json` | итог для CI: `result`, `reasons`, коды стадий, хеши спецификации, поставки и свидетельств |
-| `gate.md` | то же коротко для человека |
-| `report.md`, `report.json` | находки чекера, покрытие, самопроверка |
-| `evidence.jsonl`, `out/` | свидетельства, которые читал чекер |
-| `test.log`, `prepare.log` | вывод `test.sh` и `prepare.sh` |
-| `inputs/` | копия `spec.toml` и `checks.py`, снятая до `prepare.sh` |
+| `gate.json` | the result for CI: `result`, `reasons`, stage codes, hashes of the spec, the distribution and the evidence |
+| `gate.md` | the same in short, for a human |
+| `report.md`, `report.json` | checker findings, coverage, self-test |
+| `evidence.jsonl`, `out/` | the evidence the checker read |
+| `test.log`, `prepare.log` | the output of `test.sh` and `prepare.sh` |
+| `inputs/` | a copy of `spec.toml` and `checks.py`, taken before `prepare.sh` |
 
-## Автоматическая проверка учебника
+## Automatic check of the tutorial
 
-`make e2e STACK=ts` собирает временный репозиторий из заготовки и `examples/e2e/ts`, прогоняет гейт на исправном коде (ожидает PASS), накладывает `examples/e2e/ts/defect/` и ожидает FAIL с `checker_failed` и без `protected_paths_changed`. Аналоги — `STACK=jvm` и `STACK=generic`. Нужна установленная команда `witnessbox`, `bun` (для `jvm` — `gradle` и JDK 17).
+`make e2e STACK=ts` builds a temporary repository from the scaffold and `examples/e2e/ts`, runs the gate on the healthy code (expects PASS), applies `examples/e2e/ts/defect/` and expects FAIL with `checker_failed` and without `protected_paths_changed`. The analogues are `STACK=jvm` and `STACK=generic`. It needs the installed `witnessbox` command and `bun` (for `jvm`, `gradle` and JDK 17).
 
-## Дальше
+## Next
 
-- Своё требование: [от требования до тестов свидетельств](authoring.md).
-- Другие стеки и договор `test.sh`: [заготовка](scaffold.md).
-- CI: [двухстадийный гейт](ci.md).
-- Что гейт не гарантирует: [модель угроз](security.md).
+- Your own requirement: [from a requirement to evidence tests](authoring.md).
+- Other stacks and the `test.sh` contract: [scaffold](scaffold.md).
+- CI: [two-stage gate](ci.md).
+- What the gate does not guarantee: [threat model](security.md).

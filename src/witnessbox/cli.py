@@ -1,4 +1,4 @@
-"""Публичный вход команды witnessbox; все runtime-пути принадлежат этой установке."""
+"""Public entry point of the witnessbox command; all runtime paths belong to this installation."""
 
 import hashlib
 import json
@@ -13,17 +13,17 @@ import tempfile
 
 
 def _installed_entries(package: Path, dist):
-    """(root, paths) поставляемого кода: RECORD, а для editable — обход дерева.
+    """(root, paths) of the shipped code: RECORD, or a tree walk for editable installs.
 
-    RECORD задан относительно dist.locate_file(""), а не package.parent. В editable
-    установке и при запуске из src через PYTHONPATH в RECORD лежат только .pth и
-    finder-файлы, а исходников пакета там нет: такой RECORD непригоден, и тогда
-    отпечаток строится обходом дерева.
+    RECORD is relative to dist.locate_file(""), not package.parent. In an editable
+    install and when running from src via PYTHONPATH, RECORD lists only .pth and
+    finder files, not the package sources: such a RECORD is unusable, and then
+    the fingerprint is built by walking the tree.
     """
     files = dist.files or ()
     root = Path(dist.locate_file("")).resolve()
-    # RECORD пригоден, только если он описывает исполняемый пакет. При PYTHONPATH=src
-    # рядом с установленным wheel метаданные есть, но package лежит вне их корня.
+    # RECORD is usable only if it describes the package being run. With PYTHONPATH=src
+    # next to an installed wheel the metadata exists, but the package lies outside its root.
     if package == root / package.name and any(
             Path(entry).parts[:1] == (package.name,) for entry in files):
         return root, [Path(dist.locate_file(entry)).resolve() for entry in files]
@@ -52,19 +52,19 @@ def installation():
     package = Path(__file__).resolve().parent
     dist = distribution("witnessbox")
     root, installed = _installed_entries(package, dist)
-    # scaffold — данные для нового проекта, а не код проверки: его правка не меняет
-    # удостоверение установленного гейта. Поэтому каталог исключён из fingerprint.
+    # scaffold is data for a new project, not checking code: editing it does not change
+    # the identity of the installed gate. So the directory is excluded from the fingerprint.
     code = [path for path in installed
             if path.suffix in (".py", ".sh") and "scaffold" not in path.parts]
     cli = Path(__file__).resolve()
     modules = [path for path in code if path.suffix == ".py" and path.resolve() != cli]
     shell_files = [path for path in code if path.suffix == ".sh"]
     if not modules or not shell_files:
-        # Пустой или неполный набор файлов дал бы постоянный SHA пустого ввода:
-        # молчаливое «удостоверение», которое ничего не удостоверяет.
+        # An empty or incomplete file set would give a constant SHA of empty input:
+        # a silent "identity" that identifies nothing.
         raise RuntimeError(
-            "installation: пустой отпечаток кода witnessbox "
-            f"(python={len(modules)}, shell={len(shell_files)}); проверьте установку пакета")
+            "installation: empty witnessbox code fingerprint "
+            f"(python={len(modules)}, shell={len(shell_files)}); check the package installation")
     return {
         "distribution": dist.metadata["Name"],
         "version": dist.version,
@@ -83,13 +83,13 @@ GATE_FILES = ("gate.md", "report.md", "report.json", "evidence.jsonl", "out",
 
 def write_summary(run, exit_code, reasons, message, commit, tests_rc, check_rc,
                   checker, checker_sha256, spec):
-    """gate.json — машиночитаемый итог попытки гейта, формат 1; запись атомарная."""
+    """gate.json is the machine-readable result of a gate attempt, format 1; the write is atomic."""
     run, spec, exit_code = Path(run), Path(spec), int(exit_code)
     info = installation()
     evidence = None
     if check_rc:
-        # simplicity: хеш снят при записи итога, а не при чтении чекером; правка файла
-        # между ними не видна (граница D26). Точнее — хешировать в load_jsonl.
+        # simplicity: the hash is taken when the result is written, not when the checker reads it; editing the file
+        # in between is not seen (D26 boundary). More precise: hash in load_jsonl.
         evidence = [
             {"file": path.name, "sha256": hashlib.sha256(path.read_bytes()).hexdigest()}
             for path in sorted((run / "out").glob("*.jsonl"))
@@ -120,11 +120,11 @@ SCAFFOLD_FILES = ("spec.toml", "checks.py", "test_checks.py", "README.md")
 
 
 def _copy_scaffold(sources, target):
-    """Скопировать шаблоны в пустой каталог; при ошибке убрать уже созданные файлы."""
+    """Copy templates into an empty directory; on error remove the files already created."""
     copied = []
     try:
         for name, source in sources.items():
-            # Имя запоминаем до копирования: неудачная запись могла оставить часть файла.
+            # Remember the name before copying: a failed write may leave part of a file.
             copied.append(name)
             shutil.copyfile(source, target / name)
         (target / "test.sh").chmod(0o755)
@@ -135,7 +135,7 @@ def _copy_scaffold(sources, target):
 
 
 def scaffold(argv):
-    """Заготовка ebt/: шаблоны spec, checks.py, test.sh выбранного стека и pinned.txt."""
+    """Scaffold of ebt/: spec, checks.py, the chosen stack's test.sh templates and pinned.txt."""
     usage = "usage: witnessbox scaffold <dart|ts|jvm|generic> [<ebt-dir>]"
     if len(argv) not in (1, 2) or argv[0] not in SCAFFOLD_STACKS:
         print(usage, file=sys.stderr)
@@ -149,23 +149,23 @@ def scaffold(argv):
 
     missing = [str(path) for path in sources.values() if not path.is_file()]
     if missing:
-        print("witnessbox scaffold: в поставке нет файлов шаблона: " + ", ".join(missing), file=sys.stderr)
+        print("witnessbox scaffold: the distribution has no template files: " + ", ".join(missing), file=sys.stderr)
         return 2
-    # Утверждённую спецификацию и чужие файлы заготовка не перезаписывает (D4).
+    # The scaffold does not overwrite an approved spec or foreign files (D4).
     existing = target.exists() or target.is_symlink()
     if existing and (target.is_symlink() or not target.is_dir() or any(target.iterdir())):
-        print(f"witnessbox scaffold: {target} уже существует и не пуст; файлы не перезаписаны", file=sys.stderr)
+        print(f"witnessbox scaffold: {target} already exists and is not empty; files not overwritten", file=sys.stderr)
         return 2
-    # Нормализуем до создания временного каталога: `--scaffold ts .` — это текущий
-    # каталог, а не временный каталог внутри него.
+    # Normalize before creating the temp directory: `--scaffold ts .` is the current
+    # directory, not a temp directory inside it.
     target = target.resolve()
 
     if existing:
-        # Существующий пустой каталог (в том числе `.`) заполняем на месте; удалять его нельзя.
+        # An existing empty directory (including `.`) is filled in place; it must not be removed.
         try:
             _copy_scaffold(sources, target)
         except OSError as error:
-            print(f"witnessbox scaffold: не удалось создать {target}: {error}", file=sys.stderr)
+            print(f"witnessbox scaffold: could not create {target}: {error}", file=sys.stderr)
             return 2
     else:
         temp = None
@@ -178,20 +178,20 @@ def scaffold(argv):
         except OSError as error:
             if temp is not None:
                 shutil.rmtree(temp, ignore_errors=True)
-            print(f"witnessbox scaffold: не удалось создать {target}: {error}", file=sys.stderr)
+            print(f"witnessbox scaffold: could not create {target}: {error}", file=sys.stderr)
             return 2
 
-    print(f"Создана заготовка ebt/ ({stack}) в {target}:")
+    print(f"Created ebt/ scaffold ({stack}) in {target}:")
     for name in sources:
         print(f"  {name}")
-    print("Дальше:")
-    print("  замените пример REQ-EXAMPLE-1/INV-EXAMPLE-1 утверждённым требованием (для пробы можно оставить);")
-    print("  прогоните тесты чекера: witnessbox test-checks ebt;")
-    print("  скопируйте SDK и помощников: witnessbox sync-pinned ebt;")
-    print("  напишите тест свидетельств (он пишет build/ebt/*.jsonl) и, если нужно, ebt/prepare.sh;")
-    print("  закоммитьте проект и проверьте подключение: witnessbox gate --check-only ebt .;")
-    print("  запустите гейт: witnessbox gate ebt . <каталог итога>.")
-    print("Подробности — в README.md каталога.")
+    print("Next:")
+    print("  replace the example REQ-EXAMPLE-1/INV-EXAMPLE-1 with an approved requirement (may stay for a trial);")
+    print("  run the checker tests: witnessbox test-checks ebt;")
+    print("  copy the SDK and helpers: witnessbox sync-pinned ebt;")
+    print("  write an evidence test (it writes build/ebt/*.jsonl) and, if needed, ebt/prepare.sh;")
+    print("  commit the project and check the setup: witnessbox gate --check-only ebt .;")
+    print("  run the gate: witnessbox gate ebt . <result dir>.")
+    print("Details are in the directory README.md.")
     return 0
 
 
@@ -199,28 +199,28 @@ PinnedCopy = tuple[int, Path, str, Path | None]
 
 
 def _printable(value: object) -> str:
-    """Текст без суррогатов: путь из cp1251 показываем как \\xNN, но не роняем печать."""
+    """Text without surrogates: a cp1251 path is shown as \\xNN, but printing does not crash."""
     return str(value).encode("utf-8", "backslashreplace").decode("utf-8")
 
 
 def _gate_read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | None]:
-    """Разбор pinned.txt по правилам gate.sh, без строгостей --sync-pinned.
+    """Parse pinned.txt by gate.sh rules, without the strictness of --sync-pinned.
 
-    Гейт пропускает строки-комментарии (в том числе с \r и не в UTF-8), принимает
-    абсолютный dest, `../` и повтор пути; проверяет только наличие оригинала и
-    совпадение копии. Именно эти правила нужны --check-only, иначе он находил бы
-    проблему там, где гейт даёт PASS (D47).
+    The gate skips comment lines (including those with \r or non-UTF-8), accepts
+    an absolute dest, `../` and a repeated path; it checks only that the original exists and
+    that the copy matches. These are the rules --check-only needs, otherwise it would find
+    a problem where the gate gives PASS (D47).
     """
     pinned = ebt / "pinned.txt"
     if not pinned.is_file():
-        return [], f"нет pinned.txt: {pinned}"
+        return [], f"no pinned.txt: {pinned}"
     try:
         raw = pinned.read_bytes()
     except OSError as error:
-        return [], f"не удалось прочитать {pinned}: {error}"
+        return [], f"could not read {pinned}: {error}"
     resources = Path(__file__).resolve().parent / "resources"
     copies: list[PinnedCopy] = []
-    # Bash read разделяет только пробелами и табуляцией; \r остаётся в последнем поле.
+    # Bash read splits only on spaces and tabs; \r stays in the last field.
     for number, line in enumerate(raw.split(b"\n"), start=1):
         fields = [field for field in re.split(rb"[ \t]+", line.strip(b" \t")) if field]
         if not fields or fields[0].startswith(b"#"):
@@ -235,7 +235,7 @@ def _gate_read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | No
         else:
             src = ebt / source_text
         if not src.is_file():
-            return [], f"pinned.txt:{number}: нет оригинала {_printable(src)}"
+            return [], f"pinned.txt:{number}: no original {_printable(src)}"
         if not dest:
             destination = None
         else:
@@ -246,58 +246,58 @@ def _gate_read_pinned(ebt: Path, root: Path) -> tuple[list[PinnedCopy], str | No
 
 
 def read_pinned(ebt: Path, root: Path, gate_rules: bool = False) -> tuple[list[PinnedCopy], str | None]:
-    """Разобрать pinned.txt: (копии, первая ошибка). Ошибка — текст без префикса команды.
+    """Parse pinned.txt: (copies, first error). The error is text without the command prefix.
 
-    Первый проход ничего не пишет: отказ до первой записи не оставит половину копий.
-    Формат тот же, что у гейта: пустые строки и строки с `#` пропускаются, первый токен —
-    оригинал (`kit:` — ресурсы этой поставки, абсолютный — как есть, иначе рядом с ebt/),
-    второй — путь в проекте. Возвращает (номер строки, оригинал, dest, разрешённый путь).
+    The first pass writes nothing: a failure before the first write leaves no half-made copies.
+    Same format as the gate: empty lines and `#` lines are skipped, the first token is
+    the original (`kit:` means resources of this distribution, absolute as is, otherwise next to ebt/),
+    the second is the path in the project. Returns (line number, original, dest, resolved path).
 
-    gate_rules=True — нестрогие правила gate.sh для --check-only: комментарии не
-    проверяются на \r/UTF-8, абсолютный dest, выход за корень и повтор разрешены.
+    gate_rules=True: the lenient gate.sh rules for --check-only: comments are not
+    checked for \r/UTF-8; an absolute dest, escaping the root and repeats are allowed.
     """
     if gate_rules:
         return _gate_read_pinned(ebt, root)
     pinned = ebt / "pinned.txt"
     if not pinned.is_file():
-        return [], f"нет pinned.txt: {pinned}"
-    # Читаем байты, а не текст с универсальными переводами строк: CRLF иначе исчезнет,
-    # и команда молча запишет копию не туда, куда её ищет гейт (`sdk/Ebt.java\r`).
+        return [], f"no pinned.txt: {pinned}"
+    # Read bytes, not text with universal newlines: otherwise CRLF vanishes,
+    # and the command would silently write the copy where the gate does not look (`sdk/Ebt.java\r`).
     try:
         text = pinned.read_bytes().decode("utf-8")
     except (OSError, UnicodeDecodeError) as error:
-        return [], f"не удалось прочитать {pinned}: {error}"
+        return [], f"could not read {pinned}: {error}"
 
     resources = Path(__file__).resolve().parent / "resources"
     copies: list[PinnedCopy] = []
     seen: dict[Path, int] = {}
     for number, line in enumerate(text.split("\n"), start=1):
         if "\r" in line:
-            return [], f"pinned.txt:{number}: символ \\r в строке; сохраните файл с переводами строк LF"
+            return [], f"pinned.txt:{number}: \\r character in the line; save the file with LF line endings"
         tokens = line.split()
         if not tokens or tokens[0].startswith("#"):
             continue
         if len(tokens) < 2:
-            return [], f"pinned.txt:{number}: нет пути назначения"
+            return [], f"pinned.txt:{number}: no destination path"
         source, dest = tokens[0], tokens[1]
         if source.startswith("kit:"):
-            # Как в gate.sh: строка kit: склеивается с каталогом ресурсов, а не с файловой системой.
+            # As in gate.sh: a kit: line is joined with the resources directory, not the file system.
             src = resources / source[len("kit:"):].lstrip("/")
         elif Path(source).is_absolute():
             src = Path(source)
         else:
             src = ebt / source
         if not src.is_file():
-            return [], f"pinned.txt:{number}: нет оригинала {src}"
+            return [], f"pinned.txt:{number}: no original {src}"
         if Path(dest).is_absolute():
-            return [], f"pinned.txt:{number}: абсолютный путь назначения не разрешён: {dest}"
+            return [], f"pinned.txt:{number}: absolute destination path is not allowed: {dest}"
         destination = (root / dest).resolve()
         if not destination.is_relative_to(root):
-            return [], f"pinned.txt:{number}: путь назначения вне проекта: {dest}"
+            return [], f"pinned.txt:{number}: destination path is outside the project: {dest}"
         if destination.is_dir():
-            return [], f"pinned.txt:{number}: путь назначения — каталог: {dest}"
+            return [], f"pinned.txt:{number}: destination path is a directory: {dest}"
         if destination in seen:
-            return [], (f"pinned.txt:{number}: путь назначения уже занят строкой "
+            return [], (f"pinned.txt:{number}: destination path is already taken by line "
                         f"{seen[destination]}: {dest}")
         seen[destination] = number
         copies.append((number, src, dest, destination))
@@ -305,7 +305,7 @@ def read_pinned(ebt: Path, root: Path, gate_rules: bool = False) -> tuple[list[P
 
 
 def sync_pinned(argv):
-    """Скопировать в проект оригиналы из pinned.txt; kit: — ресурсы этой поставки."""
+    """Copy the originals from pinned.txt into the project; kit: means resources of this distribution."""
     usage = "usage: witnessbox sync-pinned <ebt-dir> [<project-root>]"
     if len(argv) not in (1, 2):
         print(usage, file=sys.stderr)
@@ -321,30 +321,30 @@ def sync_pinned(argv):
     if error:
         return fail(error)
 
-    # Первый проход проверил все строки: отказ до первой записи не оставит половину копий.
+    # The first pass checked all lines: a failure before the first write leaves no half-made copies.
     for number, src, dest, destination in copies:
         try:
             same = destination.is_file() and destination.read_bytes() == src.read_bytes()
         except OSError as error:
-            return fail(f"pinned.txt:{number}: не удалось сравнить {dest}: {error}")
+            return fail(f"pinned.txt:{number}: could not compare {dest}: {error}")
         if same:
-            print(f"без изменений {dest}")
+            print(f"unchanged {dest}")
             continue
         try:
             destination.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(src, destination)
         except OSError as error:
-            return fail(f"pinned.txt:{number}: не удалось записать {dest}: {error}")
-        print(f"обновлён {dest}")
+            return fail(f"pinned.txt:{number}: could not write {dest}: {error}")
+        print(f"updated {dest}")
     return 0
 
 
 def check_only(argv):
-    """Проверить подключение до прогона тестов; вердикт всё равно выносит гейт.
+    """Check the setup before running tests; the gate still issues the verdict.
 
-    Ничего не исполняет и не меняет: prepare.sh и test.sh не запускаются. checks.py
-    импортируется так же, как в чекере (это доверенный проектный код, docs/extensions.md).
-    Коды: 0 — проблем нет, 1 — проблемы (гейт на этом входе не даст PASS), 2 — ошибка вызова.
+    Executes and changes nothing: prepare.sh and test.sh are not run. checks.py
+    is imported as in the checker (it is trusted project code, docs/extensions.md).
+    Codes: 0 no problems, 1 problems (the gate would not give PASS on this input), 2 usage error.
     """
     usage = "usage: witnessbox gate --check-only <ebt-dir> <clone>"
     if len(argv) != 2:
@@ -352,13 +352,13 @@ def check_only(argv):
         return 2
     ebt = Path(argv[0]).expanduser().resolve()
     clone = Path(argv[1]).expanduser().resolve()
-    for path, label in ((ebt, "проверки"), (clone, "клона")):
+    for path, label in ((ebt, "checks"), (clone, "clone")):
         if not path.is_dir():
-            print(f"witnessbox gate --check-only: нет каталога {label} {path}", file=sys.stderr)
+            print(f"witnessbox gate --check-only: no {label} directory {path}", file=sys.stderr)
             return 2
 
-    # Импорт проектного checks.py не должен оставлять __pycache__ в каталоге проверки:
-    # команда обещает не менять файлы проекта.
+    # Importing the project checks.py must not leave __pycache__ in the checks directory:
+    # the command promises not to change project files.
     sys.dont_write_bytecode = True
     from .checker.engine import missing_checkers
     from .checker.input import load_checkers, load_jsonl, load_known, load_spec, validate_known
@@ -366,33 +366,33 @@ def check_only(argv):
     problems = 0
 
     def ok(name, note=""):
-        print(f"ок {name}" + (f": {note}" if note else ""))
+        print(f"ok {name}" + (f": {note}" if note else ""))
 
     def skip(name, reason):
-        print(f"пропущено {name}: {reason}")
+        print(f"skipped {name}: {reason}")
 
     def problem(name, text):
         nonlocal problems
         problems += 1
-        print(f"проблема {name}: {' '.join(_printable(text).split())}")
+        print(f"problem {name}: {' '.join(_printable(text).split())}")
 
     def git(*args):
         return subprocess.run(["git", "-C", str(clone), *args], capture_output=True, text=True)
 
-    # Внешний EBT_CHECK сам разбирает spec, checks.py, known и baseline: локальная
-    # проверка их содержимого дала бы проблему, которую гейт с ним не разделяет.
+    # An external EBT_CHECK parses spec, checks.py, known and baseline itself: a local
+    # check of their contents would report a problem the gate with it does not share.
     ebt_check = os.environ.get("EBT_CHECK", "")
     external = bool(ebt_check)
     external_ok = external and shutil.which(ebt_check) is not None
 
-    # 1. spec: файл есть и (для штатного чекера) разбирается его load_spec.
+    # 1. spec: the file exists and (for the standard checker) its load_spec parses it.
     spec = None
     scope = None
     spec_path = ebt / "spec.toml"
     if not spec_path.is_file():
-        problem("spec", f"нет {spec_path}")
+        problem("spec", f"no {spec_path}")
     elif external:
-        skip("spec", f"EBT_CHECK={ebt_check}: содержимое проверяет внешний чекер")
+        skip("spec", f"EBT_CHECK={ebt_check}: the external checker verifies the contents")
     else:
         try:
             loaded, _ = load_spec(spec_path)
@@ -401,21 +401,21 @@ def check_only(argv):
                 scope = [item.strip() for item in raw_scope.split(",") if item.strip()]
                 unknown = [item for item in scope if item not in loaded["inv"]]
                 if not scope or unknown:
-                    raise ValueError(f"EBT_INV: нет в spec: {', '.join(unknown) or '(пусто)'}")
+                    raise ValueError(f"EBT_INV: not in spec: {', '.join(unknown) or '(empty)'}")
         except (OSError, ValueError) as error:
             problem("spec", error)
         else:
             spec = loaded
             ok("spec")
 
-    # 2. checks: расширение загружается, каждый checker в scope зарегистрирован.
+    # 2. checks: the extension loads, every checker in scope is registered.
     if external:
         if external_ok:
-            skip("checks", f"EBT_CHECK={ebt_check}: checks.py и регистрацию проверяет внешний чекер")
+            skip("checks", f"EBT_CHECK={ebt_check}: the external checker verifies checks.py and registration")
         else:
-            problem("checks", f"EBT_CHECK={ebt_check}: команда не найдена")
+            problem("checks", f"EBT_CHECK={ebt_check}: command not found")
     elif spec is None:
-        skip("checks", "нет загруженной спецификации")
+        skip("checks", "no spec loaded")
     else:
         checks_loaded = True
         checks_path = ebt / "checks.py"
@@ -429,18 +429,18 @@ def check_only(argv):
             missing = missing_checkers(spec, scope)
             if missing:
                 details = ", ".join(f"{inv_id}: {spec['inv'][inv_id]['checker']}" for inv_id in missing)
-                problem("checks", "чекер не зарегистрирован ни в ядре, ни в checks.py: " + details)
+                problem("checks", "checker is registered neither in the core nor in checks.py: " + details)
             else:
                 ok("checks")
 
-    # 3. known: тот же разбор и та же сверка с witness, что при запуске чекера.
+    # 3. known: the same parsing and the same check against witness as when the checker runs.
     known_path = ebt / "known.toml"
     if external:
-        skip("known", f"EBT_CHECK={ebt_check}: known.toml проверяет внешний чекер")
+        skip("known", f"EBT_CHECK={ebt_check}: the external checker verifies known.toml")
     elif not known_path.is_file():
-        ok("known", "нет known.toml")
+        ok("known", "no known.toml")
     elif spec is None:
-        skip("known", "нет загруженной спецификации")
+        skip("known", "no spec loaded")
     else:
         try:
             known = load_known(known_path)
@@ -450,12 +450,12 @@ def check_only(argv):
         else:
             ok("known")
 
-    # 4. baseline: битая строка в baseline — ошибка и у чекера, а не тихий пропуск.
+    # 4. baseline: a broken baseline line is an error for the checker too, not a silent skip.
     baseline_path = ebt / "baseline.jsonl"
     if external:
-        skip("baseline", f"EBT_CHECK={ebt_check}: baseline.jsonl проверяет внешний чекер")
+        skip("baseline", f"EBT_CHECK={ebt_check}: the external checker verifies baseline.jsonl")
     elif not baseline_path.is_file():
-        ok("baseline", "нет baseline.jsonl")
+        ok("baseline", "no baseline.jsonl")
     else:
         try:
             _, bad = load_jsonl(baseline_path)
@@ -463,34 +463,34 @@ def check_only(argv):
             problem("baseline", error)
         else:
             if bad:
-                problem("baseline", f"битых строк: {len(bad)}, первая — {bad[0].line}")
+                problem("baseline", f"broken lines: {len(bad)}, first: {bad[0].line}")
             else:
                 ok("baseline")
 
-    # 5. runner: правила выбора из gate.sh, без запуска самого runner.
+    # 5. runner: selection rules from gate.sh, without running the runner itself.
     runner = os.environ.get("EBT_RUNNER", "")
     test_sh = ebt / "test.sh"
     if runner not in ("", "test.sh", "flutter"):
-        problem("runner", f"EBT_RUNNER={runner}: неизвестный runner (test.sh или flutter)")
+        problem("runner", f"EBT_RUNNER={runner}: unknown runner (test.sh or flutter)")
     elif test_sh.exists() or test_sh.is_symlink():
         if not test_sh.is_file() or not os.access(test_sh, os.X_OK):
-            problem("runner", f"test.sh существует, но не является исполняемым файлом: {test_sh}")
+            problem("runner", f"test.sh exists but is not an executable file: {test_sh}")
         elif runner == "flutter":
-            problem("runner", "EBT_RUNNER=flutter: пакет содержит test.sh; используйте EBT_RUNNER=test.sh")
+            problem("runner", "EBT_RUNNER=flutter: the package contains test.sh; use EBT_RUNNER=test.sh")
         else:
             ok("runner")
     elif runner == "test.sh":
-        problem("runner", f"нет {test_sh}: добавьте исполняемый test.sh или выберите EBT_RUNNER=flutter")
+        problem("runner", f"no {test_sh}: add an executable test.sh or choose EBT_RUNNER=flutter")
     elif runner == "flutter":
         ok("runner")
     else:
         ok("runner", "legacy Flutter adapter")
 
-    # 6. pinned: разбор по правилам гейта (не строгим правилам --sync-pinned),
-    # сравнение — как cmp в preflight: отсутствие копии — drift, отказ чтения — проблема.
+    # 6. pinned: parsed by the gate rules (not the strict --sync-pinned rules),
+    # comparison as cmp in preflight: a missing copy is drift, a read failure is a problem.
     pinned_path = ebt / "pinned.txt"
     if not pinned_path.is_file():
-        ok("pinned", "нет pinned.txt")
+        ok("pinned", "no pinned.txt")
     else:
         copies, error = read_pinned(ebt, clone, gate_rules=True)
         if error:
@@ -500,7 +500,7 @@ def check_only(argv):
             failed = False
             for number, src, dest, destination in copies:
                 if destination is None:
-                    drifted.append("(пустой путь назначения)")
+                    drifted.append("(empty destination path)")
                     continue
                 if not destination.exists() and not destination.is_symlink():
                     drifted.append(dest)
@@ -509,72 +509,72 @@ def check_only(argv):
                     if not destination.is_file() or destination.read_bytes() != src.read_bytes():
                         drifted.append(dest)
                 except OSError as error:
-                    problem("pinned", f"pinned.txt:{number}: не удалось сравнить {dest}: {error}")
+                    problem("pinned", f"pinned.txt:{number}: could not compare {dest}: {error}")
                     failed = True
                     break
             if not failed:
                 if drifted:
-                    problem("pinned", "закреплённые копии отличаются от оригинала: " + ", ".join(drifted))
+                    problem("pinned", "pinned copies differ from the original: " + ", ".join(drifted))
                 else:
                     ok("pinned")
 
-    # 7. clone: есть коммит, чистое дерево и нет скрытых правок — как в preflight_git.
-    # HEAD до status: без коммитов все файлы неотслеживаемые, и «грязное дерево» скрыло бы причину.
+    # 7. clone: has a commit, clean tree and no hidden changes, as in preflight_git.
+    # HEAD before status: without commits all files are untracked, and a "dirty tree" would hide the cause.
     def clone_problem() -> str | None:
         head = git("rev-parse", "-q", "--verify", "HEAD")
         if head.returncode:
             if git("rev-parse", "--git-dir").returncode == 0:
-                return "в репозитории нет коммитов — гейт проверяет только закоммиченное"
-            return "git rev-parse HEAD упал: " + head.stderr.strip()
+                return "the repository has no commits: the gate checks only committed files"
+            return "git rev-parse HEAD failed: " + head.stderr.strip()
         status = git("status", "--porcelain")
         if status.returncode:
-            return f"git status упал: {status.stderr.strip() or status.stdout.strip()}"
+            return f"git status failed: {status.stderr.strip() or status.stdout.strip()}"
         if status.stdout.strip():
-            return "дерево клона не чистое: " + status.stdout.splitlines()[0]
+            return "the clone tree is not clean: " + status.stdout.splitlines()[0]
         tracked = git("ls-files", "-v")
         if tracked.returncode:
-            return f"git ls-files упал: {tracked.stderr.strip() or tracked.stdout.strip()}"
+            return f"git ls-files failed: {tracked.stderr.strip() or tracked.stdout.strip()}"
         hidden = [line for line in tracked.stdout.splitlines()
                   if len(line) > 1 and line[1] == " " and (line[0] in "S" or line[0].islower())]
         if hidden:
-            return "в клоне есть skip-worktree/assume-unchanged: " + hidden[0]
+            return "the clone has skip-worktree/assume-unchanged: " + hidden[0]
         return None
 
     try:
         message = clone_problem()
     except OSError as error:
-        message = f"git упал: {error}"
+        message = f"git failed: {error}"
     if message:
         problem("clone", message)
     else:
         ok("clone")
 
-    # 8. base: без BASE защищённые пути не проверяются, и вывод говорит об этом явно.
+    # 8. base: without BASE protected paths are not checked, and the output says so explicitly.
     base = os.environ.get("BASE", "")
     if not base:
-        skip("base", "BASE не задан — защищённые пути не проверяются")
+        skip("base", "BASE is not set: protected paths are not checked")
     else:
         try:
             commit = git("rev-parse", "-q", "--verify", f"{base}^{{commit}}")
             head = git("rev-parse", "-q", "--verify", "HEAD")
         except OSError as error:
-            problem("base", f"git rev-parse упал: {error}")
+            problem("base", f"git rev-parse failed: {error}")
         else:
             if commit.returncode:
-                problem("base", f"BASE={base}: такого коммита нет")
+                problem("base", f"BASE={base}: no such commit")
             elif head.returncode:
-                problem("base", f"git rev-parse HEAD упал: {head.stderr.strip()}")
+                problem("base", f"git rev-parse HEAD failed: {head.stderr.strip()}")
             else:
                 try:
                     diff = git("diff", "--name-only", base, "HEAD", "--", "ebt", "tool/ebt_check")
                 except OSError as error:
-                    problem("base", f"git diff упал: {error}")
+                    problem("base", f"git diff failed: {error}")
                 else:
                     changed = [line for line in diff.stdout.splitlines() if line]
                     if diff.returncode:
-                        problem("base", f"git diff от BASE упал: {diff.stderr.strip()}")
+                        problem("base", f"git diff from BASE failed: {diff.stderr.strip()}")
                     elif changed:
-                        problem("base", "в ветке изменены защищённые пути: " + ", ".join(changed))
+                        problem("base", "protected paths changed in the branch: " + ", ".join(changed))
                     else:
                         ok("base")
 
@@ -582,14 +582,14 @@ def check_only(argv):
 
 
 def test_checks(argv):
-    """Запустить test_*.py каталога проверки интерпретатором этой поставки."""
+    """Run the test_*.py files of the checks directory with this distribution's interpreter."""
     usage = "usage: witnessbox test-checks [<ebt-dir>]"
     if len(argv) > 1:
         print(usage, file=sys.stderr)
         return 2
     ebt = Path(argv[0] if argv else "ebt").expanduser().resolve()
     if not ebt.is_dir():
-        print(f"witnessbox test-checks: нет каталога {ebt}", file=sys.stderr)
+        print(f"witnessbox test-checks: no directory {ebt}", file=sys.stderr)
         return 2
     command = [sys.executable, "-I", "-B", "-m", "unittest", "discover",
                "-s", str(ebt), "-t", str(ebt), "-p", "test_*.py", "-v"]
@@ -599,20 +599,20 @@ def test_checks(argv):
     output = p.stdout + p.stderr
     match = re.search(r"^Ran (\d+) tests?\b", output, re.MULTILINE)
     if match is None or int(match.group(1)) == 0:
-        print("witnessbox test-checks: тестов чекера не найдено — нулевой прогон не считается успехом",
+        print("witnessbox test-checks: no checker tests found; a zero-test run does not count as success",
               file=sys.stderr)
         return 1
     return p.returncode
 
 
-USAGE = """usage: witnessbox <команда> [<аргументы>]
+USAGE = """usage: witnessbox <command> [<arguments>]
 
-  gate <ebt-dir> <clone> <run-dir>              гейт: тесты проекта и пересчёт свидетельств
-  gate --check-only <ebt-dir> <clone>           проверка подключения без запуска тестов
-  check --spec <spec.toml> --evidence <jsonl>…  чекер (witnessbox check -h)
-  scaffold <dart|ts|jvm|generic> [<ebt-dir>]    заготовка ebt/
-  sync-pinned <ebt-dir> [<project-root>]        копии из pinned.txt
-  test-checks [<ebt-dir>]                       тесты чекеров проекта
+  gate <ebt-dir> <clone> <run-dir>              gate: project tests and evidence recomputation
+  gate --check-only <ebt-dir> <clone>           setup check without running tests
+  check --spec <spec.toml> --evidence <jsonl>…  checker (witnessbox check -h)
+  scaffold <dart|ts|jvm|generic> [<ebt-dir>]    scaffold of ebt/
+  sync-pinned <ebt-dir> [<project-root>]        copies from pinned.txt
+  test-checks [<ebt-dir>]                       project checker tests
   --version | --installation"""
 
 COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": test_checks}
@@ -621,7 +621,7 @@ COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": tes
 def main():
     command, argv = (sys.argv[1], sys.argv[2:]) if len(sys.argv) > 1 else (None, [])
     if command == "check":
-        # Справку и разбор аргументов чекера ведёт его argparse.
+        # The checker argparse handles its help and argument parsing.
         from witnessbox.checker.cli import main as check
         return check(argv)
     if command in ("-h", "--help") or (command in (*COMMANDS, "gate") and argv[:1] in (["-h"], ["--help"])):
@@ -637,7 +637,7 @@ def main():
             return 2
     elif command != "gate":
         if command is not None:
-            print(f"witnessbox: неизвестная команда {command}", file=sys.stderr)
+            print(f"witnessbox: unknown command {command}", file=sys.stderr)
         print(USAGE, file=sys.stderr)
         return 2
     try:

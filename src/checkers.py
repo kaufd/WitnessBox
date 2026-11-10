@@ -1,4 +1,4 @@
-"""Совместимый публичный модуль общих чекеров."""
+"""Compatibility public module of the shared checkers."""
 import sys
 from witnessbox.checker import checkers as _impl
 

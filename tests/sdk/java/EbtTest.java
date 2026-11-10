@@ -9,8 +9,8 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Тесты Ebt.java без JUnit: `make test-java` (javac + java -ea). Запуск из корня проекта —
- * фикстура формата читается по относительному пути.
+ * Tests of Ebt.java without JUnit: `make test-java` (javac + java -ea). Run from the project root:
+ * the format fixture is read by a relative path.
  */
 public final class EbtTest {
 
@@ -20,7 +20,7 @@ public final class EbtTest {
     public static void main(String[] args) throws Exception {
         boolean assertsOn = false;
         assert assertsOn = true;
-        if (!assertsOn) throw new AssertionError("запускать с -ea");
+        if (!assertsOn) throw new AssertionError("run with -ea");
 
         recordMatchesFormatFixture();
         goldenScenarioMatchesOtherSdks();
@@ -51,10 +51,10 @@ public final class EbtTest {
         Ebt.setScope("fixture");
         Ebt.ev("INV-CART-3", "REQ-CART-1", true, cart());
         String expected = Files.readString(FIXTURE, StandardCharsets.UTF_8);
-        check(Ebt.toJsonl().equals(expected), "формат расходится с фикстурой:\n" + Ebt.toJsonl() + "\n" + expected);
+        check(Ebt.toJsonl().equals(expected), "format differs from the fixture:\n" + Ebt.toJsonl() + "\n" + expected);
     }
 
-    /** Тот же сценарий, что в ebt.test.ts и ebt_test.dart; порядок полей задан LinkedHashMap только для сравнения байтов. */
+    /** The same scenario as in ebt.test.ts and ebt_test.dart; field order is set by LinkedHashMap only for byte comparison. */
     static void goldenScenarioMatchesOtherSdks() throws Exception {
         Ebt.reset();
         Ebt.setScope("golden");
@@ -74,7 +74,7 @@ public final class EbtTest {
         Ebt.setScope(null);
         Ebt.ev("INV-G", "REQ-G", true, Map.of("n", 1));
         String expected = Files.readString(GOLDEN, StandardCharsets.UTF_8);
-        check((Ebt.toJsonl() + "\n").equals(expected), "golden расходится:\n" + Ebt.toJsonl() + "\n" + expected);
+        check((Ebt.toJsonl() + "\n").equals(expected), "golden differs:\n" + Ebt.toJsonl() + "\n" + expected);
     }
 
     static void recordIsSnapshotAtCallTime() {
@@ -84,7 +84,7 @@ public final class EbtTest {
         Ebt.ev("INV-N", "REQ-N", true, data);
         data.put("n", 2);
         check(Ebt.toJsonl().equals("{\"seq\":1,\"req\":\"REQ-N\",\"inv\":\"INV-N\",\"ok\":true,\"data\":{\"n\":1}}"),
-                "запись изменилась после ev: " + Ebt.toJsonl());
+                "the record changed after ev: " + Ebt.toJsonl());
     }
 
     static void unsupportedValueIsRejected() {
@@ -92,19 +92,19 @@ public final class EbtTest {
         for (Object bad : List.of(1.5, 1.5f, new java.math.BigDecimal("1.5"), 'x', new Object())) {
             try {
                 Ebt.ev("INV-N", "REQ-N", true, Map.of("v", List.of(bad)));
-                throw new AssertionError("принято значение " + bad.getClass().getSimpleName());
+                throw new AssertionError("value accepted: " + bad.getClass().getSimpleName());
             } catch (IllegalArgumentException e) {
-                check(e.getMessage().contains("v[0]"), "в ошибке нет пути поля: " + e.getMessage());
+                check(e.getMessage().contains("v[0]"), "the error has no field path: " + e.getMessage());
             }
         }
-        check(Ebt.toJsonl().isEmpty(), "отклонённая запись попала в лог: " + Ebt.toJsonl());
+        check(Ebt.toJsonl().isEmpty(), "a rejected record reached the log: " + Ebt.toJsonl());
         Map<String, Object> legal = new LinkedHashMap<>();
         legal.put("v", null);
         legal.put("big", Long.MAX_VALUE);
         Ebt.ev("INV-N", "REQ-N", true, legal);
         check(Ebt.toJsonl().equals("{\"seq\":1,\"req\":\"REQ-N\",\"inv\":\"INV-N\",\"ok\":true,"
                 + "\"data\":{\"v\":null,\"big\":9223372036854775807}}"),
-                "null и long вне безопасного диапазона JS должны записываться: " + Ebt.toJsonl());
+                "null and long outside the JS safe range must be recorded: " + Ebt.toJsonl());
     }
 
     static void stringsAreEscaped() {
@@ -112,7 +112,7 @@ public final class EbtTest {
         Ebt.ev("INV-N", "REQ-N", false, Map.of("s", "a\"b\\c\nd\u0001ё"));
         String expected = "{\"seq\":1,\"req\":\"REQ-N\",\"inv\":\"INV-N\",\"ok\":false,"
                 + "\"data\":{\"s\":\"a\\\"b\\\\c\\nd\\u0001ё\"}}";
-        check(Ebt.toJsonl().equals(expected), "экранирование: " + Ebt.toJsonl());
+        check(Ebt.toJsonl().equals(expected), "escaping: " + Ebt.toJsonl());
     }
 
     static void noScopeMeansNoScopeField() {
@@ -120,7 +120,7 @@ public final class EbtTest {
         Ebt.setScope("x");
         Ebt.setScope(null);
         Ebt.ev("INV-N", "REQ-N", true, Map.of());
-        check(!Ebt.toJsonl().contains("scope"), "поле scope без scope: " + Ebt.toJsonl());
+        check(!Ebt.toJsonl().contains("scope"), "scope field without scope: " + Ebt.toJsonl());
     }
 
     static void resetRestartsSeq() {
@@ -128,11 +128,11 @@ public final class EbtTest {
         Ebt.setScope("x");
         Ebt.ev("INV-N", "REQ-N", true, Map.of());
         Ebt.ev("INV-N", "REQ-N", true, Map.of());
-        check(Ebt.toJsonl().contains("\"seq\":2"), "seq не растёт: " + Ebt.toJsonl());
+        check(Ebt.toJsonl().contains("\"seq\":2"), "seq does not grow: " + Ebt.toJsonl());
         Ebt.reset();
         Ebt.ev("INV-N", "REQ-N", true, Map.of());
         check(Ebt.toJsonl().equals("{\"seq\":1,\"req\":\"REQ-N\",\"inv\":\"INV-N\",\"ok\":true,\"data\":{}}"),
-                "reset не сбросил seq или scope: " + Ebt.toJsonl());
+                "reset did not clear seq or scope: " + Ebt.toJsonl());
     }
 
     static void writeToCreatesFolderAndWritesJsonl() throws Exception {
@@ -141,7 +141,7 @@ public final class EbtTest {
         Path dir = Files.createTempDirectory("ebt");
         Path file = dir.resolve("a/b/e.jsonl");
         Ebt.writeTo(file);
-        check(Files.readString(file, StandardCharsets.UTF_8).equals(Ebt.toJsonl()), "writeTo пишет не то");
+        check(Files.readString(file, StandardCharsets.UTF_8).equals(Ebt.toJsonl()), "writeTo writes the wrong thing");
     }
 
     private static void check(boolean ok, String message) {

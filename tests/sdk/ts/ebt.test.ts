@@ -1,11 +1,11 @@
-// Тесты канонического TypeScript SDK (make test-ts).
+// Tests of the canonical TypeScript SDK (make test-ts).
 import { readFileSync } from 'node:fs';
 import { beforeEach, expect, test } from 'bun:test';
 import { Ebt, ev, traced } from '../../../src/witnessbox/resources/lib/ebt/ebt';
 
 beforeEach(() => Ebt.reset());
 
-test('ev пишет запись со scope и seq, data снимается в момент вызова', () => {
+test('ev writes a record with scope and seq, data is snapshotted at call time', () => {
   Ebt.scope = 'cart';
   const data = { result: 1 };
   ev('INV-A', 'REQ-A', true, data);
@@ -17,7 +17,7 @@ test('ev пишет запись со scope и seq, data снимается в �
   ]);
 });
 
-test('traced пишет поля входа и result, вызов возвращает результат функции', () => {
+test('traced writes the input fields and result, the call returns the function result', () => {
   const decide = traced('INV-S', 'REQ-S', (input: { seen: string[]; latest: string }) =>
     input.seen.includes(input.latest) ? null : input.latest,
   );
@@ -27,7 +27,7 @@ test('traced пишет поля входа и result, вызов возвращ
   });
 });
 
-test('traced со своим witness и с Promise; отклонённый Promise не пишется', async () => {
+test('traced with its own witness and with a Promise; a rejected Promise is not recorded', async () => {
   const add = traced('INV-P', 'REQ-P', async (a: number, b: number) => a + b, ([a, b], sum) => ({ a, b, sum }));
   expect(await add(2, 3)).toBe(5);
   const fail = traced('INV-P', 'REQ-P', async (): Promise<number> => {
@@ -38,7 +38,7 @@ test('traced со своим witness и с Promise; отклонённый Promi
   expect(Ebt.records().map((r) => r.data)).toEqual([{ a: 2, b: 3, sum: 5 }]);
 });
 
-test('traced с Promise пишет вход и scope момента вызова', async () => {
+test('traced with a Promise records the input and scope of the call time', async () => {
   const input = { n: 1 };
   Ebt.scope = 'first';
   const pending = traced('INV-P', 'REQ-P', async (x: { n: number }) => x.n)(input);
@@ -48,7 +48,7 @@ test('traced с Promise пишет вход и scope момента вызова
   expect(Ebt.records()).toEqual([{ seq: 1, scope: 'first', req: 'REQ-P', inv: 'INV-P', ok: true, data: { n: 1, result: 1 } }]);
 });
 
-test('toJsonl — строка на запись, reset очищает и seq, и scope', () => {
+test('toJsonl is one line per record, reset clears both seq and scope', () => {
   Ebt.scope = 's';
   ev('INV-A', 'REQ-A', true, {});
   ev('INV-A', 'REQ-A', true, {});
@@ -58,8 +58,8 @@ test('toJsonl — строка на запись, reset очищает и seq, �
   expect(Ebt.records()).toEqual([{ seq: 1, req: 'REQ-A', inv: 'INV-A', ok: true, data: {} }]);
 });
 
-test('golden: общий для Java, TypeScript и Dart сценарий записывается байт в байт', () => {
-  // Порядок полей задан литералами только для сравнения байтов; чекер порядок не учитывает.
+test('golden: the scenario shared by Java, TypeScript and Dart is written byte for byte', () => {
+  // Field order is set by literals only for byte comparison; the checker ignores order.
   Ebt.scope = 'golden';
   ev('INV-G', 'REQ-G', true, {
     int: -42,
@@ -76,7 +76,7 @@ test('golden: общий для Java, TypeScript и Dart сценарий зап
   expect(Ebt.toJsonl() + '\n').toBe(readFileSync(new URL('../golden.jsonl', import.meta.url), 'utf8'));
 });
 
-test('значение, которое нельзя записать точно, — ошибка с путём поля; запись не попадает в лог', () => {
+test('a value that cannot be recorded exactly is an error with the field path; the record does not reach the log', () => {
   const holes: unknown[] = [1];
   holes[2] = 2;
   const bad: [unknown, string][] = [
@@ -94,7 +94,7 @@ test('значение, которое нельзя записать точно,
   ]);
 });
 
-test('ошибку записи traced видит тест: синхронный вызов бросает, Promise отклоняется', async () => {
+test('the test sees a traced recording error: a synchronous call throws, a Promise rejects', async () => {
   const half = traced('INV-T', 'REQ-T', (x: { n: number }) => x.n / 2);
   expect(() => half({ n: 3 })).toThrow('data.result');
   const halfLater = traced('INV-T', 'REQ-T', async (x: { n: number }) => x.n / 2);

@@ -1,85 +1,87 @@
-# Как написать спецификацию: от требования до тестов свидетельств
+# How to write a spec: from requirement to evidence tests
 
-Руководство для того, кто подключает Witnessbox к проекту и пишет `spec.toml`, `checks.py` и тесты свидетельств. Команды и заготовку — [быстрый старт](quickstart.md) и [заготовка](scaffold.md); формат записи — [SDK](sdk.md); контракт расширений — [расширения](extensions.md).
+**English** · [Русский](authoring.ru.md)
 
-Цепочка такая:
+This guide is for whoever connects Witnessbox to a project and writes `spec.toml`, `checks.py` and the evidence tests. Commands and the scaffold are in the [quick start](quickstart.md) and the [scaffold](scaffold.md) page; the record format is in the [SDK](sdk.md); the extension contract is in [extensions](extensions.md).
+
+The chain is:
 
 ```
-требование  →  инвариант в spec.toml  →  чекер в checks.py  →  тесты свидетельств
- (человек)       witness + partitions      пересчёт по witness     ev() по классам входов
+requirement  →  invariant in spec.toml  →  checker in checks.py  →  evidence tests
+  (human)        witness + partitions       recomputation by witness   ev() per partition
 ```
 
-Спецификацию утверждает человек, а не тот, кто пишет код (D4): иначе проверяемое правило подгоняется под реализацию. Чекер не импортирует приложение и не читает его `ok`. Весь смысл методики — правило, записанное отдельно от кода и пересчитываемое независимо.
+A human approves the spec, not the one who writes the code (D4). Otherwise the rule under test gets fitted to the implementation. The checker does not import the application and does not read its `ok`. The whole point of the method is a rule written apart from the code and recomputed independently.
 
-Примеры ниже — вымышленное требование про стоимость доставки. Его спецификация, чекер и свидетельства прогнаны реальным `witnessbox check` версии 0.7.0; фрагменты про уровень наблюдения (OBS) описывают методику и приложением в репозитории не проверены (см. [границы](#границы-руководства)).
+The examples below use an invented requirement about a shipping fee. Its spec, checker and evidence were run through the real `witnessbox check` version 0.7.0. The fragments about the observation level (OBS) describe the method and were not run against an application in this repository (see [limits](#limits-of-this-guide)).
 
-## 1. Требование
+## 1. Requirement
 
-Исходное требование — текст из тикета или решения владельца, а не выжимка из кода:
+The source requirement is the text of a ticket or an owner's decision, not a summary of the code:
 
-> Доставка стоит 300 копеек. Если сумма товаров не меньше 5000 копеек, доставка бесплатна.
+> Shipping costs 300 kopecks. If the sum of the goods is at least 5000 kopecks, shipping is free.
 
-Перед формализацией выпишите:
+Before formalizing, write down:
 
-- **что решается** — результат, который должен быть верен (`fee`);
-- **от чего зависит** — входы решения (`subtotal`);
-- **где проходят границы** — значения, на которых правило меняется (ровно `5000`);
-- **как кодируются значения** — деньги целыми минимальными единицами, время, дроби: [соглашения SDK](sdk.md#дроби-время-и-конкурентность). Единицы и режим округления берутся из требования, а не из кода.
+- **what is decided**: the result that must be correct (`fee`);
+- **what it depends on**: the inputs of the decision (`subtotal`);
+- **where the boundaries are**: the values at which the rule changes (exactly `5000`);
+- **how values are encoded**: money as integer minimal units, time, fractions: the [SDK conventions](sdk.md#fractions-time-and-concurrency). Units and the rounding mode come from the requirement, not from the code.
 
-Если требование этого не говорит (что на ровно 5000? копейки или рубли?), вопрос возвращается владельцу. Догадка аналитика в `spec.toml` — тот же дефект, который гейт должен ловить.
+If the requirement does not say this (what happens at exactly 5000? kopecks or rubles?), the question goes back to the owner. An analyst's guess in `spec.toml` is the same defect the gate is meant to catch.
 
 ## 2. `spec.toml`
 
 ```toml
 [meta]
-version = "2026-11-02"   # дата утверждения человеком
+version = "2026-11-02"   # date of human approval
 
 [req.REQ-SHIP-1]
-text = """Доставка стоит 300 копеек. Если сумма товаров не меньше 5000 копеек,
-доставка бесплатна."""
+text = """Shipping costs 300 kopecks. If the sum of the goods is at least 5000 kopecks,
+shipping is free."""
 source = """ticket: SHIP-12"""
 
 [inv.INV-SHIP-1]
 req = "REQ-SHIP-1"
-statement = "fee == 0 при subtotal >= 5000, иначе fee == 300"
+statement = "fee == 0 when subtotal >= 5000, otherwise fee == 300"
 checker = "shipping_fee"
 witness = ["subtotal", "fee"]
 partitions = ["below_threshold", "at_threshold", "above_threshold"]
 ```
 
-- `[req.*]` — требование словами предметной области и `source`: откуда оно взято (тикет, решение с датой, эталон `path:line`).
-- `[inv.*]` — проверяемая формулировка. Одно требование может иметь несколько инвариантов. `checker` — имя из `CHECKERS` в `checks.py` или чекер ядра.
+- `[req.*]` is the requirement in the words of the domain, plus `source`: where it comes from (a ticket, a dated decision, a reference `path:line`).
+- `[inv.*]` is the verifiable formulation. One requirement can have several invariants. `checker` is a name from `CHECKERS` in `checks.py` or a core checker.
 
-Полный список полей и пример машины состояний — в комментариях шаблонной `spec.toml`.
+The full list of fields and an example of a state machine are in the comments of the scaffold `spec.toml`.
 
-### `witness`: минимум для пересчёта
+### `witness`: the minimum for recomputation
 
-`witness` — поля `data`, без которых результат **нельзя пересчитать** независимо от приложения. Критерий: чекер получает только `data` и текст требования; всё, что нужно правилу, должно быть в записи, всё лишнее — нет.
+`witness` lists the `data` fields without which the result **cannot be recomputed** independently of the application. The criterion: the checker receives only `data` and the requirement text. Everything the rule needs must be in the record; anything extra must not.
 
-| Что записать | Что не записывать |
+| What to record | What not to record |
 |---|---|
-| входы решения (`subtotal`) | внутренние промежуточные значения, которые чекер может вычислить сам |
-| результат, который выдало приложение (`fee`) | флаги и состояние, не влияющие на правило |
-| то, что приложение «знало» и чекер знать не может: использованное `now`, курс, выбранный тариф | идентификаторы и тексты «для отладки» |
+| the inputs of the decision (`subtotal`) | internal intermediate values the checker can compute itself |
+| the result the application returned (`fee`) | flags and state that do not affect the rule |
+| what the application "knew" and the checker cannot know: the `now` it used, an exchange rate, the chosen tariff | identifiers and texts "for debugging" |
 
-Правило пересчитывается из входов; если без промежуточного значения его не получить (например, скидка зависит от списка позиций), в `witness` попадает список, а не итог. Чем короче `witness`, тем меньше полей, на которых чекер и приложение могут разойтись, и тем дешевле поддержка. `--self-test` ([ниже](#5---self-test)) покажет поле, которое чекер не использует.
+The rule is recomputed from the inputs. If it cannot be obtained without an intermediate value (for example, a discount depends on a list of items), the list goes into `witness`, not the total. The shorter the `witness`, the fewer fields where the checker and the application can disagree, and the cheaper the maintenance. `--self-test` ([below](#5---self-test)) shows a field the checker does not use.
 
-### `partitions`: классы входов, а не список тестов
+### `partitions`: input classes, not a list of tests
 
-`partitions` — классы входов **требования**, каждый из которых обязан встретиться в свидетельствах. Если ни одна запись не попала в класс, гейт сообщит «не встретились классы входов»: правило на нём не доказано.
+`partitions` are the classes of inputs of the **requirement**, and each must appear in the evidence. If no record falls into a class, the gate reports "partitions not encountered": the rule is not proven on it.
 
-Классы выводятся из требования, а не из того, какие тесты уже есть:
+Classes are derived from the requirement, not from which tests already exist:
 
-- Для `fee` это три класса: ниже порога, ровно порог, выше. Граничный класс (`at_threshold`) нужен отдельно: на нём ошибка `>=`/`>` и живёт.
-- Для округления — отдельный класс «ровно половина шага» (`sdk.md` советует его добавлять).
-- Для времени — переход на летнее время, конец месяца, 29 февраля.
-- Для пустых входов — пустая корзина, ноль, отрицательное.
+- For `fee` there are three classes: below the threshold, exactly at the threshold, above. The boundary class (`at_threshold`) is needed separately: the `>=`/`>` error lives there.
+- For rounding, a separate class "exactly half a step" (`sdk.md` advises adding it).
+- For time: the daylight saving switch, the end of a month, 29 February.
+- For empty inputs: an empty cart, zero, a negative value.
 
-Плохо: `partitions = ["test_shipping_1", "test_shipping_2"]` — это имена тестов, они не говорят, какие значения входа покрыты, и класс «ровно порог» легко не заметить. Хорошо: имена классов описывают значения входа, а не сценарии.
+Bad: `partitions = ["test_shipping_1", "test_shipping_2"]`. These are test names. They do not say which input values are covered, and the "exactly at the threshold" class is easy to miss. Good: class names describe input values, not scenarios.
 
-Классы назначает **чекер**: он возвращает `parts` в `Verdict` для каждой записи по её данным (`value == 0` → `zero`). Поэтому тест только подбирает входы, а засчитывает класс чекер. Нарушение правила классом покрытия не считается: запись с неверным результатом даёт находку и класс не закрывает.
+The **checker** assigns classes: it returns `parts` in `Verdict` for each record from its data (`value == 0` → `zero`). So a test only picks inputs, and the checker credits the class. A rule violation does not count as coverage: a record with a wrong result produces a finding and does not close the class.
 
-Для машины состояний вместо `partitions` задаётся `checker = "transition"` и `transitions = [[from, event, to], ...]`: класс выводится по одному на переход (пример в шаблонной `spec.toml`). Производные классы для собственного чекера — `DERIVED_PARTITIONS`, см. [расширения](extensions.md).
+For a state machine, instead of `partitions` set `checker = "transition"` and `transitions = [[from, event, to], ...]`: one class is derived per transition (an example is in the scaffold `spec.toml`). Derived classes for your own checker are `DERIVED_PARTITIONS`, see [extensions](extensions.md).
 
 ## 3. `checks.py`
 
@@ -94,20 +96,20 @@ FEE = 300
 
 def _int(witness: dict, name: str) -> int:
     if name not in witness:
-        raise WitnessError(f"{name}: поле обязательно")
+        raise WitnessError(f"{name}: field is required")
     value = witness[name]
-    # bool — подкласс int в Python, но в свидетельстве это ошибка типа.
+    # bool is a subclass of int in Python, but in evidence it is a type error.
     if isinstance(value, bool) or not isinstance(value, int):
-        raise WitnessError(f"{name}: ожидалось целое, получено {value!r}")
+        raise WitnessError(f"{name}: expected an integer, got {value!r}")
     return value
 
 
 def shipping_fee(witness: dict, inv: dict) -> Verdict:
-    """INV-SHIP-1: fee == 0 при subtotal >= 5000, иначе 300."""
+    """INV-SHIP-1: fee == 0 when subtotal >= 5000, otherwise 300."""
     subtotal = _int(witness, "subtotal")
     fee = _int(witness, "fee")
     if subtotal < 0:
-        raise WitnessError(f"subtotal: сумма не может быть отрицательной: {subtotal}")
+        raise WitnessError(f"subtotal: the sum cannot be negative: {subtotal}")
 
     if subtotal < FREE_FROM:
         parts, expected = {"below_threshold"}, FEE
@@ -116,25 +118,25 @@ def shipping_fee(witness: dict, inv: dict) -> Verdict:
     else:
         parts, expected = {"above_threshold"}, 0
     if fee != expected:
-        return Verdict(False, f"fee={fee}, по правилу ожидалось {expected}", parts)
+        return Verdict(False, f"fee={fee}, the rule expected {expected}", parts)
     return Verdict(True, "", parts)
 
 
 CHECKERS = {"shipping_fee": shipping_fee}
 ```
 
-Что делает чекер хорошим:
+What makes a checker good:
 
-- **Пересчёт, а не повтор.** Правило записано заново по тексту требования. Константы `5000` и `300` берутся из требования, а не импортируются из приложения: общая константа превращает ошибку в обоих местах в «согласие».
-- **Два вида отказа.** `Verdict(False, причина, parts)` — свидетельство корректно по форме, но правило нарушено (находка «подтверждённое нарушение»). `WitnessError` — свидетельство не годится для проверки: нет поля, не тот тип, значение невозможно (находка «некорректное свидетельство»). Не молчите на форме: чекер, который «пропускает» неизвестное, засчитывает мусор как доказательство.
-- **`parts` всегда.** Классы возвращаются и при нарушении: отчёт покажет, на каком классе правило не выполнено.
-- **Не читать `ok` приложения** и не импортировать приложение, его SDK или runtime. Только стандартная библиотека. Импорт типов — `from witnessbox.api import Verdict, WitnessError`.
-- **Имя** чекера не должно совпадать с именами ядра (`cart_total`, `transition`, `sync_merge`).
-- **Чекер — доверенный код:** он исполняется в процессе `witnessbox check` ([границы](extensions.md#границы-применимости)).
+- **Recomputation, not repetition.** The rule is written anew from the requirement text. The constants `5000` and `300` come from the requirement and are not imported from the application: a shared constant turns an error in both places into "agreement".
+- **Two kinds of refusal.** `Verdict(False, reason, parts)` means the evidence is well-formed but the rule is violated (a "Confirmed violation" finding). `WitnessError` means the evidence is not fit for checking: a missing field, the wrong type, an impossible value (a "Malformed evidence" finding). Do not stay silent on shape: a checker that "lets through" the unknown counts garbage as proof.
+- **Always `parts`.** Classes are returned on a violation too: the report shows on which class the rule fails.
+- **Do not read the application's `ok`** and do not import the application, its SDK or runtime. Standard library only. Import the types with `from witnessbox.api import Verdict, WitnessError`.
+- **The name** of the checker must not match core names (`cart_total`, `transition`, `sync_merge`).
+- **A checker is trusted code:** it runs inside the `witnessbox check` process ([limits](extensions.md#limits-of-applicability)).
 
-### Тесты чекера
+### Checker tests
 
-`ebt/test_checks.py` проверяет сам чекер, а не приложение. Для каждого класса входов нужен корректный случай, для нарушения — случай с `ok=False`, для формы — `WitnessError`:
+`ebt/test_checks.py` tests the checker itself, not the application. Each input class needs a correct case, a violation needs a case with `ok=False`, and the shape needs a `WitnessError`:
 
 ```python
 import unittest
@@ -165,114 +167,114 @@ class ShippingFee(unittest.TestCase):
             checks.shipping_fee({"subtotal": 1}, {})
 ```
 
-Запуск — `witnessbox test-checks ebt` из корня проекта; пустой набор тестов — код `1`, а не успех. Шаблонный `test_checks.py` — готовая заготовка.
+Run `witnessbox test-checks ebt` from the project root. An empty test set gives code `1`, not success. The scaffold `test_checks.py` is a ready template.
 
-## 4. Тесты свидетельств
+## 4. Evidence tests
 
-Тест водит **реальный** код по классам входов и записывает свидетельство. Есть два места для `ev()`: в коде приложения в точке решения ([пример на скидке](example.md)) или в тесте вокруг вызова ([быстрый старт](quickstart.md#4-тест-свидетельств)). В обоих случаях `data` содержит то, что реально использовало и вернуло приложение, а не то, что тест пересчитал сам, иначе проверяется тест, а не приложение.
+A test drives the **real** code across the input classes and records evidence. There are two places for `ev()`: in the application code at the decision point ([the discount example](example.md)) or in a test around the call ([quick start](quickstart.md#4-the-evidence-test)). In both cases `data` holds what the application actually used and returned, not what the test recomputed itself. Otherwise the test is checked, not the application.
 
-- По одному сценарию на класс входов; `Ebt.scope` — имя класса или сценария.
-- В `data` — только допустимые значения ([таблица](sdk.md#допустимые-значения-data)); дроби и время кодируются явно.
-- Ошибка записи видна в месте вызова `ev()`. Если приложение перехватывает все исключения вокруг, свидетельства не будет, а чекер сообщит об инварианте без записей ([видимость](sdk.md#видимость-ошибки-записи)).
-- В Dart `ev()` вызывается только внутри `assert`, денежные значения — целыми минимальными единицами.
+- One scenario per input class; `Ebt.scope` is the class or scenario name.
+- `data` takes only allowed values ([table](sdk.md#allowed-data-values)); fractions and time are encoded explicitly.
+- A recording error is visible at the `ev()` call. If the application catches all exceptions around it, there will be no evidence, and the checker will report an invariant without records ([visibility](sdk.md#visibility-of-write-errors)).
+- In Dart, `ev()` is called only inside `assert`, and money is in integer minimal units.
 
 ## 5. `--self-test`
 
-Чувствительность чекера проверяет самопроверка: она портит каждое поле свидетельства и первые элементы списков и смотрит, замечает ли чекер порчу.
+The self-test checks the sensitivity of the checker: it corrupts each evidence field and the first list elements and sees whether the checker notices.
 
 ```bash
 witnessbox check --spec ebt/spec.toml --checkers ebt/checks.py \
           --evidence build/ebt/evidence.jsonl --self-test
 ```
 
-(Гейт запускает самопроверку сам; команда нужна при разработке чекера.) У исправного чекера отчёт говорит:
+(The gate runs the self-test itself; the command is for developing a checker.) For a sound checker the report says:
 
 ```
-- **INV-SHIP-1**: порча любого поля ловится (образцов: 3)
+- **INV-SHIP-1**: corruption of any field is caught (samples: 3)
 ```
 
-Добавим в `witness` и в свидетельство поле `note`, которое правило не использует:
+Add to `witness` and to the evidence a field `note` that the rule does not use:
 
 ```
-**Чекер `INV-SHIP-1` не ловит порчу путей `note` — доказательство этим чекером не принимается …
-- ⚠️ **INV-SHIP-1**: порча путей `note` ни разу не поймана — чекер их не проверяет или они лишние в witness
+**Checker `INV-SHIP-1` does not catch corruption of paths `note` — proof by this checker is not accepted …
+- ⚠️ **INV-SHIP-1**: corruption of paths `note` was never caught: the checker does not check them or they are superfluous in the witness
 ```
 
-Это один из двух вопросов: либо чекер должен это поле проверять, либо оно лишнее и его надо убрать из `witness` (см. выше). Если поле законно не влияет на вердикт, владелец перечисляет его в `not_in_verdict`; решение об исключении принимает человек, а не автор чекера ([расширения](extensions.md)).
+This is one of two questions: either the checker should check this field, or the field is superfluous and must be removed from `witness` (see above). If a field legitimately does not affect the verdict, the owner lists it in `not_in_verdict`. A human decides on the exclusion, not the checker's author ([extensions](extensions.md)).
 
-## 6. Порядок работы
+## 6. Order of work
 
-1. Выписать требование и границы (раздел 1); вопросы — владельцу.
-2. Написать `[req]`/`[inv]` с `witness` и `partitions`; утвердить у человека.
-3. Написать `checks.py` и `test_checks.py`; `witnessbox test-checks ebt`.
-4. Написать тесты свидетельств по классам входов; `witnessbox sync-pinned ebt`, `witnessbox gate --check-only ebt .`.
-5. Закоммитить `ebt/`, затем запускать гейт.
-6. Проверить, что правило не молчит: внести дефект в границу (`>=` → `>`) и убедиться, что гейт красный, а не зелёный. Для шаблонного примера это шаги 8–9 [быстрого старта](quickstart.md#8-внесите-дефект).
+1. Write down the requirement and its boundaries (section 1); questions go to the owner.
+2. Write `[req]`/`[inv]` with `witness` and `partitions`; get human approval.
+3. Write `checks.py` and `test_checks.py`; `witnessbox test-checks ebt`.
+4. Write evidence tests per input class; `witnessbox sync-pinned ebt`, `witnessbox gate --check-only ebt .`.
+5. Commit `ebt/`, then run the gate.
+6. Check that the rule is not silent: introduce a defect at the boundary (`>=` → `>`) and make sure the gate is red, not green. For the scaffold example these are steps 8–9 of the [quick start](quickstart.md#8-inject-a-defect).
 
-На дефекте из шага 6 в нашем примере чекер нашёл бы ложное доказательство: приложение записало `ok=true`, а свидетельство `{"subtotal": 5000, "fee": 300}` нарушает правило.
+On the defect from step 6, in our example the checker would find a false proof: the application recorded `ok=true`, while the evidence `{"subtotal": 5000, "fee": 300}` violates the rule.
 
-## 7. Уровень наблюдения: `<INV>-OBS`
+## 7. Observation level: `<INV>-OBS`
 
-### Зачем он нужен
+### Why it is needed
 
-Уровень решения (всё выше) проверяет то, что код **записал**. Если решение принимается в двух местах, а запись стоит в одном, покрытие закрывают записи первого места, и гейт молчит. Решение может быть записано верно, но затем не применено, или применено через второй путь без записи, или состояние бывает неверным несколько мгновений. Уровень наблюдения проверяет не запись решения, а **наблюдаемые последствия**: то, что пользователь увидел или что сохранилось.
+The decision level (everything above) checks what the code **recorded**. If a decision is made in two places and the record is in one, the records of the first place close the coverage and the gate stays silent. A decision can be recorded correctly and then not applied, or applied through a second path without a record, or the state can be wrong for a few moments. The observation level checks not the record of the decision but its **observable consequences**: what the user saw or what was saved.
 
-Он нужен для требований с видимым или сохраняемым исходом: экран, окно, уведомление, запись в хранилище, вызов внешней системы. Для чистых вычислений (ставка, округление, сумма) уровня решения достаточно. Уровень решения остаётся и для границ, и как контроль целостности записи (D29).
+It is needed for requirements with a visible or persisted outcome: a screen, a window, a notification, a write to storage, a call to an external system. For pure computations (a rate, rounding, a total) the decision level is enough. The decision level also stays for boundaries and as an integrity check of the record (D29).
 
-Что известно о пользе, без округления в пользу метода (D29, пилот на проекте TypeScript, один пилот, не статистика): пять заданных дефектов — второй путь, изменение после `ev()`, неприменённое решение, лишняя запись, мелькание окна — уровень решения не нашёл ни одного, OBS без журнала — четыре, OBS с журналом появлений — все пять. Девять мутантов границ порядка нашёл только уровень решения, так что OBS его не заменяет, а дополняет. На других проектах цифры будут другими.
+What is known about the benefit, without rounding in favor of the method (D29, a pilot on a TypeScript project, one pilot, not statistics): of five injected defects (a second path, a change after `ev()`, a decision not applied, an extra write, a flickering window) the decision level found none, OBS without a log found four, and OBS with an appearance log found all five. Nine order-boundary mutants were found only by the decision level, so OBS does not replace it but complements it. Other projects will give other numbers.
 
-### Как устроен `<INV>-OBS`
+### How `<INV>-OBS` works
 
-В `spec.toml` рядом с `INV-SHIP-1` добавляется близнец:
+In `spec.toml`, next to `INV-SHIP-1`, add a twin:
 
 ```toml
 [inv.INV-SHIP-1-OBS]
 req = "REQ-SHIP-1"
-statement = "В итоговой строке заказа, как её видит покупатель, fee == 0 при subtotal >= 5000, иначе fee == 300"
+statement = "In the order's total line, as the buyer sees it, fee == 0 when subtotal >= 5000, otherwise fee == 300"
 checker = "shipping_fee"
 witness = ["subtotal", "fee"]
 partitions = ["below_threshold", "at_threshold"]
 ```
 
-Тот же `checker` и тот же `witness`, но свои `partitions`: сценарии наблюдения охватывают те классы, которые реально проходят через интерфейс. Записи близнеца делает **тест по наблюдению**: он совершает действие через ту границу, которой пользуется человек (экран, API, хранилище), читает то, что там появилось, и пишет `ev("INV-SHIP-1-OBS", ...)` с наблюдённым значением. Чекер тот же, поэтому пересчёт независим по-прежнему; близнец с такими `partitions` и записями наблюдения принимается `witnessbox check` и проходит `--self-test`.
+The same `checker` and the same `witness`, but its own `partitions`: the observation scenarios cover those classes that actually pass through the interface. The twin's records are made by an **observation test**: it performs the action through the boundary a human uses (a screen, an API, storage), reads what appeared there, and writes `ev("INV-SHIP-1-OBS", ...)` with the observed value. The checker is the same, so the recomputation is still independent. A twin with such `partitions` and observation records is accepted by `witnessbox check` and passes `--self-test`.
 
-### Контракт наблюдения
+### Observation contract
 
-Для каждого `-OBS` аналитик пишет «Observation contract» и утверждает его вместе со спецификацией (D4, D29). В `spec.toml` для него нет отдельного поля, чекер его не читает; практичнее держать текст комментарием над инвариантом или рядом в документе, который утверждает человек. Контракт отвечает на пять вопросов.
+For each `-OBS` the analyst writes an "Observation contract" and has it approved together with the spec (D4, D29). `spec.toml` has no separate field for it and the checker does not read it. It is more practical to keep the text as a comment above the invariant, or next to it in a document that a human approves. The contract answers five questions.
 
-1. **Граница наблюдения.** Что именно читает тест и где: поле на экране, ответ API, строка в хранилище, окно в дереве виджетов. Граница — то, что видит пользователь или потребитель, а не внутренний объект приложения.
-2. **Обязательные и запрещённые переходы.** Какие состояния должны появиться и какие не должны появляться вовсе. Если неверное состояние может появиться и исчезнуть до того, как тест его прочитает, нужен **журнал появлений**: помощник ведёт список всех состояний границы за время сценария, а не только последнее. Окно, мелькнувшее на кадр, в снимке «после» не видно, в журнале появлений видно.
-3. **Момент завершения и следующие шаги сеанса.** Когда действие считается законченным (изменение состояния, ответ, тихий интервал без событий) и что тот же сеанс делает дальше. Выбирайте момент явно: изменение, запланированное позже него, не наблюдается. Неверное состояние может вернуться не сразу, а на следующем шаге того же сеанса; если сценарий заканчивается раньше, он этого не увидит. Поэтому в контракт входят следующие шаги сеанса, а не только само действие.
-4. **Запрещённые побочные эффекты.** Что не должно произойти ни при каком сценарии: вызов внешней системы, запись, отправка. Если эффект не возвращается в наблюдаемое состояние, нужен **журнал вызовов подделок**: заменитель внешней системы записывает каждое обращение.
-5. **Чтение журнала после завершения действия.** Журнал читается и после завершения действия, а не только до него (D30). В пилоте журнал закрытия окна читался до закрытия, и окно, мелькнувшее во время или после закрытия, не попадало ни в свидетельство, ни в проверку; после чтения журнала и после действия дефект «окно мелькает после закрытия из ленты» нашёлся в 4 из 4 таких закрытий (без этого чтения он пропускался), а после любого закрытия был виден в 15 из 15 записей закрытия. Если важно и состояние до действия, журнал читают дважды. Ограничение остаётся: изменение позже тихого интервала не видно.
+1. **Observation boundary.** What exactly the test reads and where: a field on a screen, an API response, a row in storage, a window in the widget tree. The boundary is what the user or consumer sees, not an internal object of the application.
+2. **Required and forbidden transitions.** Which states must appear and which must not appear at all. If a wrong state can appear and disappear before the test reads it, an **appearance log** is needed: a helper keeps a list of all states of the boundary during the scenario, not only the last one. A window that flashed for one frame is not visible in an "after" snapshot, but is visible in the appearance log.
+3. **Completion moment and the next steps of the session.** When the action counts as finished (a state change, a response, a quiet interval with no events) and what the same session does next. Choose the moment explicitly: a change scheduled after it is not observed. A wrong state may come back not at once but at the next step of the same session; if the scenario ends earlier, it will not see it. So the contract includes the next steps of the session, not only the action itself.
+4. **Forbidden side effects.** What must not happen in any scenario: a call to an external system, a write, a send. If the effect does not return into the observable state, a **log of fake calls** is needed: a stand-in for the external system records every call.
+5. **Reading the log after the action completes.** The log is read after the action completes, not only before it (D30). In the pilot, the window-close log was read before the close, and a window that flashed during or after the close got into neither the evidence nor the check. After reading the log after the action, the defect "the window flashes after closing from the feed" was found in 4 of 4 such closes (without this reading it was missed), and after any close it was visible in 15 of 15 close records. If the state before the action matters too, the log is read twice. A limitation remains: a change after the quiet interval is not visible.
 
-Шаблон контракта:
+Contract template:
 
 ```
 Observation contract: INV-SHIP-1-OBS
-1. Граница: строка «Доставка» в итоговом блоке экрана оплаты.
-2. Переходы: обязательны — «300» при сумме ниже порога, «0» на пороге и выше;
-   запрещены — любое появление «300» после перехода суммы через порог
-   (журнал появлений строки с момента смены суммы).
-3. Завершение: после ответа сервера на смену корзины и 50 мс тишины;
-   следующий шаг сеанса — переход к оплате и возврат в корзину.
-4. Побочные эффекты: заказ в оплату не уходит с неверной доставкой
-   (журнал вызовов подделки платёжного шлюза).
-5. Журнал читается после завершения действия и после следующего шага сеанса.
+1. Boundary: the "Shipping" row in the totals block of the payment screen.
+2. Transitions: required — "300" for a sum below the threshold, "0" at the threshold and above;
+   forbidden — any appearance of "300" after the sum crosses the threshold
+   (appearance log of the row since the moment the sum changed).
+3. Completion: after the server's response to the cart change and 50 ms of quiet;
+   next session step — go to payment and back to the cart.
+4. Side effects: the order does not go to payment with the wrong shipping
+   (log of calls to a fake of the payment gateway).
+5. The log is read after the action completes and after the next session step.
 ```
 
-(Это иллюстрация формы контракта, не прогонявшийся пример: готового приложения с OBS в репозитории нет.)
+(This illustrates the form of a contract. It is not an example that was run: there is no ready application with OBS in the repository.)
 
-### Помощники наблюдения
+### Observation helpers
 
-Журнал появлений и журнал вызовов подделок — **проектные** помощники в коде тестов проекта: SDK, формат свидетельства, чекер ядра и runtime их не содержат (D29). Закрепляйте их в `pinned.txt` строкой `obs/<feature>…  <путь в проекте>` — тогда гейт сверяет копию, как и SDK; в шаблонной `pinned.txt` для этого есть закомментированная строка.
+The appearance log and the log of fake calls are **project** helpers in the project's test code: the SDK, the evidence format, the core checker and the runtime do not contain them (D29). Pin them in `pinned.txt` with a line `obs/<feature>…  <path in the project>`. Then the gate verifies the copy, as it does the SDK. The scaffold `pinned.txt` has a commented-out line for this.
 
-### Что даёт OBS и что нет
+### What OBS gives and what it does not
 
-OBS проверяет наблюдаемые последствия в заданных сценариях (D29). Он не доказывает, что решение верно во всех входах. Дефект, который не виден в выбранной границе, за момент завершения или в непредусмотренном шаге сеанса, останется незамеченным. «Мутант убит» в исследовательском мутационном аудите означает чувствительность к этой порче на этих сценариях, а не доказанность; сам аудит в гейт не входит. В модели угроз это записано в [security](security.md): гейт проверяет записанное, а решение без свидетельства и без наблюдаемого следствия вне проверки.
+OBS checks observable consequences in the given scenarios (D29). It does not prove that a decision is correct on all inputs. A defect that is not visible at the chosen boundary, beyond the completion moment, or in an unforeseen session step will stay unnoticed. "Mutant killed" in an exploratory mutation audit means sensitivity to this corruption in these scenarios, not proof; the audit itself is not part of the gate. The threat model records this in [security](security.md): the gate checks what was recorded, and a decision with no evidence and no observable consequence is outside the check.
 
-## Границы руководства
+## Limits of this guide
 
-- Пример доставки проверен реальным `witnessbox check`, но не прогонялся с приложением и тестом на каком-либо стеке; сквозной прогон со стеком — [быстрый старт](quickstart.md).
-- Раздел про OBS изложен по решениям [D29 и D30](decisions.md); в репозитории нет примера приложения с OBS-тестом и помощником наблюдения. Первый такой пример — отдельная задача.
-- Никакой документ не заменяет утверждение спецификации человеком.
+- The shipping example was checked by the real `witnessbox check`, but was not run with an application and a test on any stack. The end-to-end run with a stack is the [quick start](quickstart.md).
+- The OBS section follows the decisions [D29 and D30](decisions.md). The repository has no example application with an OBS test and an observation helper. The first such example is a separate task.
+- No document replaces human approval of the spec.

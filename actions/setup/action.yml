@@ -1,39 +1,39 @@
 name: Witnessbox setup
-description: Устанавливает witnessbox и сверяет wheel и --installation с release.json
+description: Installs witnessbox and verifies the wheel and --installation against release.json
 
 inputs:
   version:
-    description: Версия witnessbox в формате X.Y.Z
+    description: witnessbox version in X.Y.Z format
     required: true
 
 outputs:
   installation:
-    description: Путь к JSON, который вывела команда witnessbox --installation
+    description: Path to the JSON printed by the witnessbox --installation command
     value: ${{ steps.install.outputs.installation }}
 
 runs:
   using: composite
   steps:
-    - name: Проверить формат версии
+    - name: Check the version format
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
       run: |
         set -euo pipefail
         if ! [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-          echo "version: ожидалось X.Y.Z, получено '$VERSION'" >&2
+          echo "version: expected X.Y.Z, got '$VERSION'" >&2
           exit 2
         fi
 
-    - name: Настроить Python
+    - name: Set up Python
       uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
       with:
         python-version: "3.12"
 
-    - name: Настроить uv
+    - name: Set up uv
       uses: astral-sh/setup-uv@68559e99cc807c1eb7e9238fd43a15bba460eec2 # v10.3.3
 
-    - name: Скачать release.json
+    - name: Download release.json
       shell: bash
       env:
         GH_TOKEN: ${{ github.token }}
@@ -44,7 +44,7 @@ runs:
         gh release download "v$VERSION" --repo kaufd/WitnessBox \
           --pattern release.json --dir "$RUNNER_TEMP/witnessbox" --clobber
 
-    - name: Скачать wheel из PyPI
+    - name: Download the wheel from PyPI
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -54,7 +54,7 @@ runs:
           --no-deps --only-binary=:all: \
           --dest "$RUNNER_TEMP/witnessbox" "witnessbox==$VERSION"
 
-    - name: Сверить wheel с release.json
+    - name: Verify the wheel against release.json
       shell: bash
       env:
         VERSION: ${{ inputs.version }}
@@ -64,20 +64,20 @@ runs:
         for candidate in "$RUNNER_TEMP/witnessbox"/witnessbox-"$VERSION"-*.whl; do
           [ -e "$candidate" ] || continue
           if [ -n "$wheel" ]; then
-            echo "wheel: ожидался один файл witnessbox-$VERSION-*.whl, найдено несколько: $wheel, $candidate" >&2
+            echo "wheel: expected one file witnessbox-$VERSION-*.whl, found several: $wheel, $candidate" >&2
             exit 2
           fi
           wheel=$candidate
         done
         [ -n "$wheel" ] || {
-          echo "wheel: не найден witnessbox-$VERSION-*.whl" >&2
+          echo "wheel: witnessbox-$VERSION-*.whl not found" >&2
           exit 2
         }
         python -I "$GITHUB_ACTION_PATH/verify_release.py" wheel \
           "$RUNNER_TEMP/witnessbox/release.json" "$wheel"
         echo "WHEEL=$wheel" >> "$GITHUB_ENV"
 
-    - name: Установить проверенный wheel и сверить --installation
+    - name: Install the verified wheel and verify --installation
       id: install
       shell: bash
       run: |

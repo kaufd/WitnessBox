@@ -1,58 +1,64 @@
-# SDK записи свидетельств
+# The evidence-recording SDK
 
-Java, TypeScript и Dart SDK пишут строки JSONL одного формата: `{"seq","scope"?,"req","inv","ok","data"}`. Путь к исходникам даёт поле `resources` команды `witnessbox --installation`, внутри `lib/ebt/`. SDK только записывают свидетельства; правило проверяет чекер.
+**English** · [Русский](sdk.ru.md)
 
-## Общий формат
+The Java, TypeScript and Dart SDKs write JSONL lines of one format: `{"seq","scope"?,"req","inv","ok","data"}`. The path to the sources is given by the `resources` field of the `witnessbox --installation` command, under `lib/ebt/`. The SDKs only record evidence; the checker verifies the rule.
 
-- `seq` начинается с 1 и растёт на каждую запись; `reset()` обнуляет `seq`, `scope` и записи.
-- `scope` пишется, только если задан.
-- `data` снимается в момент вызова: изменение переданных объектов после вызова не меняет запись.
-- Порядок полей `data` задаёт вход SDK; чекер порядок не учитывает.
+## Common format
 
-Сценарий [tests/sdk/golden.jsonl](../tests/sdk/golden.jsonl) Java, TypeScript и Dart записывают байт в байт одинаково (`make test-sdk`). Порядок полей в нём зафиксирован только для сравнения этого примера; сортировать поля других свидетельств он не требует.
+- `seq` starts at 1 and grows with each record; `reset()` zeroes `seq`, `scope` and the records.
+- `scope` is written only if it is set.
+- `data` is snapshotted at the moment of the call: changing the passed objects after the call does not change the record.
+- The order of the `data` fields is set by the SDK input; the checker ignores order.
 
-Общий для всех языков контракт — `ev()`, этот формат, допустимые значения ниже и golden. Новый язык подключается их реализацией и прохождением golden. `traced()` — необязательное удобство только TypeScript SDK; в Java и Dart его нет (D25).
+The scenario [tests/sdk/golden.jsonl](../tests/sdk/golden.jsonl) is recorded byte for byte identically by Java, TypeScript and Dart (`make test-sdk`). The field order in it is fixed only for comparing this example; it does not require sorting the fields of other evidence.
 
-## Допустимые значения `data`
+The contract common to all languages is `ev()`, this format, the allowed values below and the golden file. A new language is connected by implementing them and passing the golden file. `traced()` is an optional convenience of the TypeScript SDK only; Java and Dart do not have it (D25).
 
-| Значение | Java | TypeScript | Dart |
+## Allowed `data` values
+
+| Value | Java | TypeScript | Dart |
 |---|---|---|---|
 | `null` | `null` | `null` | `null` |
 | boolean | `Boolean` | `boolean` | `bool` |
-| строка | `String` | `string` | `String` |
-| целое | `Integer`, `Long`, `Short`, `Byte` — весь диапазон `long` | безопасное целое: `Number.isSafeInteger` | `int` — на VM весь 64-битный диапазон |
-| список | `Collection` | массив без дыр | `List` |
-| объект | `Map` со строковыми ключами | простой объект: прототип `Object.prototype` или `null` | `Map` со строковыми ключами |
+| string | `String` | `string` | `String` |
+| integer | `Integer`, `Long`, `Short`, `Byte`: the whole `long` range | a safe integer: `Number.isSafeInteger` | `int`: on the VM the whole 64-bit range |
+| list | `Collection` | an array without holes | `List` |
+| object | `Map` with string keys | a plain object: prototype `Object.prototype` or `null` | `Map` with string keys |
 
-Остальное — ошибка с путём поля (`data.v[0].x`); запись в лог не попадает, `seq` не растёт. В Java это `IllegalArgumentException`: дробные числа, `BigDecimal`, `char`, нестроковый ключ, произвольный объект. В TypeScript это `TypeError`: дробь, `NaN`, `±Infinity`, целое вне ±(2⁵³−1), `undefined`, дыра в массиве, `bigint`, функция, `Date`, `Map` и другие объекты не простого вида. В Dart это `ArgumentError` (D27): любой `double`, в том числе `1.0` на VM, `DateTime`, enum, `Set` и другие `Iterable` не вида `List`, нестроковый ключ, произвольный объект. Enum передавайте как `.name`, время — строкой или целым, дробь — строкой или целыми минимальными единицами.
+Anything else is an error with the field path (`data.v[0].x`); the record does not reach the log and `seq` does not grow. In Java this is `IllegalArgumentException`: fractional numbers, `BigDecimal`, `char`, a non-string key, an arbitrary object. In TypeScript this is `TypeError`: a fraction, `NaN`, `±Infinity`, an integer outside ±(2⁵³−1), `undefined`, a hole in an array, `bigint`, a function, `Date`, `Map` and other objects that are not plain. In Dart this is `ArgumentError` (D27): any `double`, including `1.0` on the VM, `DateTime`, an enum, `Set` and other `Iterable`s that are not a `List`, a non-string key, an arbitrary object. Pass an enum as `.name`, time as a string or an integer, and a fraction as a string or as integer minimal units.
 
-Оговорки эквивалентности:
+Equivalence caveats:
 
-- Java пишет `long` вне ±(2⁵³−1) точно, и Python-чекер читает его точно, но JS-инструменты прочтут такое число с потерей. Для одинакового поведения SDK держите целые в безопасном диапазоне.
-- Dart на VM (`flutter test`, `dart run`) пишет `int` во всём 64-битном диапазоне точно, с той же оговоркой, что Java для `long`. На web `int` и `double` — одно JS-число: целое точно только в ±(2⁵³−1), SDK значения вне него не отклоняет (точность потеряна до вызова), а `1.0` там неотличимо от `1` и пишется как `1`; дробь отклоняется и на web.
-- Java принимает любую `Collection`, включая `Set`; Dart — только `List`.
-- Управляющие символы `\b` и `\f` TypeScript кодирует как `\b`/`\f`, Java — как `\u0008`/`\u000c`. Значение одно, байты разные; в golden этих символов нет.
-- Одиночный суррогат UTF-16 TypeScript экранирует (`\ud800`), Java пишет как есть, и при записи файла в UTF-8 он заменяется на `?`.
+- Java writes a `long` outside ±(2⁵³−1) exactly, and the Python checker reads it exactly, but JS tools will read such a number with loss. For identical behavior across SDKs, keep integers in the safe range.
+- Dart on the VM (`flutter test`, `dart run`) writes an `int` exactly across the whole 64-bit range, with the same caveat as Java for `long`. On the web `int` and `double` are one JS number: an integer is exact only within ±(2⁵³−1), the SDK does not reject values outside it (precision was lost before the call), and `1.0` there is indistinguishable from `1` and is written as `1`; a fraction is rejected on the web too.
+- Java accepts any `Collection`, including `Set`; Dart accepts only `List`.
+- The control characters `\b` and `\f` are encoded by TypeScript as `\b`/`\f`, and by Java as `\u0008`/`\u000c`. The value is the same, the bytes differ; the golden file has no such characters.
+- A lone UTF-16 surrogate is escaped by TypeScript (`\ud800`); Java writes it as is, and when the file is written in UTF-8 it is replaced with `?`.
 
-## Дроби, время и конкурентность
+## Fractions, time and concurrency
 
-Формат не вводит для них отдельных типов (D28). Значение кодирует приложение явно, а разбирает и пересчитывает чекер.
+The format does not introduce separate types for them (D28). The application encodes the value explicitly, and the checker parses and recomputes it.
 
-- **Деньги.** По умолчанию — целые минимальные единицы и валюта: `{"amount": 1250, "cur": "RUB"}`. Ставки, курсы, проценты и суммы за пределами ±(2⁵³−1) передавайте десятичной строкой без экспоненты: `{"rate": "0.155"}`, в Java — `BigDecimal.toPlainString()`. Чекер разбирает её через `decimal.Decimal` и сравнивает значения, а не строки. Режим и шаг округления (`HALF_EVEN`, `HALF_UP`, до копейки) называет требование, а чекер применяет их через `Decimal.quantize`. Добавьте класс входов для ровно половины шага, иначе граница округления останется недоказанной.
-- **Неденежные дроби** (метрики, координаты) — строка, которую чекер разбирает через `float()` и сравнивает с допуском из spec. Сравнивать как строки нельзя: Java пишет `100.0` и `1.0E10`, JavaScript — `100` и `10000000000`.
-- **Время.** Момент — целые миллисекунды от эпохи или ISO-8601 с обязательным смещением (`2026-11-01T10:00:00+03:00`). Дата — `YYYY-MM-DD`, длительность — целые миллисекунды, часовой пояс — имя IANA (`Europe/Moscow`). Если решение зависит от текущего времени, приложение записывает использованное `now` в `data`: чекер часы не читает, иначе пересчёт невоспроизводим. Чекер разбирает время через `datetime.fromisoformat` и `zoneinfo`. Базу поясов `zoneinfo` берёт из системы: на macOS и Linux она есть, на Windows без пакета `tzdata` её нет, а runtime зависимостей не добавляет. Классы входов, которые стоит требовать: переход на летнее время, конец месяца, 29 февраля, полночь в другом поясе.
-- **Конкурентность.** Чекер проверяет каждую запись отдельно, поэтому конкурентный сценарий тест записывает одним свидетельством после завершения всех операций: `{"initial": {...}, "ops": [{"op": "debit", "amount": 500, "result": "ok"}, ...], "final": {...}}`. Чекер ищет последовательный порядок `ops`, который даёт ровно такие исходы и такое `final`; при небольшом числе операций хватает перебора перестановок. Классы входов — был ли конфликт и какая сторона выиграла.
+- **Money.** By default, integer minimal units and a currency: `{"amount": 1250, "cur": "RUB"}`. Rates, exchange rates, percentages and sums beyond ±(2⁵³−1) are passed as a decimal string without an exponent: `{"rate": "0.155"}`, in Java `BigDecimal.toPlainString()`. The checker parses it with `decimal.Decimal` and compares values, not strings. The rounding mode and step (`HALF_EVEN`, `HALF_UP`, to the kopeck) are named by the requirement, and the checker applies them through `Decimal.quantize`. Add an input class for exactly half a step, otherwise the rounding boundary stays unproven.
+- **Non-money fractions** (metrics, coordinates) are a string that the checker parses with `float()` and compares with a tolerance from the spec. Comparing as strings is not allowed: Java writes `100.0` and `1.0E10`, JavaScript writes `100` and `10000000000`.
+- **Time.** An instant is integer milliseconds from the epoch or ISO-8601 with a mandatory offset (`2026-11-01T10:00:00+03:00`). A date is `YYYY-MM-DD`, a duration is integer milliseconds, a time zone is an IANA name (`Europe/Moscow`). If the decision depends on the current time, the application records the `now` it used in `data`: the checker does not read the clock, otherwise the recomputation is not reproducible. The checker parses time with `datetime.fromisoformat` and `zoneinfo`. `zoneinfo` takes the zone database from the system: it exists on macOS and Linux, on Windows it is absent without the `tzdata` package, and the runtime adds no dependencies. Input classes worth requiring: the daylight saving switch, the end of a month, 29 February, midnight in another zone.
+- **Concurrency.** The checker checks each record separately, so a concurrent scenario is written by the test as one piece of evidence after all operations finish: `{"initial": {...}, "ops": [{"op": "debit", "amount": 500, "result": "ok"}, ...], "final": {...}}`. The checker looks for a sequential order of `ops` that gives exactly these outcomes and this `final`; for a small number of operations, trying permutations is enough. The input classes are whether there was a conflict and which side won.
 
-## Видимость ошибки записи
+## Visibility of write errors
 
-`ev()` бросает ошибку в месте вызова. `traced()` бросает её из синхронного вызова, а для `Promise` возвращает производный `Promise`, который отклоняется этой ошибкой; отклонённый исходный `Promise` не записывается. Если код приложения сам перехватывает все исключения вокруг вызова, ошибка не дойдёт до теста; тогда свидетельства нет, и чекер увидит это как непокрытый инвариант.
+`ev()` throws an error at the call site. `traced()` throws it from a synchronous call, and for a `Promise` returns a derived `Promise` that rejects with this error; a rejected original `Promise` is not recorded. If the application code itself catches all exceptions around the call, the error does not reach the test; then there is no evidence, and the checker sees it as an uncovered invariant.
 
-## Отключение записи
+## Disabling recording
 
-Гарантии разные; каждая действует только при своём условии.
+The guarantees differ; each holds only under its own condition.
 
-| SDK | Как запись отключается | Условие | Что не гарантируется |
+| SDK | How recording is disabled | Condition | What is not guaranteed |
 |---|---|---|---|
-| Dart | `ev()` вызывается только внутри `assert(...)`; в release и profile сборке `assert` не исполняется: ни вызов, ни вычисление аргументов не происходят | каждый вызов стоит внутри `assert`; SDK и гейт этого не проверяют | удаление идентификаторов и данных из бинарника не проверялось |
-| TypeScript | при `import.meta.env.MODE !== 'test'` `ev()` сразу возвращается, `traced()` отдаёт исходную функцию | сборщик задаёт `import.meta.env.MODE` (Vite, Vitest); без `import.meta.env` модуль падает при импорте | удаление вызовов и аргументов из бандла зависит от сборщика и не проверялось; объект `data`, переданный литералом, вычисляется в месте вызова — передавайте функцию `() => ({ ... })` |
-| Java | переключателя нет: каждый вызов пишет запись в память процесса | `Ebt.java` лежит только в тестовом наборе исходников (`src/test/java`); `pinned.txt` сверяет содержимое копии, но не её место | если файл попадёт в основной набор, записи будут копиться в работающем приложении |
+| Dart | `ev()` is called only inside `assert(...)`; in a release and profile build `assert` does not execute: neither the call nor the evaluation of the arguments happens | every call is inside `assert`; the SDK and the gate do not check this | the removal of identifiers and data from the binary was not checked |
+| TypeScript | when `import.meta.env.MODE !== 'test'`, `ev()` returns at once and `traced()` returns the original function | the bundler sets `import.meta.env.MODE` (Vite, Vitest); without `import.meta.env` the module fails on import | the removal of calls and arguments from the bundle depends on the bundler and was not checked; a `data` object passed as a literal is evaluated at the call site: pass a function `() => ({ ... })` |
+| Java | there is no switch: every call writes a record into the process memory | `Ebt.java` lies only in the test source set (`src/test/java`); `pinned.txt` verifies the content of the copy but not its place | if the file gets into the main source set, records will accumulate in the running application |
+
+## Formatter in a Dart project
+
+The copy of `ebt.dart` is compared with `pinned.txt` byte for byte, and a project's CI may run `dart format --set-exit-if-changed`. So each SDK statement takes one line shorter than 80 characters: neither the short style (language version before 3.6) nor the tall style (3.7+) at a width of 80 to 120 has anything to join or wrap. `// dart format off` at the start of the file is insurance for the tall style; the short style does not read it. `make format-dart` (part of `make test-sdk`, and so of CI and `make release-check`) checks all six combinations of `--language-version` 3.6 and the current version with a width of 80, 100 and 120, and also the same file without `// dart format off`. A wrap added to the SDK, or a new formatter style, will show up at the distribution release, not in the project's CI.

@@ -1,16 +1,16 @@
 #!/usr/bin/env python3
-"""Генерирует пример логов доказательств для демонстрации ebt_check.
+"""Generates example proof logs to demonstrate ebt_check.
 
-  baseline.jsonl — «правильный» прогон;
-  evidence.jsonl — тот же прогон с намеренными дефектами:
-    1. процентная скидка округлена вверх (150 вместо 149)      → FALSE_PROOF
-    2. при равных версиях победила локальная запись            → FALSE_PROOF
-    3. свидетельство только из результата {"result": ...}      → WITNESS_INCOMPLETE
-    4. выдуманный инвариант INV-CART-9                         → UNKNOWN_INV
+  baseline.jsonl — the "correct" run;
+  evidence.jsonl — the same run with deliberate defects:
+    1. a percent discount rounded up (150 instead of 149)      → FALSE_PROOF
+    2. on equal versions the local record won                   → FALSE_PROOF
+    3. evidence made of the result only {"result": ...}        → WITNESS_INCOMPLETE
+    4. an invented invariant INV-CART-9                        → UNKNOWN_INV
 
-Формат записи совпадает с тем, что пишет lib/ebt/ebt.dart.
+The record format matches what lib/ebt/ebt.dart writes.
 
-  python3 examples/basic/make_example.py   # пишет файлы рядом с собой
+  python3 examples/basic/make_example.py   # writes files next to itself
 """
 
 import json
@@ -34,7 +34,7 @@ def build(regressed: bool):
     r = [
         ("SM-CHECKOUT", "REQ-CHECKOUT-2", True, {"from": "cart", "event": "confirm", "to": "confirmed"}),
         ("INV-CART-3", "REQ-CART-1", True, cart([(49900, 1), (1990, 3)], "none", 0)),
-        # 999 × 15% = 149.85 → по требованию 149; дефект: 150
+        # 999 × 15% = 149.85 → 149 by the requirement; defect: 150
         ("INV-CART-3", "REQ-CART-1", True,
          cart([(333, 3)], "percent", 15, off_override=150 if regressed else None)),
         ("INV-CART-3", "REQ-CART-1", True, cart([(120000, 1)], "fixed", 50000)),
@@ -54,15 +54,15 @@ def build(regressed: bool):
             "remote": [["a", 2, False], ["d", 1, False], ["c", 1, False]],
             "out": [["a", 3], ["b", 1], ["d", 1]],
         }),
-        # Корректные равные версии (побеждает сервер, tombstone) и две серверные записи:
-        # удаление любой строки remote меняет результат, поэтому self-test видит, что
-        # чекер читает не только первую строку списка.
+        # Valid equal versions (the server wins, tombstone) and two server records:
+        # deleting any remote row changes the result, so the self-test sees that
+        # the checker reads more than the first row of the list.
         ("INV-SYNC-1", "REQ-SYNC-1", True, {
             "local": [["e", 5, False], ["f", 2, True]],
             "remote": [["e", 5, True], ["g", 1, False], ["h", 3, False]],
             "out": [["g", 1], ["h", 3]],
         }),
-        # равные версии: побеждает сервер (deleted=True → записи в out нет)
+        # equal versions: the server wins (deleted=True → no record in out)
         ("INV-SYNC-1", "REQ-SYNC-1", True, {
             "local": [["e", 5, False]],
             "remote": [["e", 5, True]],

@@ -1,6 +1,6 @@
 {
   "spec_version": "2026-10-28",
-  "spec_sha": "4b64bde93d21",
+  "spec_sha": "357df9c6b7aa",
   "records": 13,
   "scopes": 2,
   "findings": [
@@ -13,7 +13,7 @@
       "req": "REQ-CART-1",
       "claim": true,
       "verdict": false,
-      "reason": "off=150, по правилу скидки percent:15 должно быть 149",
+      "reason": "off=150, by the discount rule percent:15 it must be 149",
       "witness": {
         "lines": [
           [
@@ -39,7 +39,7 @@
       "req": "REQ-CART-1",
       "claim": true,
       "verdict": null,
-      "reason": "нет полей: lines, discount, subtotal, off",
+      "reason": "missing fields: lines, discount, subtotal, off",
       "witness": {
         "result": 8490
       }
@@ -53,7 +53,7 @@
       "req": "REQ-CART-1",
       "claim": true,
       "verdict": null,
-      "reason": "нет в ebt/spec.toml — новый инвариант должен пройти утверждение",
+      "reason": "not in ebt/spec.toml: a new invariant must be approved",
       "witness": {
         "items": 2
       }
@@ -67,7 +67,7 @@
       "req": "REQ-SYNC-1",
       "claim": true,
       "verdict": false,
-      "reason": "лишние/удалённые ['e']",
+      "reason": "extra/deleted ['e']",
       "witness": {
         "local": [
           [

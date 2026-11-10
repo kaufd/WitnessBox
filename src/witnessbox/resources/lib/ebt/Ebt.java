@@ -11,17 +11,17 @@ import java.util.List;
 import java.util.Map;
 
 /**
- * Запись свидетельств EBT на JVM (Java и Kotlin): строки JSONL того же формата, что ebt.ts —
- * {"seq","scope"?,"req","inv","ok","data"}. Решения не принимает: правило проверяет чекер.
+ * EBT evidence recording on the JVM (Java and Kotlin): JSONL lines in the same format as ebt.ts:
+ * {"seq","scope"?,"req","inv","ok","data"}. It makes no decisions: the checker verifies the rule.
  *
- * Без зависимостей; только API, которые есть и в JDK 17, и в android.jar (API 26+).
- * Запись сериализуется в момент вызова ev() — это снимок: изменение переданных коллекций
- * после вызова на лог не влияет. Значение, которое нельзя записать
- * точно (дробные числа, BigDecimal, произвольный объект), — IllegalArgumentException,
- * а не строка: свидетельство не должно молча терять точность.
+ * No dependencies; only APIs present in both JDK 17 and android.jar (API 26+).
+ * A record is serialized at the ev() call, so it is a snapshot: changing the passed collections
+ * after the call does not affect the log. A value that cannot be recorded
+ * exactly (fractional numbers, BigDecimal, an arbitrary object) causes an IllegalArgumentException,
+ * not a string: evidence must not silently lose precision.
  *
- * Включение не управляется: файл кладут только в тестовый набор исходников (src/test/java),
- * в сборку приложения он не попадает. Методы synchronized — тесты могут писать из корутин.
+ * Enabling is not controlled: the file goes only into the test source set (src/test/java),
+ * and does not get into the application build. Methods are synchronized: tests may write from coroutines.
  */
 public final class Ebt {
 
@@ -67,8 +67,8 @@ public final class Ebt {
     public static synchronized void writeTo(Path file) throws IOException {
         Path parent = file.toAbsolutePath().getParent();
         if (parent != null) Files.createDirectories(parent);
-        // Files.write(Path, byte[]), а не writeString: юнит-тесты Android компилируются против
-        // android.jar, где writeString нет; write есть с API 26.
+        // Files.write(Path, byte[]), not writeString: Android unit tests compile against
+        // android.jar, which has no writeString; write exists since API 26.
         Files.write(file, toJsonl().getBytes(StandardCharsets.UTF_8));
     }
 
@@ -86,7 +86,7 @@ public final class Ebt {
             boolean first = true;
             for (Map.Entry<?, ?> e : map.entrySet()) {
                 if (!(e.getKey() instanceof String key)) {
-                    throw new IllegalArgumentException(path + ": ключ не строка: " + e.getKey());
+                    throw new IllegalArgumentException(path + ": key is not a string: " + e.getKey());
                 }
                 if (!first) out.append(',');
                 first = false;
@@ -105,8 +105,8 @@ public final class Ebt {
             }
             out.append(']');
         } else {
-            throw new IllegalArgumentException(path + ": нельзя записать точно значение типа "
-                    + v.getClass().getName() + " — передайте целое, строку, bool, список или map");
+            throw new IllegalArgumentException(path + ": cannot record a value of type "
+                    + v.getClass().getName() + " exactly; pass an integer, string, bool, list or map");
         }
     }
 
