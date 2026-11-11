@@ -2,7 +2,7 @@
 
 ## Structure and independence
 
-- `src/witnessbox/` is the only runtime and the installed package; the public command is `witnessbox` with the subcommands `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks`.
+- `src/witnessbox/` is the only runtime and the installed package; the public command is `witnessbox` with the subcommands `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` and `spec`.
 - `src/witnessbox/checker/` is an independent implementation of the rules. The checker and project extensions do not import the application or the SDK and do not rely on the application's `ok`.
 - `src/witnessbox/api.py` holds the public extension types. New code imports `Verdict` and `WitnessError` from `witnessbox.api`; `src/ebt_verification/api.py` re-exports the same objects for existing projects, and compatibility with `from checkers import ...` is kept.
 - `src/witnessbox/resources/lib/ebt/` holds the shipped SDKs; `tests/` holds the tests of the checker, the installed wheel gate and the SDKs; `examples/` is the demonstration.
