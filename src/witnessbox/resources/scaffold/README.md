@@ -39,6 +39,10 @@ More in the Witnessbox documentation: the [quick start](https://github.com/kaufd
   into `OUT_DIR`. It is an executable file.
 - `pinned.txt` pins the SDK copy (and, if needed, the observation helpers) with a
   byte-for-byte check.
+- `AGENTS.md` holds the rules for coding agents that change this project: do not change the
+  spec without a human, do not edit `ebt/` in a task branch, do not weaken the check. Point the
+  project's own agent instructions (`AGENTS.md`, `CLAUDE.md` or similar at the project root) to
+  it, so that every agent reads it, not only the one that did the connecting.
 - `README.md` is this file.
 
 ## After creation

@@ -124,7 +124,9 @@ For `-OBS`: the test acts through the observation boundary from the contract, re
 
 ## Stage 5. Checking the connection
 
-Commit the connection in one commit (the spec is already approved): `ebt/`, the SDK copy, the evidence tests, the lock file. `build/` goes in `.gitignore`.
+Make the rules reach every later agent, not only you: the scaffold put them in `ebt/AGENTS.md`. Add a pointer to it to the project's own agent instructions at the root (`AGENTS.md`, `CLAUDE.md`, Cursor rules: whatever the project uses; if there are none, create `AGENTS.md`), for example `Witnessbox rules for this project: ebt/AGENTS.md` (in `CLAUDE.md`, `@ebt/AGENTS.md` loads the file itself). Do not edit `ebt/AGENTS.md`.
+
+Commit the connection in one commit (the spec is already approved): `ebt/`, the SDK copy, the evidence tests, the lock file, the pointer to the agent rules. `build/` goes in `.gitignore`.
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
@@ -173,6 +175,7 @@ Expected is code `1` and `checker_failed` in `reasons` without `protected_paths_
 Stack: <stack>, test command: <...>
 Spec: <INV-...> — approved <by whom/when>
 Connection: commit <sha>; files: ebt/..., <SDK>, <tests>
+Agent rules: ebt/AGENTS.md, linked from <file>
 Gate on sound code: PASS (code 0), classes: <all from partitions>
 Gate on the defect <which>: FAIL, reasons=[...]
 Found in project code: <violations or "none">

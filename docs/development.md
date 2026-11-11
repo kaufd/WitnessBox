@@ -39,7 +39,7 @@ The gate integration tests install the wheel into a temporary isolated environme
 
 `make test-linux` needs a working docker; the image is set by `LINUX_IMAGE`. On Linux, only the gate check without access to the sources is skipped: it uses macOS `sandbox-exec`.
 
-`make example` is expected to get FAIL, because the example contains four defects. It also runs the self-test. When you change the checker or the classification, add targeted cases of correct evidence and of each changed error class, then run `make test` and `make example`. SDK changes require the corresponding tests (`make test-sdk`). The detailed rules for changes are listed in the root [CLAUDE.md](../CLAUDE.md).
+`make example` is expected to get FAIL, because the example contains four defects. It also runs the self-test. When you change the checker or the classification, add targeted cases of correct evidence and of each changed error class, then run `make test` and `make example`. SDK changes require the corresponding tests (`make test-sdk`). The detailed rules for changes are listed in the root [AGENTS.md](../AGENTS.md); Claude Code reads them through `CLAUDE.md`.
 
 ## Release
 

@@ -34,6 +34,7 @@ The path from an empty scaffold to the first PASS on the ready TypeScript exampl
 | `test.sh` | runs the tests of the chosen stack and collects the evidence into `OUT_DIR` |
 | `pinned.txt` | pins the SDK copy (and, if needed, the observation helpers) |
 | `README.md` | the same instructions for a human, inside the project directory |
+| `AGENTS.md` | rules for every coding agent that changes the project; the project's root agent instructions point to it |
 
 `spec.toml`, `checks.py` and `test_checks.py` are the same for all stacks. `test.sh` and
 `pinned.txt` are taken from the stack's directory.

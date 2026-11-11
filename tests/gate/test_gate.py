@@ -695,7 +695,7 @@ class Gate(unittest.TestCase):
             "generic": None,
         }
         env = {**os.environ, "PYTHONPATH": ""}
-        files = {"spec.toml", "checks.py", "test_checks.py", "README.md", "test.sh", "pinned.txt"}
+        files = {"spec.toml", "checks.py", "test_checks.py", "README.md", "AGENTS.md", "test.sh", "pinned.txt"}
         for stack, pin in expected.items():
             with self.subTest(stack=stack):
                 target = self.clone.parent / f"scaffold-{stack}"
@@ -738,7 +738,7 @@ class Gate(unittest.TestCase):
                 # The example checker and its tests are working code, not comments. The instruction
                 # must run the tests with the distribution interpreter: the system python3
                 # does not see the witnessbox package.
-                for name in ("test_checks.py", "README.md"):
+                for name in ("test_checks.py", "README.md", "AGENTS.md"):
                     self.assertIn("witnessbox test-checks", (target / name).read_text(encoding="utf-8"))
                 p = subprocess.run([str(self.bin / "witnessbox"), "test-checks", target.name],
                                    cwd=target.parent, capture_output=True, text=True,
@@ -1374,7 +1374,7 @@ exit "${FAKE_RC:-0}"
             names = wheel.namelist()
         for name in ("Ebt.java", "ebt.dart", "ebt.ts"):
             self.assertIn(f"witnessbox/resources/lib/ebt/{name}", names)
-        for name in ("README.md", "spec.toml", "checks.py", "test_checks.py",
+        for name in ("README.md", "AGENTS.md", "spec.toml", "checks.py", "test_checks.py",
                      "dart/test.sh", "dart/pinned.txt", "ts/test.sh", "ts/pinned.txt",
                      "jvm/test.sh", "jvm/pinned.txt", "generic/test.sh", "generic/pinned.txt"):
             self.assertIn(f"witnessbox/resources/scaffold/{name}", names)
