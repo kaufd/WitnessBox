@@ -2,7 +2,7 @@
 
 **English** · [Русский](https://github.com/kaufd/WitnessBox/blob/main/README.ru.md)
 
-Evidence-based testing (EBT) of application behaviour: during tests the code records which decision it made and on what data, and an independent checker re-verifies every decision against a human-approved specification. The kit consists of a run gate, a checker and SDKs for Java, Dart and TypeScript. The runtime requires Python 3.11+ and has no third-party dependencies. The gate is a bash script tested on macOS and Linux; native Windows is not supported, and running it under WSL is not covered by tests.
+Evidence-based testing (EBT) of application behaviour: during tests the code records which decision it made and on what data, and an independent checker re-verifies every decision against a human-approved specification. The kit consists of a run gate, a checker and SDKs for Java, Dart and TypeScript. The runtime requires Python 3.11+ and has no third-party dependencies. The gate is a bash script tested on macOS and Linux; on Windows, the checker, gate and example tests run in CI under WSL 2 (Ubuntu 24.04), and native Windows is not supported.
 
 ## Quick start
 

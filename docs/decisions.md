@@ -430,3 +430,17 @@ Accepted: the example `examples/e2e/dart` is a minimal Flutter package with the 
 
 Local check: `make e2e STACK=dart` with the installed `0.8.0` — PASS, then FAIL with `checker_failed`; `flutter analyze` on the example with the pinned `ebt.dart` — no issues. The runtime, the scaffold and the SDK do not change; the fingerprints and the version stay the same.
 (2026-11-11, status: accepted; extends D48.)
+
+### D60. Tests on Windows under WSL 2
+The README said that native Windows is not supported and that running under WSL is not covered by tests. The gate needs bash, `/bin/bash` (`os.execve` in `cli.py`), `shasum` and POSIX paths, so native Windows would need runtime changes and a decision on `tzdata` for `zoneinfo`; WSL 2 is a Linux system where the kit works unchanged, but nothing checked it.
+
+Accepted: the CI job `wsl` in `test.yml` runs on `windows-latest`, sets up WSL 2 with Ubuntu 24.04 (Python 3.12) through `Vampire/setup-wsl` pinned by SHA (`v7.2.0`), and runs `make test example` and the determinism check of `examples/`. As `make test-linux` does, the tests run in a clean clone of HEAD on the Linux file system as an ordinary user, not in the Windows checkout: this way line endings and file modes come from the repository, and the byte hashes of `spec.toml`, `test.sh` and the checker are not affected by `core.autocrlf`. `uv` is installed into a separate venv with the version pinned exactly and is the only tool put on `PATH`. The SDK and `e2e` jobs stay on Ubuntu. Native Windows is still not supported. The runtime, the scaffold and the SDK do not change; the fingerprints and the version stay the same.
+
+Local check: the body of the step (clone, venv with `uv`, `make test example`, `git diff --exit-code examples/`) under Python 3.12 on macOS — 76 checker tests, 77 gate tests, 18 actions tests, the example is deterministic. The job itself is accepted after its first green run in CI.
+(2026-11-11, status: accepted.)
+
+### D61. Agent rules in the scaffold and in the repository
+The agent instructions (D50) cover only the connection. An agent that later works in a connected project does not see them unless someone gives it the link, so nothing tells it not to change `spec.toml`, not to edit `ebt/` in a task branch or not to weaken the check for the sake of PASS. In this repository the development rules were only in `CLAUDE.md`, which agents other than Claude Code do not read.
+
+Accepted: the scaffold gets the template `AGENTS.md` (in English, like the other templates): the hard rules for every agent that changes the connected project, the gate commands and a link to stage 6 of [agent](agent.md). `witnessbox scaffold` copies it into `ebt/` with the other files; stage 5 of the agent instructions adds a pointer to `ebt/AGENTS.md` from the project's root agent instructions and includes it in the connection commit, and the final report names it. The scaffold does not write outside `ebt/`. Because `ebt/` is a protected path, the rules cannot be changed in a task branch either. In this repository the rules move from `CLAUDE.md` to `AGENTS.md`; `CLAUDE.md` keeps only the import `@AGENTS.md`, so the rules have one source. The list of scaffold files in `cli.py` changes, so `gate_sha256` changes; the version and the released fingerprints stay as they are until the next release.
+(2026-11-11, status: accepted; supplements D50, changes D56 regarding where the development rules live.)

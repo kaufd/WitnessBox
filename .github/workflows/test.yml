@@ -38,6 +38,42 @@ jobs:
       - name: The example is deterministic
         run: git diff --exit-code examples/
 
+  # The same tests as `python`, on Windows under WSL 2 (D60). Native Windows is not supported.
+  # The Windows checkout is only the source of a clone: the tests run in a clean clone of HEAD on the
+  # Linux file system as an ordinary user, as `make test-linux` does, so line endings and file modes
+  # are those of the repository, not of the Windows checkout.
+  wsl:
+    name: Python on Windows (WSL 2, Ubuntu 24.04)
+    runs-on: windows-latest
+    defaults:
+      run:
+        shell: wsl-bash {0}
+    steps:
+      - name: Check out sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - name: Set up WSL
+        uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
+        with:
+          distribution: Ubuntu-24.04
+          wsl-version: "2"
+          additional-packages: git make perl python3 python3-venv
+      - name: Checker, gate and example tests; the example is deterministic
+        run: |
+          set -e
+          useradd -m t
+          # The checkout belongs to another user. With git 2.43 of Ubuntu, git -c safe.directory did not
+          # reach the upload-pack of the local clone; the global setting of the new user does.
+          runuser -l t -c "set -e
+            git config --global --add safe.directory '*'
+            git clone -q '$PWD' ~/repo
+            python3 -m venv ~/uv
+            ~/uv/bin/pip install -q uv==0.11.28
+            mkdir ~/bin && ln -s ~/uv/bin/uv ~/bin/uv
+            export PATH=~/bin:\$PATH
+            cd ~/repo
+            make test example PY=python3
+            git diff --exit-code examples/"
+
   sdk:
     name: SDK
     runs-on: ubuntu-latest

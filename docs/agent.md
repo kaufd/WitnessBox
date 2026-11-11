@@ -48,7 +48,7 @@ witnessbox --installation || uv tool install --force witnessbox   # or pipx inst
 witnessbox --installation
 ```
 
-You need Python 3.11+, `git`, bash (macOS or Linux; not Windows). The `witnessbox` command exists from version 0.7.0; earlier versions gave `ebt-gate` and `ebt-check`. This is why the installation in stage 0 uses `--force`: without it `uv tool install` keeps an old version that is already installed. The release SHA-256 of the gate and the checker are in the [decision log](decisions.md); if the human requires verification, compare `gate_sha256` and `checker_sha256` from `--installation`.
+You need Python 3.11+, `git`, bash (macOS or Linux; on Windows only inside WSL 2, not native). The `witnessbox` command exists from version 0.7.0; earlier versions gave `ebt-gate` and `ebt-check`. This is why the installation in stage 0 uses `--force`: without it `uv tool install` keeps an old version that is already installed. The release SHA-256 of the gate and the checker are in the [decision log](decisions.md); if the human requires verification, compare `gate_sha256` and `checker_sha256` from `--installation`.
 
 ## Stage 1. Reconnaissance of the project
 
@@ -124,7 +124,9 @@ For `-OBS`: the test acts through the observation boundary from the contract, re
 
 ## Stage 5. Checking the connection
 
-Commit the connection in one commit (the spec is already approved): `ebt/`, the SDK copy, the evidence tests, the lock file. `build/` goes in `.gitignore`.
+Make the rules reach every later agent, not only you: the scaffold put them in `ebt/AGENTS.md`. Add a pointer to it to the project's own agent instructions at the root (`AGENTS.md`, `CLAUDE.md`, Cursor rules: whatever the project uses; if there are none, create `AGENTS.md`), for example `Witnessbox rules for this project: ebt/AGENTS.md` (in `CLAUDE.md`, `@ebt/AGENTS.md` loads the file itself). Do not edit `ebt/AGENTS.md`.
+
+Commit the connection in one commit (the spec is already approved): `ebt/`, the SDK copy, the evidence tests, the lock file, the pointer to the agent rules. `build/` goes in `.gitignore`.
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
@@ -173,6 +175,7 @@ Expected is code `1` and `checker_failed` in `reasons` without `protected_paths_
 Stack: <stack>, test command: <...>
 Spec: <INV-...> — approved <by whom/when>
 Connection: commit <sha>; files: ebt/..., <SDK>, <tests>
+Agent rules: ebt/AGENTS.md, linked from <file>
 Gate on sound code: PASS (code 0), classes: <all from partitions>
 Gate on the defect <which>: FAIL, reasons=[...]
 Found in project code: <violations or "none">

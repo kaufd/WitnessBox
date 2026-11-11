@@ -116,7 +116,7 @@ def write_summary(run, exit_code, reasons, message, commit, tests_rc, check_rc,
 
 
 SCAFFOLD_STACKS = ("dart", "ts", "jvm", "generic")
-SCAFFOLD_FILES = ("spec.toml", "checks.py", "test_checks.py", "README.md")
+SCAFFOLD_FILES = ("spec.toml", "checks.py", "test_checks.py", "README.md", "AGENTS.md")
 
 
 def _copy_scaffold(sources, target):
@@ -191,6 +191,7 @@ def scaffold(argv):
     print("  write an evidence test (it writes build/ebt/*.jsonl) and, if needed, ebt/prepare.sh;")
     print("  commit the project and check the setup: witnessbox gate --check-only ebt .;")
     print("  run the gate: witnessbox gate ebt . <result dir>.")
+    print("  point the project's agent instructions (AGENTS.md, CLAUDE.md) to ebt/AGENTS.md.")
     print("Details are in the directory README.md.")
     return 0
 

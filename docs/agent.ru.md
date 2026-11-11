@@ -48,7 +48,7 @@ witnessbox --installation || uv tool install --force witnessbox   # или pipx 
 witnessbox --installation
 ```
 
-Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). Команда `witnessbox` есть с версии 0.7.0; более ранние давали `ebt-gate` и `ebt-check`. Поэтому установка в этапе 0 идёт с `--force`: без него `uv tool install` оставляет уже стоящую старую версию. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.ru.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
+Нужны Python 3.11+, `git`, bash (macOS или Linux; на Windows — только внутри WSL 2, нативный — нет). Команда `witnessbox` есть с версии 0.7.0; более ранние давали `ebt-gate` и `ebt-check`. Поэтому установка в этапе 0 идёт с `--force`: без него `uv tool install` оставляет уже стоящую старую версию. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.ru.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
 
 ## Этап 1. Разведка проекта
 
@@ -124,7 +124,9 @@ witnessbox sync-pinned ebt
 
 ## Этап 5. Проверка подключения
 
-Закоммить подключение одним коммитом (спецификация уже утверждена): `ebt/`, копию SDK, тесты свидетельств, lock-файл. `build/` — в `.gitignore`.
+Сделай так, чтобы правила дошли до каждого следующего агента, а не только до тебя: заготовка положила их в `ebt/AGENTS.md`. Добавь ссылку на него в собственные инструкции агентов в корне проекта (`AGENTS.md`, `CLAUDE.md`, правила Cursor — что использует проект; если их нет, создай `AGENTS.md`), например `Witnessbox rules for this project: ebt/AGENTS.md` (в `CLAUDE.md` строка `@ebt/AGENTS.md` подгружает сам файл). `ebt/AGENTS.md` не правь.
+
+Закоммить подключение одним коммитом (спецификация уже утверждена): `ebt/`, копию SDK, тесты свидетельств, lock-файл, ссылку на правила агентов. `build/` — в `.gitignore`.
 
 ```bash
 BASE=$(git rev-parse HEAD) witnessbox gate --check-only ebt .
@@ -173,6 +175,7 @@ git worktree remove --force ../ebt-defect-check
 Стек: <стек>, команда тестов: <...>
 Спецификация: <INV-...> — утверждена <кем/когда>
 Подключение: коммит <sha>; файлы: ebt/..., <SDK>, <тесты>
+Правила агентов: ebt/AGENTS.md, ссылка из <файл>
 Гейт на исправном коде: PASS (код 0), классы: <все из partitions>
 Гейт на дефекте <какой>: FAIL, reasons=[...]
 Найдено в коде проекта: <нарушения или «нет»>
