@@ -430,3 +430,11 @@ Accepted: the example `examples/e2e/dart` is a minimal Flutter package with the 
 
 Local check: `make e2e STACK=dart` with the installed `0.8.0` — PASS, then FAIL with `checker_failed`; `flutter analyze` on the example with the pinned `ebt.dart` — no issues. The runtime, the scaffold and the SDK do not change; the fingerprints and the version stay the same.
 (2026-11-11, status: accepted; extends D48.)
+
+### D60. Tests on Windows under WSL 2
+The README said that native Windows is not supported and that running under WSL is not covered by tests. The gate needs bash, `/bin/bash` (`os.execve` in `cli.py`), `shasum` and POSIX paths, so native Windows would need runtime changes and a decision on `tzdata` for `zoneinfo`; WSL 2 is a Linux system where the kit works unchanged, but nothing checked it.
+
+Accepted: the CI job `wsl` in `test.yml` runs on `windows-latest`, sets up WSL 2 with Ubuntu 24.04 (Python 3.12) through `Vampire/setup-wsl` pinned by SHA (`v7.2.0`), and runs `make test example` and the determinism check of `examples/`. As `make test-linux` does, the tests run in a clean clone of HEAD on the Linux file system as an ordinary user, not in the Windows checkout: this way line endings and file modes come from the repository, and the byte hashes of `spec.toml`, `test.sh` and the checker are not affected by `core.autocrlf`. `uv` is installed into a separate venv with the version pinned exactly and is the only tool put on `PATH`. The SDK and `e2e` jobs stay on Ubuntu. Native Windows is still not supported. The runtime, the scaffold and the SDK do not change; the fingerprints and the version stay the same.
+
+Local check: the body of the step (clone, venv with `uv`, `make test example`, `git diff --exit-code examples/`) under Python 3.12 on macOS — 76 checker tests, 77 gate tests, 18 actions tests, the example is deterministic. The job itself is accepted after its first green run in CI.
+(2026-11-11, status: accepted.)

@@ -48,7 +48,7 @@ witnessbox --installation || uv tool install --force witnessbox   # or pipx inst
 witnessbox --installation
 ```
 
-You need Python 3.11+, `git`, bash (macOS or Linux; not Windows). The `witnessbox` command exists from version 0.7.0; earlier versions gave `ebt-gate` and `ebt-check`. This is why the installation in stage 0 uses `--force`: without it `uv tool install` keeps an old version that is already installed. The release SHA-256 of the gate and the checker are in the [decision log](decisions.md); if the human requires verification, compare `gate_sha256` and `checker_sha256` from `--installation`.
+You need Python 3.11+, `git`, bash (macOS or Linux; on Windows only inside WSL 2, not native). The `witnessbox` command exists from version 0.7.0; earlier versions gave `ebt-gate` and `ebt-check`. This is why the installation in stage 0 uses `--force`: without it `uv tool install` keeps an old version that is already installed. The release SHA-256 of the gate and the checker are in the [decision log](decisions.md); if the human requires verification, compare `gate_sha256` and `checker_sha256` from `--installation`.
 
 ## Stage 1. Reconnaissance of the project
 

@@ -48,7 +48,7 @@ witnessbox --installation || uv tool install --force witnessbox   # или pipx 
 witnessbox --installation
 ```
 
-Нужны Python 3.11+, `git`, bash (macOS или Linux; Windows — нет). Команда `witnessbox` есть с версии 0.7.0; более ранние давали `ebt-gate` и `ebt-check`. Поэтому установка в этапе 0 идёт с `--force`: без него `uv tool install` оставляет уже стоящую старую версию. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.ru.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
+Нужны Python 3.11+, `git`, bash (macOS или Linux; на Windows — только внутри WSL 2, нативный — нет). Команда `witnessbox` есть с версии 0.7.0; более ранние давали `ebt-gate` и `ebt-check`. Поэтому установка в этапе 0 идёт с `--force`: без него `uv tool install` оставляет уже стоящую старую версию. Выпускные SHA-256 гейта и чекера — в [журнале решений](decisions.ru.md); если человек требует сверки, сверь `gate_sha256` и `checker_sha256` из `--installation`.
 
 ## Этап 1. Разведка проекта
 
