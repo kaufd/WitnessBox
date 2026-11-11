@@ -51,32 +51,6 @@ jobs:
     steps:
       - name: Check out sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-      # Temporary diagnostics: setup-wsl failed twice with `getaddrinfo EAI_AGAIN releases.ubuntu.com`.
-      # Shows how the runner resolves the host compared with public resolvers; remove once settled.
-      - name: Diagnose DNS for releases.ubuntu.com
-        shell: pwsh
-        continue-on-error: true
-        run: |
-          Get-DnsClientServerAddress -AddressFamily IPv4 | Where-Object ServerAddresses | Format-Table -AutoSize
-          foreach ($name in 'releases.ubuntu.com', 'archive.ubuntu.com', 'salsa.debian.org', 'github.com') {
-            foreach ($server in $null, '8.8.8.8', '1.1.1.1') {
-              $label = if ($server) { $server } else { 'runner' }
-              try {
-                $params = @{ Name = $name; Type = 'A'; DnsOnly = $true; QuickTimeout = $true; ErrorAction = 'Stop' }
-                if ($server) { $params.Server = $server }
-                $ips = (Resolve-DnsName @params | Where-Object IPAddress).IPAddress -join ', '
-                "$name via ${label}: $ips"
-              } catch {
-                "$name via ${label}: FAILED $($_.Exception.Message)"
-              }
-            }
-          }
-          try {
-            $r = Invoke-WebRequest -Method Head -Uri 'https://releases.ubuntu.com/24.04.5/ubuntu-24.04.5-wsl-amd64.wsl' -TimeoutSec 30
-            "HEAD releases.ubuntu.com image: $($r.StatusCode)"
-          } catch {
-            "HEAD releases.ubuntu.com image: FAILED $($_.Exception.Message)"
-          }
       - name: Set up WSL
         uses: Vampire/setup-wsl@4c48163d9f981914dd8caa0fc335fe19cca5bff4 # v7.2.0
         with:
@@ -87,8 +61,11 @@ jobs:
         run: |
           set -e
           useradd -m t
+          # The checkout belongs to another user. With git 2.43 of Ubuntu, git -c safe.directory did not
+          # reach the upload-pack of the local clone; the global setting of the new user does.
           runuser -l t -c "set -e
-            git -c safe.directory='*' clone -q '$PWD' ~/repo
+            git config --global --add safe.directory '*'
+            git clone -q '$PWD' ~/repo
             python3 -m venv ~/uv
             ~/uv/bin/pip install -q uv==0.11.28
             mkdir ~/bin && ln -s ~/uv/bin/uv ~/bin/uv
