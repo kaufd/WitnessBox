@@ -12,7 +12,7 @@ What the tutorial does not teach: it takes the template requirement "`result = v
 - [Bun](https://bun.sh/), which runs the Vitest tests in the `ts` stack;
 - `git`: the gate checks a committed, clean clone.
 
-The `witnessbox` command appeared in 0.7.0; earlier releases provided `ebt-gate` and `ebt-check`, and the steps below do not work with them. Upgrade an earlier installation with `uv tool upgrade witnessbox`. The output below was captured from the 0.8.0 wheel built from this tree (`uv build`); paths in it are shortened.
+The `witnessbox` command appeared in 0.7.0; earlier releases provided `ebt-gate` and `ebt-check`, and the steps below do not work with them. Upgrade an earlier installation with `uv tool upgrade witnessbox`. The output below was captured from the 0.9.0 wheel built from this tree (`uv build`); paths in it are shortened.
 
 ## 1. Installation
 
