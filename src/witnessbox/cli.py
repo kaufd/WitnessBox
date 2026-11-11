@@ -78,7 +78,7 @@ def installation():
 
 
 GATE_FILES = ("gate.md", "report.md", "report.json", "evidence.jsonl", "out",
-              "test.log", "prepare.log", "ebt-check.err", "installation.json", "inputs")
+              "test.log", "prepare.log", "ebt-check.err", "installation.json", "inputs", "spec.html")
 
 
 def write_summary(run, exit_code, reasons, message, commit, tests_rc, check_rc,
@@ -605,6 +605,21 @@ def test_checks(argv):
     return p.returncode
 
 
+def spec(argv):
+    """witnessbox spec <spec.toml> <out.html>: the review page of the spec (D58)."""
+    if len(argv) != 2:
+        print("usage: witnessbox spec <spec.toml> <out.html>", file=sys.stderr)
+        return 2
+    from witnessbox.spec_page import write_page
+    try:
+        sha = write_page(Path(argv[0]).expanduser(), Path(argv[1]).expanduser(), argv[0])
+    except (OSError, ValueError) as error:
+        print(f"witnessbox spec: {error}", file=sys.stderr)
+        return 2
+    print(f"spec.toml sha256 {sha}\nwrote {argv[1]}")
+    return 0
+
+
 USAGE = """usage: witnessbox <command> [<arguments>]
 
   gate <ebt-dir> <clone> <run-dir>              gate: project tests and evidence recomputation
@@ -613,9 +628,10 @@ USAGE = """usage: witnessbox <command> [<arguments>]
   scaffold <dart|ts|jvm|generic> [<ebt-dir>]    scaffold of ebt/
   sync-pinned <ebt-dir> [<project-root>]        copies from pinned.txt
   test-checks [<ebt-dir>]                       project checker tests
+  spec <spec.toml> <out.html>                   spec review page with its sha256
   --version | --installation"""
 
-COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": test_checks}
+COMMANDS = {"scaffold": scaffold, "sync-pinned": sync_pinned, "test-checks": test_checks, "spec": spec}
 
 
 def main():

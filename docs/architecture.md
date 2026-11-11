@@ -35,7 +35,7 @@ The checker in `checker/` reads the specification and the evidence, checks the b
 
 ## Extensions and resources
 
-`api.py` defines the types of the public extension API; `ebt_verification/api.py` re-exports them without a second implementation and is included in `checker_sha256` together with the checker code: the project checker executes the compatible import. The standard rules and the engine are in `checker/checkers.py` and `checker/engine.py`; input validation and reports are split between `input.py` and `rendering.py`. The practical extension contract is described in [extensions](extensions.md).
+`api.py` defines the types of the public extension API; `ebt_verification/api.py` re-exports them without a second implementation and is included in `checker_sha256` together with the checker code: the project checker executes the compatible import. The standard rules and the engine are in `checker/checkers.py` and `checker/engine.py`; input validation and reports are split between `input.py` and `rendering.py`. `spec_page.py` builds the spec review page (`witnessbox spec` and the gate's `spec.html`) from a spec validated by `input.py`. The practical extension contract is described in [extensions](extensions.md).
 
 The Java, Dart and TypeScript SDKs are shipped as package resources in `resources/lib/ebt/`. The format, the allowed values and the guarantees of disabling recording are described in [sdk](sdk.md). Their tests are in `tests/sdk/`. The installation needs no Python dependencies beyond the standard library. The build, the standalone wheel check and the SDK commands are described in [development](development.md).
 

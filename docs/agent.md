@@ -88,6 +88,14 @@ OBS: <needed/not needed and why>; contract: <five points>
 Questions: <everything you could not derive from the requirement>
 ```
 
+Build the review page of the draft and show it together with the text above:
+
+```bash
+witnessbox spec ebt/spec.toml build/spec.html
+```
+
+The page lists the requirements with `source`, the invariants with `witness`, `partitions` or transitions, marks a requirement without `source` or without invariants and prints the `sha256` of the file. If you can publish a page for the human (an artifact, a preview), publish it; otherwise give the path to the file. Ask the human to approve the hash printed on the page: the approval names exactly that file, and any later edit needs a new approval.
+
 Continue only after an explicit "approved" (or edits the human approved). Carry the human's edits over verbatim.
 
 ## Stage 3. Checker

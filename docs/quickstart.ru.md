@@ -20,7 +20,7 @@
 uv tool install witnessbox
 ```
 
-Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
+Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` и `spec`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
 
 ## 2. Проект и заготовка `ebt/`
 

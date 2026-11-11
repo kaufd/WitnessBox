@@ -20,7 +20,7 @@ The `witnessbox` command appeared in 0.7.0; earlier releases provided `ebt-gate`
 uv tool install witnessbox
 ```
 
-This installs one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks` subcommands; `witnessbox --help` lists them. `witnessbox --installation` prints the version and the fingerprints of the distribution.
+This installs one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` and `spec` subcommands; `witnessbox --help` lists them. `witnessbox --installation` prints the version and the fingerprints of the distribution.
 
 ## 2. The project and the `ebt/` scaffold
 
