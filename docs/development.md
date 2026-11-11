@@ -30,7 +30,7 @@ Standalone artifacts are built and checked separately:
 
 ```bash
 uv build
-uv tool install --force dist/witnessbox-0.8.0-py3-none-any.whl
+uv tool install --force dist/witnessbox-0.9.0-py3-none-any.whl
 ```
 
 The gate integration tests install the wheel into a temporary isolated environment; they check the distribution without an editable install and without `PYTHONPATH`. The source-checker tests use `PYTHONPATH=src` locally as development-tree tests. Project extensions do not need this trick: installed checkers import the types through `witnessbox.api`.
