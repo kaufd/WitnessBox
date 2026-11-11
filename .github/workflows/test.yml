@@ -64,7 +64,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        stack: [ts, generic, jvm]
+        stack: [ts, generic, jvm, dart]
     steps:
       - name: Check out sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -76,7 +76,7 @@ jobs:
           uv tool install --force dist/witnessbox-*.whl
           echo "$(uv tool dir --bin)" >> "$GITHUB_PATH"
       - name: Set up Bun
-        if: matrix.stack != 'jvm'
+        if: matrix.stack == 'ts' || matrix.stack == 'generic'
         uses: oven-sh/setup-bun@0c5077e51419868618aeaa5fe8019c62421857d6 # v2.2.0
       - name: Set up Java 17
         if: matrix.stack == 'jvm'
@@ -89,5 +89,11 @@ jobs:
         uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
         with:
           gradle-version: "9.8.2"
+      - name: Set up Flutter
+        if: matrix.stack == 'dart'
+        uses: subosito/flutter-action@1a449444c387b1966244ae4d4f8c696479add0b2 # v2.23.0
+        with:
+          channel: stable
+          flutter-version: "3.41.9"
       - name: End-to-end example
         run: make e2e STACK=${{ matrix.stack }}

@@ -20,7 +20,7 @@ The `witnessbox` command appeared in 0.7.0; earlier releases provided `ebt-gate`
 uv tool install witnessbox
 ```
 
-This installs one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks` subcommands; `witnessbox --help` lists them. `witnessbox --installation` prints the version and the fingerprints of the distribution.
+This installs one command, `witnessbox`, with the `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` and `spec` subcommands; `witnessbox --help` lists them. `witnessbox --installation` prints the version and the fingerprints of the distribution.
 
 ## 2. The project and the `ebt/` scaffold
 
@@ -344,7 +344,7 @@ The results directory:
 
 ## Automatic check of the tutorial
 
-`make e2e STACK=ts` builds a temporary repository from the scaffold and `examples/e2e/ts`, runs the gate on the healthy code (expects PASS), applies `examples/e2e/ts/defect/` and expects FAIL with `checker_failed` and without `protected_paths_changed`. The analogues are `STACK=jvm` and `STACK=generic`. It needs the installed `witnessbox` command and `bun` (for `jvm`, `gradle` and JDK 17).
+`make e2e STACK=ts` builds a temporary repository from the scaffold and `examples/e2e/ts`, runs the gate on the healthy code (expects PASS), applies `examples/e2e/ts/defect/` and expects FAIL with `checker_failed` and without `protected_paths_changed`. The analogues are `STACK=jvm`, `STACK=generic` and `STACK=dart`. It needs the installed `witnessbox` command and `bun` (for `jvm`, `gradle` and JDK 17; for `dart`, the Flutter SDK).
 
 ## Next
 

@@ -9,7 +9,7 @@ set -uo pipefail
 mkdir -p "$3" && run=$(cd "$3" && pwd) || exit 2
 # The result of a previous attempt in the same folder must not survive an early exit of this one.
 out="$run/out"
-rm -rf "$out" "$run/inputs" && rm -f "$run"/{gate.md,gate.json,report.md,report.json,evidence.jsonl,test.log,prepare.log,ebt-check.err,installation.json} \
+rm -rf "$out" "$run/inputs" && rm -f "$run"/{gate.md,gate.json,report.md,report.json,evidence.jsonl,test.log,prepare.log,ebt-check.err,installation.json,spec.html} \
   || { echo "could not clear the results of the previous attempt in $run" >&2; exit 2; }
 py=${EBT_VERIFICATION_PYTHON:-}
 [ -n "$py" ] || { echo "run the installed command witnessbox gate" >&2; exit 2; }
@@ -240,6 +240,12 @@ decide() {
 write_report() {
   spec_hash=$(shasum -a 256 "$spec_file") || fail "could not hash spec.toml"
   python_version=$("$py" --version) || fail "could not determine the Python version"
+  # The review page of the checked spec copy (D58). A spec that does not parse is already
+  # a checker error, so a missing page does not change the verdict; gate.md says it is missing.
+  spec_page="[spec.html](spec.html)"
+  "$py" -I -c 'import sys; from witnessbox.spec_page import write_page; write_page(*sys.argv[1:])' \
+    "$spec_file" "$run/spec.html" "$ebt/spec.toml" 2>/dev/null \
+    || { rm -f "$run/spec.html"; spec_page="not built: spec.toml does not parse"; }
   if [ "$runner_kind" = test.sh ]; then
     runner_hash=$(shasum -a 256 "$ebt/test.sh") || fail "could not hash test.sh"
     runner_environment="test.sh sha256 ${runner_hash:0:12}"
@@ -251,7 +257,7 @@ write_report() {
 # EBT gate: $verdict
 
 - Commit: \`$head\` in \`$clone\`
-- Spec: \`$ebt\`, spec.toml sha256 ${spec_hash:0:12}
+- Spec: \`$ebt\`, spec.toml sha256 ${spec_hash:0:12} · page: $spec_page
 - \`$runner\` tests: code $test_rc · ebt_check: code $check_rc · logs merged: ${#logs[@]}
 - Distribution: $supply_name
 - Checker: $checker_name

@@ -12,7 +12,7 @@ make test-actions  # only the actions/setup and actions/verify scripts
 make test-sdk    # Java, TypeScript and Dart SDKs
 make format-dart  # dart format does not change ebt.dart (part of test-sdk)
 make example     # rebuild the demonstration with four intentional defects
-make e2e STACK=ts|jvm|generic  # end-to-end example: scaffold → PASS → defect → FAIL
+make e2e STACK=ts|jvm|generic|dart  # end-to-end example: scaffold → PASS → defect → FAIL
 make test-linux  # make test and make example for the committed HEAD in a Linux container
 make release-check  # release check: sdist → wheel, tests from the sdist, wheel comparison
 ```
@@ -20,11 +20,11 @@ make release-check  # release check: sdist → wheel, tests from the sdist, whee
 `make test` and `make example` work without a network and without Bun/Gradle. `make e2e`
 builds a temporary git repository, applies the scaffold and the example, runs the
 installed `witnessbox gate` command twice and checks for `checker_failed`; it needs `witnessbox` from the
-wheel, Bun (for `ts` and `generic`), Gradle with JDK 17 (for `jvm`) and a network for
-dependencies. The generated Gradle wrapper and `node_modules` are not
+wheel, Bun (for `ts` and `generic`), Gradle with JDK 17 (for `jvm`), the Flutter SDK (for `dart`) and a network for
+dependencies. The generated Gradle wrapper, `node_modules`, `.dart_tool` and `pubspec.lock` are not
 committed to the repository.
 
-The [test](../.github/workflows/test.yml) workflow runs `make test example` on Linux and macOS (Python 3.11 and 3.13), `make test-sdk` and `make e2e` for `ts`, `generic` and `jvm` on every PR; `make test-linux` and `make release-check` stay local.
+The [test](../.github/workflows/test.yml) workflow runs `make test example` on Linux and macOS (Python 3.11 and 3.13), `make test-sdk` and `make e2e` for `ts`, `generic`, `jvm` and `dart` on every PR; `make test-linux` and `make release-check` stay local.
 
 Standalone artifacts are built and checked separately:
 

@@ -22,7 +22,7 @@ help:
 	@echo "make format-dart  — dart format leaves ebt.dart unchanged: style 3.6 and current, width 80/100/120"
 	@echo "make test-sdk     — all SDK tests and format-dart"
 	@echo "make example      — rebuild examples/basic/ and the report (expected to find errors)"
-	@echo "make e2e STACK=ts|jvm|generic — end-to-end example: scaffold → PASS → defect → FAIL (needs bun/gradle)"
+	@echo "make e2e STACK=ts|jvm|generic|dart — end-to-end example: scaffold → PASS → defect → FAIL (needs bun/gradle/flutter)"
 	@echo "make check        — check $(EVIDENCE) against $(SPEC) with baseline $(BASELINE)"
 	@echo "make baseline     — accept the current $(EVIDENCE) as the new baseline"
 
@@ -80,7 +80,7 @@ example:
 	@echo "→ examples/basic/report.md"
 
 # End-to-end path: scaffold → sync-pinned → PASS → defect → FAIL checker_failed.
-# Needs the installed witnessbox command, bun (ts/generic) and gradle with JDK 17 (jvm); network.
+# Needs the installed witnessbox command, bun (ts/generic), gradle with JDK 17 (jvm) or flutter (dart); network.
 e2e:
 	examples/e2e/run.sh $(STACK) $(E2E_EXAMPLE)
 

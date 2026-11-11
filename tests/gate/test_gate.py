@@ -328,7 +328,10 @@ class Gate(unittest.TestCase):
         self.assertRegex(s["checker"]["sha256"], "^[0-9a-f]{64}$")
         self.assertRegex(s["spec_sha256"], "^[0-9a-f]{64}$")
         self.assertLessEqual({"gate.md", "report.md", "report.json", "evidence.jsonl", "out",
-                              "test.log", "installation.json", "inputs"}, set(s["files"]))
+                              "test.log", "installation.json", "inputs", "spec.html"}, set(s["files"]))
+        # The review page of the checked spec copy carries the same sha256 as gate.json (D58).
+        self.assertIn(s["spec_sha256"][12:], (self.run_dir / "spec.html").read_text(encoding="utf-8"))
+        self.assertIn("page: [spec.html](spec.html)", self.gate_md())
         import hashlib
         out = self.run_dir / "out"
         self.assertEqual(s["evidence"], [{"file": "a.jsonl",
@@ -353,6 +356,17 @@ class Gate(unittest.TestCase):
         self.assertEqual((s["commit"], s["tests_exit_code"], s["spec_sha256"]), (None, None, None))
         self.assertIsNone(s["evidence"])
         self.assertNotIn("gate.md", s["files"])
+
+    def test_gate_without_spec_page_when_spec_does_not_parse(self):
+        """A spec the checker rejects has no page; the gate stays ERROR and gate.md says the page is missing."""
+        (self.ebt / "spec.toml").write_text(SPEC.replace('req = "REQ-CART-1"', 'req = "REQ-NONE"'),
+                                            encoding="utf-8")
+        p = self.gate(self.write_to('"$OUT_DIR"'))
+        self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+        self.assertEqual(self.gate_json()["reasons"], ["checker_error"])
+        self.assertFalse((self.run_dir / "spec.html").exists())
+        self.assertNotIn("spec.html", self.gate_json()["files"])
+        self.assertIn("page: not built: spec.toml does not parse", self.gate_md())
 
     def test_gate_json_evidence_lists_regular_files_sorted(self):
         """evidence lists the regular out/*.jsonl files by name."""
@@ -568,11 +582,11 @@ class Gate(unittest.TestCase):
     def test_help_lists_commands(self):
         p = self.witnessbox("--help")
         self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
-        for command in ("gate", "--check-only", "check", "scaffold", "sync-pinned", "test-checks"):
+        for command in ("gate", "--check-only", "check", "scaffold", "sync-pinned", "test-checks", "spec"):
             self.assertIn(command, p.stdout)
 
     def test_subcommand_help_prints_usage(self):
-        for command in ("gate", "scaffold", "sync-pinned", "test-checks"):
+        for command in ("gate", "scaffold", "sync-pinned", "test-checks", "spec"):
             for flag in ("-h", "--help"):
                 with self.subTest(command=command, flag=flag):
                     p = self.witnessbox(command, flag)
@@ -595,6 +609,44 @@ class Gate(unittest.TestCase):
                 self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
                 self.assertIn(f"usage: witnessbox {flag}", p.stderr)
                 self.assertNotIn("unknown command", p.stderr)
+
+    def test_spec_page_shows_spec_hash_gaps_and_escapes_text(self):
+        """witnessbox spec: the page names the exact file by sha256, marks gaps and escapes the spec text."""
+        import hashlib
+        spec = self.ebt / "spec.toml"
+        spec.write_text(SPEC.replace("minus the discount.", "minus the discount <script>x</script>.")
+                        + '\n[req.REQ-PROFILE-1]\ntext = "Name is cut to 64 characters."\n'
+                        + 'source = "ticket: PROF-7"\n', encoding="utf-8")
+        page = self.run_dir.parent / "spec.html"
+        p = self.witnessbox("spec", str(spec), str(page))
+        self.assertEqual(p.returncode, 0, p.stdout + p.stderr)
+        sha = hashlib.sha256(spec.read_bytes()).hexdigest()
+        self.assertIn(f"spec.toml sha256 {sha}", p.stdout)
+        html = page.read_text(encoding="utf-8")
+        self.assertIn(f"<b>{sha[:12]}</b>{sha[12:]}", html)
+        for text in ('id="REQ-CART-1"', 'id="INV-CART-3"', "cart_total", "no_discount", "ticket: PROF-7"):
+            self.assertIn(text, html)
+        self.assertNotIn("<script>", html)
+        self.assertIn("&lt;script&gt;", html)
+        # REQ-CART-1 has no source, REQ-PROFILE-1 has no invariants.
+        self.assertIn('<span class="flag">not given</span>', html)
+        self.assertIn('<span class="flag">no invariants</span>', html)
+
+    def test_spec_page_refuses_bad_input(self):
+        page = self.run_dir.parent / "spec.html"
+        (self.ebt / "bad.toml").write_text("[inv.X]\nreq = 'REQ-NONE'\nchecker = 'c'\nwitness = []\n",
+                                           encoding="utf-8")
+        cases = {
+            "no file": (str(self.ebt / "none.toml"), str(page)),
+            "unknown requirement": (str(self.ebt / "bad.toml"), str(page)),
+            "one argument": (str(self.ebt / "spec.toml"),),
+        }
+        for name, args in cases.items():
+            with self.subTest(name):
+                p = self.witnessbox("spec", *args)
+                self.assertEqual(p.returncode, 2, p.stdout + p.stderr)
+                self.assertIn("spec", p.stderr)
+                self.assertFalse(page.exists())
 
     def test_gate_without_args_names_command(self):
         p = self.witnessbox("gate")

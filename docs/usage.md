@@ -25,7 +25,7 @@ uv tool update-shell
 
 `uv build` without `--wheel` first builds the sdist, and the wheel from it. `uv build --wheel` builds directly from the working tree and reuses a stale `build/lib`: the old runtime can end up in the distribution. If `build/` is left over from earlier builds, it is enough to delete it before such a check. From a tag without a clone: `uv tool install git+https://github.com/kaufd/WitnessBox@v0.8.0`.
 
-The distribution adds one command, `witnessbox`, with the subcommands `gate`, `check`, `scaffold`, `sync-pinned` and `test-checks`; the repository sources are not needed after installation. A built wheel can be transferred to the target machine and installed with the same `uv tool install dist/witnessbox-0.8.0-py3-none-any.whl`. `witnessbox --installation` shows the distribution, the version, the installation paths and the SHA-256 of the gate and checker code, as well as the path to the SDK resources. For calibration runs, run the project replay after an update.
+The distribution adds one command, `witnessbox`, with the subcommands `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` and `spec`; the repository sources are not needed after installation. A built wheel can be transferred to the target machine and installed with the same `uv tool install dist/witnessbox-0.8.0-py3-none-any.whl`. `witnessbox --installation` shows the distribution, the version, the installation paths and the SHA-256 of the gate and checker code, as well as the path to the SDK resources. For calibration runs, run the project replay after an update.
 
 ## Moving from the old distribution
 
@@ -81,7 +81,7 @@ Gate exit codes: `0` is PASS, `1` is FAIL, `2` is ERROR. Execution errors take p
 | `tests_exit_code`, `checker_exit_code` | the stage codes; `null` if the stage did not run |
 | `spec_sha256`, `verifier`, `checker` | the spec hash, the distribution (`distribution`, `version`, `gate_sha256`) and the checker (`command`, `sha256`) |
 | `evidence` | the evidence files the checker read: `{file, sha256}` per `out/*.jsonl`, by name; `null` if the checker did not run |
-| `files` | the names of existing results in the results directory: `gate.md`, `report.json`, `evidence.jsonl`, `out`, `inputs` (the inputs the checker read), etc. | The results directory is reused, with the outputs of the previous attempt cleared, so do not run parallel attempts into one checkout or results directory. |
+| `files` | the names of existing results in the results directory: `gate.md`, `report.json`, `evidence.jsonl`, `out`, `inputs` (the inputs the checker read), `spec.html` (the review page of the checked spec), etc. | The results directory is reused, with the outputs of the previous attempt cleared, so do not run parallel attempts into one checkout or results directory. |
 
 `test.sh` runs from the checkout: the words from `EBT_TESTS` are passed to it as arguments, and the absolute empty `OUT_DIR` as an environment variable. The script writes separate `OUT_DIR/*.jsonl` files, each with its own seq: code `0` means the tests succeeded, `1` means the tests that ran ended unsuccessfully, other codes mean an execution error. The gate checks the available evidence on a non-zero test code too. If the script created no evidence, the gate may pick up fresh `build/ebt/*.jsonl`; the directory is cleared before the run.
 
@@ -117,6 +117,19 @@ witnessbox test-checks ebt
 `<ebt-dir>` defaults to `ebt`. A zero-test run (no `test_*.py` in the directory) gives
 code `1`, not success.
 
+The review page of a spec, for a human who approves it:
+
+```bash
+witnessbox spec ebt/spec.toml spec.html
+```
+
+The command validates the spec as the checker does and writes a self-contained HTML page with no
+scripts and no network loads: requirements with `source`, invariants with `witness`, `partitions` or
+transitions, the requirements without `source` or without invariants, and the `sha256` of the file.
+The full `sha256` is also printed to stdout. Codes: `0` the page is written, `2` the spec does not
+parse or the arguments are wrong. The gate writes the same page for the checked copy of the spec to
+`spec.html` in the results directory and links it from `gate.md`.
+
 ## Imports in project checkers
 
 Installed project checkers import the public types from `witnessbox.api`; `PYTHONPATH` and an editable install are not required. The compatible `ebt_verification.api` re-exports the same objects and contains no second implementation, and `from checkers import ...` remains a historical import. A developer's tests may separately import the sources from the development tree.
@@ -127,10 +140,10 @@ An external consumer may rely on the left column; the right one changes without 
 
 | Supported interface | Internal implementation |
 |---|---|
-| the subcommands `witnessbox gate` (including `--check-only`), `witnessbox check`, `witnessbox scaffold`, `witnessbox sync-pinned`, `witnessbox test-checks`, `witnessbox --version`, `witnessbox --installation`, their arguments and exit codes | the organization of the package's Python modules; the internal `ebt_verification.checker.*`/`ebt_verification.cli` are not re-exported |
+| the subcommands `witnessbox gate` (including `--check-only`), `witnessbox check`, `witnessbox scaffold`, `witnessbox sync-pinned`, `witnessbox test-checks`, `witnessbox spec`, `witnessbox --version`, `witnessbox --installation`, their arguments and exit codes | the organization of the package's Python modules; the internal `ebt_verification.checker.*`/`ebt_verification.cli` are not re-exported |
 | `witnessbox.api`, the compatible `ebt_verification.api` and `from checkers import ...` | the functions of `checker/engine.py` and `checker/input.py` |
 | the formats of the JSONL evidence, `report.json` and `gate.json` | the structure of the checker registry |
 | the `test.sh`/`prepare.sh` contract, `OUT_DIR`, the variables `BASE`, `EBT_INV`, `EBT_TESTS`, `EBT_RUNNER`, `EBT_CHECK` | the gate's bash functions |
 | the SDKs from the `resources` field of the `witnessbox --installation` command, their format and allowed values ([sdk](sdk.md)) | the physical location of the sources |
 
-`gate.md` and `report.md` are meant for humans; their text is not parsed by programs. New JSON fields and new `reasons` values are a compatible change, and a consumer ignores what it does not know. Removing or renaming a field, or changing the meaning of an exit code or of the `test.sh` contract, is incompatible: before version 1.0 such changes raise the minor version, are recorded in the [decisions](decisions.md) and change the `format` of the affected JSON. Adding the public import `witnessbox.api` while keeping the old `ebt_verification.api` is a compatible change, hence version `0.5.0` and not a patch. Fixes without an interface change raise the patch version. The boundaries are pinned by tests of the installed wheel in `tests/gate/test_gate.py`.
+`gate.md`, `report.md` and `spec.html` are meant for humans; their text is not parsed by programs. New JSON fields and new `reasons` values are a compatible change, and a consumer ignores what it does not know. Removing or renaming a field, or changing the meaning of an exit code or of the `test.sh` contract, is incompatible: before version 1.0 such changes raise the minor version, are recorded in the [decisions](decisions.md) and change the `format` of the affected JSON. Adding the public import `witnessbox.api` while keeping the old `ebt_verification.api` is a compatible change, hence version `0.5.0` and not a patch. Fixes without an interface change raise the patch version. The boundaries are pinned by tests of the installed wheel in `tests/gate/test_gate.py`.

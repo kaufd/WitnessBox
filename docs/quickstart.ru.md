@@ -20,7 +20,7 @@
 uv tool install witnessbox
 ```
 
-Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned` и `test-checks`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
+Появится одна команда `witnessbox` с подкомандами `gate`, `check`, `scaffold`, `sync-pinned`, `test-checks` и `spec`; список выводит `witnessbox --help`. Версию и отпечатки поставки показывает `witnessbox --installation`.
 
 ## 2. Проект и заготовка `ebt/`
 
@@ -344,7 +344,7 @@ echo $?
 
 ## Автоматическая проверка учебника
 
-`make e2e STACK=ts` собирает временный репозиторий из заготовки и `examples/e2e/ts`, прогоняет гейт на исправном коде (ожидает PASS), накладывает `examples/e2e/ts/defect/` и ожидает FAIL с `checker_failed` и без `protected_paths_changed`. Аналоги — `STACK=jvm` и `STACK=generic`. Нужна установленная команда `witnessbox`, `bun` (для `jvm` — `gradle` и JDK 17).
+`make e2e STACK=ts` собирает временный репозиторий из заготовки и `examples/e2e/ts`, прогоняет гейт на исправном коде (ожидает PASS), накладывает `examples/e2e/ts/defect/` и ожидает FAIL с `checker_failed` и без `protected_paths_changed`. Аналоги — `STACK=jvm`, `STACK=generic` и `STACK=dart`. Нужна установленная команда `witnessbox`, `bun` (для `jvm` — `gradle` и JDK 17, для `dart` — Flutter SDK).
 
 ## Дальше
 

@@ -1,18 +1,18 @@
 #!/bin/bash
 # EBT end-to-end example: scaffold → sync-pinned → PASS → defect → FAIL checker_failed.
 #
-#   examples/e2e/run.sh <ts|jvm|generic> <example-dir>
+#   examples/e2e/run.sh <ts|jvm|generic|dart> <example-dir>
 #
 # Builds a temporary git repository, overlays the scaffold and the example, runs
 # the installed witnessbox gate command twice. The results directory is printed
 # on failure and removed on success. Codes: 0 both expectations met; 1 an expectation
-# not met; 2 environment error (no git, witnessbox, bun, gradle, python3).
+# not met; 2 environment error (no git, witnessbox, bun, gradle, flutter, python3).
 set -uo pipefail
 
 GRADLE_VERSION=9.8.2
 
 usage() {
-  echo "usage: $0 <ts|jvm|generic> <example-dir>" >&2
+  echo "usage: $0 <ts|jvm|generic|dart> <example-dir>" >&2
   exit 2
 }
 
@@ -20,7 +20,7 @@ usage() {
 stack=$1
 example_arg=$2
 case $stack in
-  ts|jvm|generic) ;;
+  ts|jvm|generic|dart) ;;
   *) usage ;;
 esac
 
@@ -53,6 +53,7 @@ need python3 "python3 is required to parse gate.json"
 case $stack in
   ts|generic) need bun "the TypeScript example needs Bun" ;;
   jvm) need gradle "Gradle is required to generate the wrapper"; need java "JDK 17 is required" ;;
+  dart) need flutter "the Dart example needs the Flutter SDK" ;;
 esac
 
 root=$(mktemp -d "${TMPDIR:-/tmp}/witnessbox-e2e-${stack}.XXXXXX") || {
@@ -77,6 +78,8 @@ cat > "$work/.gitignore" <<'EOF'
 build/
 node_modules/
 .gradle/
+.dart_tool/
+pubspec.lock
 EOF
 
 (cd "$work" && witnessbox scaffold "$stack" ebt) >"$logs/scaffold.log" 2>&1 || {
