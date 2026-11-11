@@ -136,7 +136,8 @@ awaits a decision on a Python SDK (the plan `2026-11-02-sdk-conformance.md`).
 A line is `<original>  <path in the clone>`:
 
 - `kit:lib/ebt/…` is a file from the resources of the installed distribution; this is how the SDK is pinned;
-- `obs/<feature>…` is a file next to `ebt/`; this is how observation helpers are pinned (D29);
+- a path without `kit:` is a file in `ebt/`: `obs/<feature>…` pins observation helpers (D29), and
+  `lib/…` pins a [project's own SDK](sdk.md#a-projects-own-sdk) when the shipped one does not fit;
 - an absolute path is an external file.
 
 The copy must match the original. A difference or a missing file is the reason

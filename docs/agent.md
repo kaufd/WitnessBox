@@ -37,6 +37,7 @@ Stop and ask the human, do not guess, when:
 - **the requirement is missing or ambiguous**: the boundary (`>=` or `>`), units, rounding, what happens on an empty input;
 - **the spec draft is ready**: a mandatory stop (stage 2);
 - **the stack fits neither** `dart`, `ts`, `jvm`, nor the `generic` recipes, or the project is in Python (no Python SDK is shipped);
+- **the shipped SDK does not compile or does not record in the project's test environment** (an old compiler, another bundler, a browser runner): do not patch the copy; propose a [project's own SDK](sdk.md#a-projects-own-sdk) in `ebt/` and wait for the human's approval;
 - **`ev()` needs a change to application code**;
 - **the gate is red on code the human considers sound**: either a code defect or a spec error; the human decides;
 - a command ended with code `2` and the cause is not fixed by configuring the environment.

@@ -62,3 +62,17 @@ The guarantees differ; each holds only under its own condition.
 ## Formatter in a Dart project
 
 The copy of `ebt.dart` is compared with `pinned.txt` byte for byte, and a project's CI may run `dart format --set-exit-if-changed`. So each SDK statement takes one line shorter than 80 characters: neither the short style (language version before 3.6) nor the tall style (3.7+) at a width of 80 to 120 has anything to join or wrap. `// dart format off` at the start of the file is insurance for the tall style; the short style does not read it. `make format-dart` (part of `make test-sdk`, and so of CI and `make release-check`) checks all six combinations of `--language-version` 3.6 and the current version with a width of 80, 100 and 120, and also the same file without `// dart format off`. A wrap added to the SDK, or a new formatter style, will show up at the distribution release, not in the project's CI.
+
+## A project's own SDK
+
+The shipped SDK may not fit the project: for example, `ebt.ts` needs TypeScript 4.5+ (`Awaited`, `structuredClone`) and Vite (`import.meta.env.MODE`), while the project builds with an older compiler, another bundler or runs tests in a browser (Karma). The copy cannot be fixed in place: the gate compares it with the original byte for byte. Then the project keeps its own SDK in `ebt/` and pins it with a line without `kit:`:
+
+```text
+lib/ebt.ts  src/testing/ebt/ebt.ts
+```
+
+`witnessbox sync-pinned ebt` copies it into the product, and the gate compares the copy with the original in `ebt/` as with the shipped one. `ebt/` is a protected path: the own SDK and its edits are a separate change that a human approves, not part of a task branch.
+
+Start from the shipped SDK of the closest language and change only what the project needs: types the compiler lacks, the recording switch, the way records leave the test. Keep the contract: `ev()`, the [common format](#common-format), the [allowed values](#allowed-data-values) and the golden file; check it by repeating the `tests/sdk` scenario in the project's test runner and comparing the output with `tests/sdk/golden.jsonl`. The recording switch must stay off outside tests; write down its condition as in [Disabling recording](#disabling-recording).
+
+If the tests cannot write files (a browser runner such as Karma), print each record with a marker on its own line, for example `EBT<TAB><feature><TAB><json>`, and let the project's own `ebt/test.sh` cut these lines into `$OUT_DIR/<feature>.jsonl` for any test outcome. Exclude the copy from the project's linters and formatters (`.prettierignore`, `tslint.json`/`eslint` ignores, `dart format` exclusions): a reformatted copy is `pinned_drift`.

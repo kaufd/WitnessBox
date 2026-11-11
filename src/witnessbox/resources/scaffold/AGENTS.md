@@ -14,7 +14,9 @@ apply to every agent that changes this repository, not only inside `ebt/`.
 2. **Do not edit `ebt/` or the pinned SDK copies in a task branch.** The gate fails such a branch
    with `protected_paths_changed` or `pinned_drift`. The SDK copies listed in `ebt/pinned.txt` are
    refreshed only by `witnessbox sync-pinned ebt`. Changes to `ebt/` are a separate change that a
-   human approves.
+   human approves. If the pinned SDK does not compile or does not record in this project, do not
+   patch the copy: report it and propose a project's own SDK in `ebt/`, pinned by a line without
+   `kit:` (https://github.com/kaufd/WitnessBox/blob/main/docs/sdk.md#a-projects-own-sdk).
 3. **Do not weaken the check to get PASS.** Do not remove classes from `partitions` or fields from
    `witness`, do not add `not_in_verdict`, `known.toml` or `--allow-uncovered`, do not delete,
    skip or loosen evidence tests, and do not remove `ev()` calls.
