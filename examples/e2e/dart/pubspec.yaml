@@ -1,0 +1,14 @@
+name: witnessbox_e2e_dart
+description: Witnessbox end-to-end example for the dart scaffold.
+publish_to: none
+
+environment:
+  sdk: ^3.6.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter

@@ -344,7 +344,7 @@ The results directory:
 
 ## Automatic check of the tutorial
 
-`make e2e STACK=ts` builds a temporary repository from the scaffold and `examples/e2e/ts`, runs the gate on the healthy code (expects PASS), applies `examples/e2e/ts/defect/` and expects FAIL with `checker_failed` and without `protected_paths_changed`. The analogues are `STACK=jvm` and `STACK=generic`. It needs the installed `witnessbox` command and `bun` (for `jvm`, `gradle` and JDK 17).
+`make e2e STACK=ts` builds a temporary repository from the scaffold and `examples/e2e/ts`, runs the gate on the healthy code (expects PASS), applies `examples/e2e/ts/defect/` and expects FAIL with `checker_failed` and without `protected_paths_changed`. The analogues are `STACK=jvm`, `STACK=generic` and `STACK=dart`. It needs the installed `witnessbox` command and `bun` (for `jvm`, `gradle` and JDK 17; for `dart`, the Flutter SDK).
 
 ## Next
 

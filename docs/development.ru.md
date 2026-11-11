@@ -12,7 +12,7 @@ make test-actions  # только скрипты actions/setup и actions/verify
 make test-sdk    # Java, TypeScript и Dart SDK
 make format-dart  # dart format не меняет ebt.dart (входит в test-sdk)
 make example     # пересобрать демонстрацию с четырьмя намеренными дефектами
-make e2e STACK=ts|jvm|generic  # сквозной пример: заготовка → PASS → дефект → FAIL
+make e2e STACK=ts|jvm|generic|dart  # сквозной пример: заготовка → PASS → дефект → FAIL
 make test-linux  # make test и make example для закоммиченного HEAD в Linux-контейнере
 make release-check  # проверка выпуска: sdist → wheel, тесты из sdist, сравнение wheel
 ```
@@ -20,11 +20,11 @@ make release-check  # проверка выпуска: sdist → wheel, тест
 `make test` и `make example` работают без сети и без Bun/Gradle. `make e2e`
 собирает временный git-репозиторий, накладывает заготовку и пример, прогоняет
 установленную команду `witnessbox gate` дважды и проверяет `checker_failed`; нужна `witnessbox` из
-wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`) и сеть для
-зависимостей. Сгенерированные Gradle wrapper и `node_modules` в репозиторий не
+wheel, Bun (для `ts` и `generic`), Gradle с JDK 17 (для `jvm`), Flutter SDK (для `dart`) и сеть для
+зависимостей. Сгенерированные Gradle wrapper, `node_modules`, `.dart_tool` и `pubspec.lock` в репозиторий не
 коммитятся.
 
-Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13), `make test-sdk` и `make e2e` для `ts`, `generic` и `jvm` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
+Workflow [test](../.github/workflows/test.yml) выполняет `make test example` на Linux и macOS (Python 3.11 и 3.13), `make test-sdk` и `make e2e` для `ts`, `generic`, `jvm` и `dart` на каждый PR; `make test-linux` и `make release-check` остаются локальными.
 
 Standalone artifacts собираются и проверяются отдельно:
 

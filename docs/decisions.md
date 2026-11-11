@@ -422,3 +422,11 @@ Accepted: the subcommand `witnessbox spec <spec.toml> <out.html>` writes a self-
 
 The code is the new module `spec_page.py` (covered by `checker_sha256`) and changes in `cli.py` and `gate.sh` (covered by `gate_sha256`): both fingerprints change, so the change ships with the next release. This entry does not raise the version.
 (2026-11-11, status: accepted.)
+
+### D59. End-to-end example for the `dart` stack
+D48 added end-to-end examples for `ts`, `generic` and `jvm`. The `dart` scaffold was the only stack template whose path "scaffold → `sync-pinned` → PASS → defect → FAIL" was run nowhere: `make test-dart` checks the SDK file alone, and `examples/flutter/` is an illustration that no command runs.
+
+Accepted: the example `examples/e2e/dart` is a minimal Flutter package with the rule of the template spec (`REQ-EXAMPLE-1`, `value × 2`) and the partitions `zero`, `positive`, `negative`, like the other two. `spec.toml`, `checks.py`, `test_checks.py`, `test.sh` and `pinned.txt` are taken from the scaffold unchanged; the example adds only `ebt/prepare.sh` with `flutter pub get`, because the scaffold `test.sh` runs `flutter test --no-pub`. `ev()` is called inside `assert`. The driver `examples/e2e/run.sh` accepts `dart` and requires `flutter`; `.dart_tool/` and `pubspec.lock` are generated in the temporary repository and are not committed. The CI job `e2e` runs the driver for `dart` too, with Flutter `3.41.9` pinned exactly and the setup action pinned by SHA. `make test` still requires no network and no Flutter.
+
+Local check: `make e2e STACK=dart` with the installed `0.8.0` — PASS, then FAIL with `checker_failed`; `flutter analyze` on the example with the pinned `ebt.dart` — no issues. The runtime, the scaffold and the SDK do not change; the fingerprints and the version stay the same.
+(2026-11-11, status: accepted; extends D48.)
