@@ -23,7 +23,7 @@ ebt-verify (workflow from the main branch)
 - `actions/setup` installs witnessbox from PyPI and checks the SHA-256 of the wheel and the `--installation` JSON against the release's `release.json`.
 - `actions/verify` rechecks the evidence with the real `witnessbox gate` command, signs `gate.json` with a GitHub attestation and sets the commit status `witnessbox/gate`: `success` is PASS, `failure` is FAIL, `error` is ERROR or a refusal before the gate.
 
-The logic lives in the composite actions [setup](../actions/setup/action.yml) and [verify](../actions/verify/action.yml); their scripts are tested locally in [test_verify.py](../tests/actions/test_verify.py). Before the first stage you need a witnessbox release with `release.json` in a GitHub Release: the examples below use `0.8.0`.
+The logic lives in the composite actions [setup](../actions/setup/action.yml) and [verify](../actions/verify/action.yml); their scripts are tested locally in [test_verify.py](../tests/actions/test_verify.py). Before the first stage you need a witnessbox release with `release.json` in a GitHub Release: the examples below use `0.9.0`.
 
 ## Template `.github/workflows/ebt-tests.yml`
 
@@ -54,9 +54,9 @@ jobs:
       - name: Install witnessbox
         # The SHA of the WitnessBox commit with actions/setup and actions/verify (D45).
         # The full SHA of the release tag's commit; do not use main or a tag name.
-        uses: kaufd/WitnessBox/actions/setup@2455f3c96f0b677967884f10d13a6ad4c6304bf4 # v0.8.0
+        uses: kaufd/WitnessBox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
-          version: "0.8.0"
+          version: "0.9.0"
 
       - name: Run the gate
         env:
@@ -104,19 +104,19 @@ jobs:
       attestations: write
     steps:
       - name: Install witnessbox
-        uses: kaufd/WitnessBox/actions/setup@2455f3c96f0b677967884f10d13a6ad4c6304bf4 # v0.8.0
+        uses: kaufd/WitnessBox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
-          version: "0.8.0"
+          version: "0.9.0"
 
       - name: Recheck and sign
         # If setup failed, verify must still set the status to error.
         if: always()
-        uses: kaufd/WitnessBox/actions/verify@2455f3c96f0b677967884f10d13a6ad4c6304bf4 # v0.8.0
+        uses: kaufd/WitnessBox/actions/verify@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
           github-token: ${{ github.token }}
 ```
 
-Both workflows must be merged into the main branch. `workflow_run` fires only for a workflow file from the main branch; a PR that changes `ebt-verify.yml` does not affect the check of that PR. The examples pin the full 40-character SHA of the `v0.8.0` tag's commit, not `main` and not the tag name: a tag can be moved, a commit cannot.
+Both workflows must be merged into the main branch. `workflow_run` fires only for a workflow file from the main branch; a PR that changes `ebt-verify.yml` does not affect the check of that PR. The examples pin the full 40-character SHA of the `v0.9.0` tag's commit, not `main` and not the tag name: a tag can be moved, a commit cannot.
 
 `actions/verify` requires that `actions/setup` has already run in this job: a composite action does not call setup itself, as it would have to reference the SHA of the same commit from inside it. If `witnessbox` is not on `PATH`, `actions/verify` sets `error` and does not stay silent.
 
