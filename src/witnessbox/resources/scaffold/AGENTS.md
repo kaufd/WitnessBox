@@ -16,7 +16,7 @@ apply to every agent that changes this repository, not only inside `ebt/`.
    refreshed only by `witnessbox sync-pinned ebt`. Changes to `ebt/` are a separate change that a
    human approves. If the pinned SDK does not compile or does not record in this project, do not
    patch the copy: report it and propose a project's own SDK in `ebt/`, pinned by a line without
-   `kit:` (https://github.com/kaufd/WitnessBox/blob/main/docs/sdk.md#a-projects-own-sdk).
+   `kit:` (https://github.com/kaufd/witnessbox/blob/main/docs/sdk.md#a-projects-own-sdk).
 3. **Do not weaken the check to get PASS.** Do not remove classes from `partitions` or fields from
    `witness`, do not add `not_in_verdict`, `known.toml` or `--allow-uncovered`, do not delete,
    skip or loosen evidence tests, and do not remove `ev()` calls.
@@ -45,4 +45,4 @@ BASE=<base commit> witnessbox gate ebt . ../ebt-results     # 0 PASS, 1 FAIL, 2 
 
 The results directory is outside the clone. Reasons are in `gate.json`, findings in `report.md`.
 What each result means and what to do is in the agent instructions, stage 6:
-https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md
+https://github.com/kaufd/witnessbox/blob/main/docs/agent.md

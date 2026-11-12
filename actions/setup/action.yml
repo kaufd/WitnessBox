@@ -41,7 +41,7 @@ runs:
       run: |
         set -euo pipefail
         mkdir -p "$RUNNER_TEMP/witnessbox"
-        gh release download "v$VERSION" --repo kaufd/WitnessBox \
+        gh release download "v$VERSION" --repo kaufd/witnessbox \
           --pattern release.json --dir "$RUNNER_TEMP/witnessbox" --clobber
 
     - name: Download the wheel from PyPI

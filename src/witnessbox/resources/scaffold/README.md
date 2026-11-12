@@ -18,7 +18,7 @@ four stacks; they differ in `test.sh` and a line of `pinned.txt`; `spec.toml`, `
 | `jvm` | Java/Kotlin on Gradle | `./gradlew test --tests '*EbtTest'` | `src/test/java/ebt/Ebt.java` |
 | `generic` | any tool | `$EBT_TEST_CMD` | by language |
 
-More in the Witnessbox documentation: the [quick start](https://github.com/kaufd/WitnessBox/blob/main/docs/quickstart.md) leads from the scaffold to the first PASS on an example, and the [authoring guide](https://github.com/kaufd/WitnessBox/blob/main/docs/authoring.md) explains how to write `spec.toml`, the checker and the evidence tests, including the observation level `<INV>-OBS`. If a coding agent does the connecting, give it the [agent instructions](https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md). This file is a reference for the scaffold; the `test.sh` contract is described below.
+More in the Witnessbox documentation: the [quick start](https://github.com/kaufd/witnessbox/blob/main/docs/quickstart.md) leads from the scaffold to the first PASS on an example, and the [authoring guide](https://github.com/kaufd/witnessbox/blob/main/docs/authoring.md) explains how to write `spec.toml`, the checker and the evidence tests, including the observation level `<INV>-OBS`. If a coding agent does the connecting, give it the [agent instructions](https://github.com/kaufd/witnessbox/blob/main/docs/agent.md). This file is a reference for the scaffold; the `test.sh` contract is described below.
 
 ## What is created
 
