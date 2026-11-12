@@ -5,7 +5,7 @@
 This document is addressed to a coding agent (Claude Code, Codex, Cursor and the like) that a human has asked to connect Witnessbox to their project. The human only needs to give the agent one line:
 
 ```
-Connect Witnessbox to this project following the instructions at https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md
+Connect Witnessbox to this project following the instructions at https://github.com/kaufd/witnessbox/blob/main/docs/agent.md
 ```
 
 For a human the same path is described in the [quick start](quickstart.md) and the [authoring guide](authoring.md); below is its version with rules and stop points for an agent.

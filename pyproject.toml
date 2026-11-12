@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "witnessbox"
-version = "0.9.0"
+version = "0.9.1"
 # Product description for the package metadata, written in English.
 description = "Independent verification of agent-written code through test evidence."
 readme = "README.md"
@@ -21,10 +21,10 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/kaufd/WitnessBox"
-Documentation = "https://github.com/kaufd/WitnessBox/blob/main/docs/usage.md"
-Source = "https://github.com/kaufd/WitnessBox"
-Issues = "https://github.com/kaufd/WitnessBox/issues"
+Homepage = "https://github.com/kaufd/witnessbox"
+Documentation = "https://github.com/kaufd/witnessbox/blob/main/docs/usage.md"
+Source = "https://github.com/kaufd/witnessbox"
+Issues = "https://github.com/kaufd/witnessbox/issues"
 
 [project.scripts]
 witnessbox = "witnessbox.cli:main"

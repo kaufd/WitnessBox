@@ -5,7 +5,7 @@
 Документ адресован агенту-кодировщику (Claude Code, Codex, Cursor и т. п.), которому человек поручил подключить Witnessbox к своему проекту. Человеку достаточно дать агенту одну строку:
 
 ```
-Подключи Witnessbox к этому проекту по инструкции https://github.com/kaufd/WitnessBox/blob/main/docs/agent.md
+Подключи Witnessbox к этому проекту по инструкции https://github.com/kaufd/witnessbox/blob/main/docs/agent.md
 ```
 
 Для человека тот же путь описан в [быстром старте](quickstart.ru.md) и [руководстве по спецификации](authoring.ru.md); ниже — его версия с правилами и точками остановки для агента.

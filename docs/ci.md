@@ -54,7 +54,7 @@ jobs:
       - name: Install witnessbox
         # The SHA of the WitnessBox commit with actions/setup and actions/verify (D45).
         # The full SHA of the release tag's commit; do not use main or a tag name.
-        uses: kaufd/WitnessBox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
+        uses: kaufd/witnessbox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
           version: "0.9.0"
 
@@ -104,14 +104,14 @@ jobs:
       attestations: write
     steps:
       - name: Install witnessbox
-        uses: kaufd/WitnessBox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
+        uses: kaufd/witnessbox/actions/setup@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
           version: "0.9.0"
 
       - name: Recheck and sign
         # If setup failed, verify must still set the status to error.
         if: always()
-        uses: kaufd/WitnessBox/actions/verify@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
+        uses: kaufd/witnessbox/actions/verify@45c564b6ddd65c92e8d9ae1c6f79bc764ca1127f # v0.9.0
         with:
           github-token: ${{ github.token }}
 ```
